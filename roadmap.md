@@ -2,8 +2,8 @@
 
 ## 文書情報
 
-- 状態: Review-ready（井上P1解消済み、ユーザー確認待ち）
-- 現在地: 企画・要件定義・全体設計のレビュー完了、ユーザー確認待ち
+- 状態: 承認済み（井上の実装前レビューP1解消済み、実装指示待ち）
+- 現在地: Phase 0完了、Phase 1の実装開始はユーザー指示待ち
 - 上位文書: [`docs/requirements.md`](docs/requirements.md)
 - 関連文書: [`docs/vertical-slice.md`](docs/vertical-slice.md)、[`docs/test-strategy.md`](docs/test-strategy.md)
 
@@ -24,7 +24,7 @@
 
 | Phase | 内容 | 状態 |
 |---|---|---|
-| 0 | 企画・要件定義・全体設計 | レビュー完了・ユーザー確認待ち |
+| 0 | 企画・要件定義・全体設計 | 完了・ユーザー承認済み |
 | 1 | 安全な1日縦切り版 | 未着手 |
 | 2 | Git Runner hardening | 未着手 |
 | 3 | 安定版MVP基盤 | 未着手 |
@@ -58,8 +58,11 @@
 
 ### 次へ進む条件
 
-- ユーザーが文書一式を確認し、1日縦切り版へ進むことを承認する。
-- 実装開始に必要なversionとsupport環境が確定する。
+- ユーザーが文書一式を承認している。
+- 初期対応環境をWindows 11 x86_64＋Docker Desktop WSL 2 backend＋Linux containerに限定している。
+- 実装基準versionとRunner起動・認証方式を確定し、井上の実装前レビューを通過している。
+
+実装開始はPhase 0の承認とは別に、ユーザーの明示指示を必要とする。
 
 ## 5. Phase 1 安全な1日縦切り版
 
@@ -68,6 +71,7 @@
 - STAGE-GIT-01
 - Spring Boot / Thymeleaf 1画面
 - appとGit Runnerの別process
+- PowerShell launcher、起動時token、loopback限定API、固定image ID preflight
 - disposable challenge container
 - command allowlist
 - state-based grading
@@ -93,7 +97,7 @@
 - repository-local configとattributesのallowlist検査
 - CPU、memory、PID、workspace、output、timeout制限
 - orphan cleanup
-- Runner token、loopback、error model
+- Phase 1で導入したRunner token、loopback、launcherのhardeningと追加異常系回帰test
 - Git出力とeditor内容のplain-text escape、CSP
 - attempt単位の直列化、request ID、workspace generation、idempotency
 - malicious inputとcontainer設定のintegration test

@@ -6,9 +6,13 @@ Developer Dungeonは、新人エンジニアが複数の開発現場で技術的
 
 ## 現在の状態
 
-企画・要件定義・全体設計の9文書は作成済みで、井上の最終一括レビューにおけるP1をすべて解消しました。現在はユーザー確認待ちです。アプリケーションコードはまだ実装していません。
+企画・要件定義・全体設計の9文書はユーザー承認済みで、井上の実装前レビューにおけるP1をすべて解消しました。現在は実装開始のユーザー指示待ちです。アプリケーションコードはまだ実装していません。
 
 次の開発段階は、安全な使い捨てGit実行環境を含む1日縦切り版です。1日版でもplayer入力をhost上で直接実行せず、別processのGit Runnerとdisposable challenge containerを使用します。
+
+企画・要件・全体設計の文書一式はユーザー承認済みです。初期対応環境はWindows 11 x86_64＋Docker DesktopのWSL 2 backend／Linux containerに限定し、実装基準versionとRunner方式は[`docs/architecture.md`](docs/architecture.md)を正本とします。縦切り版の実装は、井上の実装前レビュー通過後もユーザーの明示指示を待って開始します。
+
+正式なlocal起動はPowerShell 7.6.2 LTS x64の`scripts/start-local.ps1`へ一本化する予定です。JDK、Docker Desktop、WSL、Maven Wrapper、challenge image IDのpreflightに失敗した場合は、app／Runnerを起動しません。
 
 進捗と次段階への条件は[`roadmap.md`](roadmap.md)を参照してください。
 

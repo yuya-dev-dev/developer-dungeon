@@ -2,7 +2,7 @@
 
 ## 文書情報
 
-- 状態: Review-ready（井上P1解消済み、ユーザー確認待ち）
+- 状態: 承認済み（井上の実装前レビューP1解消済み、実装指示待ち）
 - 対象: Git編の1日縦切り版および安定版MVP
 - 上位文書: [`requirements.md`](requirements.md)、[`git-mvp-stages.md`](git-mvp-stages.md)
 - 関連文書: [`architecture.md`](architecture.md)、[`test-strategy.md`](test-strategy.md)
@@ -194,6 +194,8 @@ Runner controllerはDocker daemonを操作できるため、高権限component�
 - 実行結果が不明なままRunnerが再起動した場合は自動再実行せず、workspaceを破棄して同じ論理attemptのresetとして扱う。
 - loopbackへbindし、起動時生成tokenでSpring Bootアプリケーションを認証する。
 - playerへcontroller endpointとtokenを公開しない。
+- launcherが生成したRunner tokenはapp／Runnerの子process環境とmemoryだけに保持し、引数、file、logへ残さない。Runnerが起動するDocker CLIはallowlist環境を使用し、token、app設定、credentialを継承しない。challenge containerにも渡さない。
+- readinessとshutdownはloopback＋同tokenのlauncher専用internal operationとし、認証不要shutdownを作らない。
 - Docker CLIを使う場合もshellを介さず、固定argvを構築する。
 
 Windows + Docker Desktopを初期対象とする場合、Docker Desktop VMは追加の境界になるが、controller侵害時のDocker権限リスクは残る。外部公開へ進む場合は専用runner VMまたは専用hostを必須として、脅威モデルを再作成する。
@@ -245,6 +247,10 @@ Windows + Docker Desktopを初期対象とする場合、Docker Desktop VMは追
 11. Git出力、editor内容、errorにHTML・script・ANSI・制御文字を含めてもDOMとして解釈されない。
 12. command二重送信、command中reset、timeout中destroy、response喪失後再送でGit操作と履歴が一度だけ確定する。
 13. Docker default seccomp profileが有効で、writable mountが`nosuid,nodev,noexec`とsize上限を持つ。
+14. 256-bit tokenがcanonicalなpaddingなしbase64urlで生成され、引数、親process環境、file、log、Docker CLI、challenge containerへ漏れず、未認証のhealth／shutdown／Runner requestがDocker起動前に拒否される（TEST-LAUNCH-004、005、008、TEST-SEC-013、020）。
+15. PowerShell、Windows architecture、JDK、WSL、Docker Desktop、Linux container mode、Maven distributionのpreflight不一致でbuild、artifact更新、子process起動を行わない（TEST-LAUNCH-001〜003、011）。
+16. challenge image ID、`linux/amd64`、Git version、build-input fingerprint labelをlauncherとRunnerが検証し、tag、stale image、別platformへfallbackしない（TEST-LAUNCH-007、009、010、TEST-SEC-018、019、022、023）。
+17. Runner／app readiness timeout、port競合、context初期化失敗、Ctrl+C、launcher例外、通常終了の全経路で開始済み子processと所有containerを回収する（TEST-LAUNCH-006、TEST-SEC-021）。
 
 これらのいずれかを確認できない状態では、縦切り版またはMVPを完成扱いにしない。
 

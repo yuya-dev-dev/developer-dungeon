@@ -2,7 +2,7 @@
 
 ## 文書情報
 
-- 状態: Review-ready（井上P1解消済み、ユーザー確認待ち）
+- 状態: 承認済み（井上の実装前レビューP1解消済み、実装指示待ち）
 - 上位文書: [`requirements.md`](requirements.md)、[`game-design.md`](game-design.md)、[`threat-model.md`](threat-model.md)、[`architecture.md`](architecture.md)
 - 対象ステージ: [`STAGE-GIT-01`](git-mvp-stages.md#3-stage-git-01-公開済み変更を取り消す)
 
@@ -67,6 +67,9 @@ Browser -> Spring Boot app -> Git Runner controller -> challenge container
 - challenge containerへhost directoryをbind mountしない。
 - network、privilege、resource limitは[`threat-model.md`](threat-model.md)に従う。
 - DBは使用しない。
+- 初期対応環境、固定version、challenge image IDの生成・更新手順、Runner token方式は[`architecture.md`](architecture.md)の7.0と15.1を正本とする。
+- 正式な起動入口は`scripts/start-local.ps1`とし、直接の個別起動は開発時診断に限定する。
+- launcherはPowerShell 7.6.2 LTS x64でのみ動作し、32 byte乱数をpaddingなしbase64url tokenへ変換する。全起動経路を`try/finally`で管理し、失敗段階を問わず開始済み子processを逆順に回収する。
 
 ## 6. 画面
 
@@ -184,6 +187,11 @@ Dockerを伴うテストはユーザーの明示許可を得て実行する。
 4. [`threat-model.md`](threat-model.md)の1日版向け受け入れ条件を満たす。
 5. host Git実行、shell実行、host bind mount、challengeへのDocker socket公開が存在しない。
 6. 未完成点と再評価結果を[`../roadmap.md`](../roadmap.md)へ反映できる。
+7. launcherがtokenを引数、ファイル、ログへ残さず、Runnerの未認証requestをGit／Docker起動前に拒否する。
+8. challenge imageのtag指定、image ID未設定、`linux/amd64`以外、期待Git version不一致でRunnerがfail closedになる。
+9. README記載の固定PowerShell、JDK、WSL、Docker Desktop、Maven Wrapper／distribution以外ではbuild・子process起動前にfail closedになる。
+10. Runner readiness timeout、app起動失敗、Ctrl+C、launcher例外、通常終了の全経路で子processと所有containerが回収される。
+11. current build inputからcanonical fingerprintを再現し、imageの固定OCI labelと一致しないstale imageをGit command前に拒否する。
 
 ## 13. 1日で終わらない場合
 

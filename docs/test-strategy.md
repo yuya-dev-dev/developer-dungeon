@@ -2,7 +2,7 @@
 
 ## 文書情報
 
-- 状態: Review-ready（井上P1解消済み、ユーザー確認待ち）
+- 状態: 承認済み（井上の実装前レビューP1解消済み、実装指示待ち）
 - 上位文書: [`requirements.md`](requirements.md)、[`git-mvp-stages.md`](git-mvp-stages.md)、[`threat-model.md`](threat-model.md)、[`architecture.md`](architecture.md)
 - 関連文書: [`vertical-slice.md`](vertical-slice.md)、[`../AGENTS.md`](../AGENTS.md)
 
@@ -130,6 +130,30 @@ Thymeleafの見た目そのものはunit testへ寄せすぎず、重要な要�
 
 ## 7. Runner security integration test
 
+### 7.1 Launcher contract test（Docker不要）
+
+PowerShell 7.6.2 LTS x64だけで実行する自己完結したcontract testを用意し、外部moduleを暗黙に要求しない。process起動、preflight、token生成、artifact parse、cleanupを関数境界へ分離し、fake child processとfixture出力で次を自動確認する。
+
+| ID | 観点 |
+|---|---|
+| TEST-LAUNCH-001 | PowerShell edition／version／x64、Windows 11 x86_64の不一致をbuild・child起動前に拒否する |
+| TEST-LAUNCH-002 | JDK vendor／full version／architecture、WSL最低version、Docker Desktop version／Linux modeの不一致を拒否する |
+| TEST-LAUNCH-003 | Wrapper 3.3.4で生成した3ファイルのraw byte SHA-256が追跡manifestと一致し、1 byte改変、Maven 3.9.16 distribution URL／SHA-256の欠落・改変時に失敗する |
+| TEST-LAUNCH-004 | tokenが32 byte由来のpaddingなしbase64url 43文字で、起動ごとに異なる |
+| TEST-LAUNCH-005 | tokenがlauncherのprocess環境、child引数、設定／一時file、標準出力、標準error、例外messageへ現れず、app／Runnerの子process環境だけへ渡る |
+| TEST-LAUNCH-006 | Runner／app readiness timeout、app port競合／Spring context失敗、Ctrl+C相当、launcher例外、通常終了で開始済みfake childを逆順に停止する |
+| TEST-LAUNCH-007 | `challenge-image.id`の欠落、空、余分な行、tag、短縮ID、非小文字hexを拒否する |
+| TEST-LAUNCH-008 | 認証なし／誤tokenのhealth・shutdownを拒否し、正しいtokenのshutdownだけが対象childを停止する |
+| TEST-LAUNCH-009 | build inputのpath制約、ordinal順、raw byte hash、UTF-8 BOMなし／LF canonical manifestから同じfingerprintを再現する |
+| TEST-LAUNCH-010 | Dockerfile、fixture、rootfs helper、base digestの変更でfingerprintが変わり、README変更では変わらない |
+| TEST-LAUNCH-011 | build script単独実行でも誤PowerShell、Windows on Arm、古いWSL、誤Docker Desktop、Windows container modeをartifact更新前に拒否する |
+| TEST-LAUNCH-012 | `.dockerignore`がeffective contextをallowlist化し、`challenge-image/extra-file`などfingerprint対象外fileがあればbuild scriptもbuild前に拒否する |
+| TEST-LAUNCH-013 | 異なる`core.autocrlf`設定のcloneでも`.gitattributes`によりWrapper 3ファイルとhash manifestのbyte列・検証結果が一致する |
+
+token漏えいtestは、実tokenをfailure messageへ展開せず、出力やartifactに既知markerが存在しないことだけを報告する。
+
+### 7.2 Runner／challenge container security integration test（Docker必要）
+
 | ID | 観点 |
 |---|---|
 | TEST-SEC-001 | containerが非rootである |
@@ -149,8 +173,14 @@ Thymeleafの見た目そのものはunit testへ寄せすぎず、重要な要�
 | TEST-SEC-015 | `/workspace`と`/tmp`だけが必要なwritable tmpfsで、size、nosuid、nodev、noexecを持つ |
 | TEST-SEC-016 | malicious local config／attributesをworkspace生成前に拒否する |
 | TEST-SEC-017 | 同一attemptの並行requestと再送を直列化・idempotent処理する |
+| TEST-SEC-018 | image ID artifactが未知・削除済み、現在のbuild-input fingerprintとlabelが異なるstale image、別platform、誤label、誤Git versionの場合にcontainer内Git起動前に拒否する |
+| TEST-SEC-019 | container作成後の実image IDが指定IDと一致し、tag fallbackがない |
+| TEST-SEC-020 | Runner token、app設定、credentialがDocker CLI processとchallenge containerの環境に存在しない |
+| TEST-SEC-021 | Runner readiness timeout、app起動失敗、Ctrl+C、launcher例外、通常終了後に所有child／containerが残らない |
+| TEST-SEC-022 | build scriptだけがcontract成功後にimage ID artifactを原子的更新し、失敗時は既存artifactを変更しない |
+| TEST-SEC-023 | launcherとRunnerが同じ期待fingerprintを検証し、container作成後もimage IDとfingerprint labelが一致する |
 
-security testは、単にDocker create commandの文字列を確認するだけでなく、実際のcontainer inspectと到達性で検証する。
+security testは、単にDocker create commandの文字列を確認するだけでなく、実際のcontainer inspectと到達性で検証する。7.2はDockerを伴うため、ユーザーの明示許可を得て中谷が対象限定で実行する。
 
 ## 8. Persistence integration test
 
@@ -220,10 +250,10 @@ PostgreSQL Testcontainersを使用し、次を確認する。
 | REQ-VS-001〜006 | vertical-slice unit／Docker integration／manual checklist、文書scope確認 |
 | REQ-MVP-001 | 5stage fixture integration、manual |
 | REQ-MVP-002 | Web route／view test、manual |
-| REQ-MVP-003 / 006 | TEST-SEC-001〜017、process境界のmanual確認 |
+| REQ-MVP-003 / 006 | TEST-LAUNCH-001〜013、TEST-SEC-001〜023、process境界のmanual確認 |
 | REQ-MVP-004 / 005 | PostgreSQL／Flyway persistence integration |
 | REQ-MVP-007 | 本文書§15のcompletion audit |
-| NFR-SEC-001〜006 | TEST-CMD-003〜009、TEST-SEC-001〜017 |
+| NFR-SEC-001〜006 | TEST-CMD-003〜009、TEST-LAUNCH-001〜013、TEST-SEC-001〜023 |
 | NFR-LOCAL-001 | bind address、Host／Origin／CSRFのWeb integration test |
 | NFR-DATA-001 | fixture／log／screenshot data inspection |
 | NFR-TEST-001 | test inventoryと実行結果のcompletion audit |

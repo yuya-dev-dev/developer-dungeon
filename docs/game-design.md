@@ -2,7 +2,7 @@
 
 ## 文書情報
 
-- 状態: Review-ready（井上P1解消済み、ユーザー確認待ち）
+- 状態: 承認済み（井上の実装前レビューP1解消済み、実装指示待ち）
 - 上位文書: [`requirements.md`](requirements.md)
 - 関連文書: [`git-mvp-stages.md`](git-mvp-stages.md)、[`vertical-slice.md`](vertical-slice.md)
 

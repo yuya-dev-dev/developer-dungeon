@@ -2,7 +2,7 @@
 
 ## 文書情報
 
-- 状態: Review-ready（井上P1解消済み、ユーザー確認待ち）
+- 状態: 承認済み（井上の実装前レビューP1解消済み、実装指示待ち）
 - 対象: Git編の1日縦切り版および安定版MVP
 - 上位ルール: [`../AGENTS.md`](../AGENTS.md)
 - 関連文書: [`game-design.md`](game-design.md)、[`git-mvp-stages.md`](git-mvp-stages.md)、[`threat-model.md`](threat-model.md)、[`architecture.md`](architecture.md)
@@ -161,7 +161,7 @@ Javaコードレビュー編、SQL編、Docker障害対応編は同じ主人公�
 | GitHub Actions | MVP後 |
 | SPAフレームワーク / WebSocket | MVPでは不要 |
 
-具体的なバージョンは実装開始前に、公式サポート状況とローカル環境を確認して固定する。
+具体的なバージョンと初期対応環境は、2026-07-11時点の公式サポート状況を確認し、[`architecture.md`](architecture.md)の「実装基準バージョン」と「local起動」に固定した。セキュリティ修正版へ更新する場合は、互換性確認、対象限定テスト、challenge image digestの再固定を行う。
 
 ## 12. MVPに含めないもの
 
@@ -189,9 +189,9 @@ Javaコードレビュー編、SQL編、Docker障害対応編は同じ主人公�
 
 ## 14. 仮定と未確定事項
 
-### 仮定
+### 確定事項
 
-- 開発・初期動作環境はWindows上のDocker Desktop Linux containerを第一候補とする。
+- 開発・初期動作環境は、x86_64版Windows 11、WSL 2 backend、Docker Desktop Linux containerに限定する。Docker Desktop以外、Windows container、Windows on Arm、macOS、Linux nativeは初期サポート対象外とする。
 - ステージ定義とfixtureを作成できるのは開発者だけで、ユーザーが任意のステージを投入する機能は提供しない。
 - 主人公と主要人物は固定キャラクターとし、アバター作成は行わない。
 
@@ -200,8 +200,6 @@ Javaコードレビュー編、SQL編、Docker障害対応編は同じ主人公�
 | ID | 未確定事項 |
 |---|---|
 | TBD-001 | プロダクト、Git編、主人公、会社、主要人物の正式名称 |
-| TBD-002 | Java、Spring Boot、PostgreSQL、Git、Docker imageの固定バージョン |
-| TBD-003 | Docker Desktop以外を初期サポート対象に含めるか |
 | TBD-004 | 5ステージの文章、fixture内のファイル名、コミットメッセージの最終表現 |
 | TBD-005 | MVP検証で採用する人数と学習効果の成功閾値 |
 

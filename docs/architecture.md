@@ -2,7 +2,7 @@
 
 ## 文書情報
 
-- 状態: Review-ready（井上P1解消済み、ユーザー確認待ち）
+- 状態: 承認済み（井上の実装前レビューP1解消済み、実装指示待ち）
 - 対象: Git編の1日縦切り版および安定版MVP
 - 上位文書: [`requirements.md`](requirements.md)、[`git-mvp-stages.md`](git-mvp-stages.md)、[`threat-model.md`](threat-model.md)
 - 関連文書: [`vertical-slice.md`](vertical-slice.md)、[`test-strategy.md`](test-strategy.md)
@@ -136,7 +136,24 @@ Runnerは管理DBへ接続せず、ゲーム上のclear条件を判断しない�
 
 ## 7. Runner API
 
-APIはloopback限定とし、起動時に共有したtokenでappを認証する。playerへ直接公開しない。
+APIは`127.0.0.1`限定とし、起動時に共有したtokenでappを認証する。playerへ直接公開しない。IPv6 wildcard、`0.0.0.0`、LAN addressへbindしない。
+
+### 7.0 起動時認証
+
+- repository内の専用PowerShell 7.6.2 LTS x64 launcherが、`.NET RandomNumberGenerator`から起動ごとに32 byteを生成し、paddingなしbase64urlの43 ASCII文字へcanonical encodeした256-bit tokenを作る。標準Base64の`+`、`/`、`=`や任意Unicodeをtokenへ許可しない。
+- launcherは`System.Diagnostics.ProcessStartInfo`で固定されたapp／Runner jarと固定引数だけを別JVM processとして起動し、同名tokenを各子process専用の環境変数へ設定する。launcher自身のprocess環境、command line、設定ファイル、一時ファイルへtokenを書き出さない。
+- appはRunner URLとtokenをmemoryだけに保持し、すべてのRunner requestで専用headerとして送信する。Browserへtokenを返さない。
+- Runnerは専用headerを必須とし、UTF-8 byte列を一定時間比較する。token不在、不一致、重複headerはGitやDockerを起動せず拒否する。
+- Runnerは`127.0.0.1:18081`、appは`127.0.0.1:8080`へbindし、port使用中は別portへ自動退避せず起動に失敗する。
+- launcherはtoken付きhealth requestでRunner readinessを確認してからappを起動する。token値、request header、process environmentを標準出力や例外へ記録しない。
+- appにも同tokenを要求するlauncher専用readiness operationを設ける。launcherはapp readinessの正常応答後だけlocal runtimeを起動成功と扱い、port競合、Spring context初期化失敗、早期process終了、timeoutでは`finally` cleanupへ移る。
+- appとRunnerは通常Web routeと分離したloopback限定の`internal shutdown` operationを持ち、同じtokenを必須とする。認証不要shutdown endpointは作らない。
+- launcherはpreflight、Runner起動、readiness待機、app起動、待機の全体を`try/finally`で囲む。通常終了、Ctrl+C、readiness timeout、app起動失敗、launcher例外のすべてで、app、Runnerの逆順に認証済みshutdownを要求し、固定期限内に終了しない該当process treeだけを終了する。
+- Runnerはshutdown受付後に新規requestを拒否し、所有containerを停止・削除してから終了する。強制終了でcleanupできなかったcontainerは、次回Runner起動時に固定project／owner labelの一致を再検証して回収する。
+
+このtokenはBrowserや偶発的なlocal requestからRunnerを分離するためのものであり、同一Windowsユーザー権限で動く悪意あるprocessを防ぐ境界とはみなさない。開発端末上の同一ユーザーprocessは信頼境界内とする。
+
+RunnerがDocker CLI processを起動するときは親環境をそのまま継承せず、実行に必要な環境変数だけをallowlistで構築する。Runner token、app設定、credentialをDocker CLIへ渡さず、challenge containerの環境にも設定しない。
 
 ### 7.1 operation
 
@@ -151,6 +168,8 @@ APIはloopback限定とし、起動時に共有したtokenでappを認証する�
 | `destroyWorkspace` | `attemptId`、`requestId`、`workspaceId`、`generation`、reason | cleanup result |
 
 `readFile`と`writeFile`は`STAGE-GIT-04`だけで有効にする。requestからhost path、container ID、image、mount、network、Docker optionを受け取らない。
+
+`health`と`shutdown`はlauncher専用のinternal operationとし、上表のworkspace operationとrouteを分離する。いずれも同じRunner token、loopback bind、Host検証を必須とし、player session、CSRF token、workspace IDでは呼び出せない。
 
 ### 7.2 GitCommand
 
@@ -366,18 +385,74 @@ stack trace、host path、credentialをBrowserへ返さない。
 
 ## 15. local起動
 
+### 15.1 実装基準バージョン
+
+2026-07-11時点の実装基準を次に固定する。
+
+| 対象 | 固定値 | 適用 |
+|---|---|---|
+| JDK | Eclipse Temurin 25.0.3+9 x64 | app／Runnerのcompile・実行 |
+| Java language level | 25 | Maven compiler release |
+| Spring Boot | 4.1.0 | app／Runner |
+| Apache Maven | 3.9.16 | Wrapperが取得して実行するbuild tool本体 |
+| Maven Wrapper | 3.3.4、`only-script` | plugin 3.3.4で生成して追跡する`mvnw`／`mvnw.cmd`／properties |
+| PowerShell | 7.6.2 LTS x64 | launcher、challenge image build script |
+| Docker Desktop | 4.81.0、WSL 2 backend、Linux container | 初期対応環境 |
+| WSL | 2.1.5以上 | Docker Desktop公式最低要件 |
+| challenge base | `alpine:3.23.3@sha256:59855d3dceb3ae53991193bd03301e082b2a7faa56a514b03527ae0ec2ce3a95`、`linux/amd64` | challenge image build |
+| challenge Git | Alpine package `git=2.52.0-r0` | player操作とsnapshot取得 |
+| challenge image | `developer-dungeon/git-challenge:0.1.0`をlocal buildし、runtimeでは生成されたimmutable image IDだけを使用 | 1日縦切り版 |
+| PostgreSQL | 18.4 | 安定版MVPから。1日版では起動しない |
+| PostgreSQL image | `postgres:18.4-alpine3.23` | 安定版MVP着手時にplatform別digestを固定 |
+
+Spring Bootの依存versionは原則として4.1.0のdependency managementへ従い、個別上書きしない。Gitの教材挙動は最新Git 2.55.0ではなく、challenge image内で再現可能なAlpine package 2.52.0-r0を正とする。
+
+Maven Wrapperの`distributionUrl`はApache Maven 3.9.16 binary zipのHTTPS URLへ固定し、`distributionSha256Sum=5af3b743dd8b876b5c45da33b676251e5f1687712644abb4ee519ca56e1d89ce`を必須とする。`only-script`を使用するため`maven-wrapper.jar`は追跡・取得しない。正式なbuild commandは追跡済み`.\mvnw.cmd`だけとし、distributionのchecksum不一致ではMavenを実行しない。
+
+Wrapperは`org.apache.maven.plugins:maven-wrapper-plugin:3.3.4:wrapper -Dtype=only-script -Dmaven=3.9.16 -DdistributionSha256Sum=...`で生成する。生成直後に`mvnw`、`mvnw.cmd`、`.mvn/wrapper/maven-wrapper.properties`のraw byte SHA-256を、相対pathのordinal昇順で`.mvn/wrapper/wrapper-files.sha256`へ固定する。contract testは3ファイルを再hashしてmanifestと比較し、1 byteでも異なれば失敗する。manifest更新はWrapperを明示更新する差分だけで行い、生成commandと3ファイルとmanifestを同じレビュー対象にする。
+
+実装時にrepository rootの`.gitattributes`へ、`/mvnw text eol=lf`、`/mvnw.cmd text eol=crlf`、`/.mvn/wrapper/maven-wrapper.properties text eol=lf`、`/.mvn/wrapper/wrapper-files.sha256 text eol=lf`を追加する。このcheckout後のbyte列をWrapper hashの正本とし、`core.autocrlf`の値に依存させない。
+
+`scripts/lib/LocalRuntime.psm1`に副作用のない共通preflight関数を置き、launcherとchallenge image build scriptの双方から呼ぶ。共通preflightはPowerShell、Windows architecture、WSL、Docker Desktop、daemon到達、Linux container mode、`linux/amd64`を検査し、取得不能、parse不能、不一致ではbuildとartifact更新と子process起動を行わない。launcherはさらにJDKとchallenge image identityを検査する。
+
+- PowerShellのedition、version `7.6.2`、process architecture `x64`
+- Windows 11 x86_64
+- `JAVA_HOME`配下の固定`java.exe`について、vendor `Eclipse Adoptium`、runtime version `25.0.3+9`、architecture `amd64`。PATH上の別`java`へfallbackしない
+- `wsl.exe --version`でWSL 2.1.5以上
+- `docker desktop version`でDocker Desktop 4.81.0、`docker version`／`docker info`でdaemon到達、Linux OS、`linux/amd64`
+
+challenge imageの最終image IDはDockerfileが存在しない現段階では生成できないため、次を実装ゲートとする。local buildだけではregistryのRepoDigestが付かないため、存在しないRepoDigestを前提にしない。
+
+1. build inputを`challenge-image/Dockerfile`、`challenge-image/.dockerignore`、`challenge-image/rootfs/`配下の全regular file、`challenge-image/fixtures/`配下の全regular file、`scripts/build-challenge-image.ps1`、`scripts/lib/LocalRuntime.psm1`に限定する。required file／directory欠落、symlink、reparse point、またはASCIIの`[a-z0-9._/-]+`に収まらないrepository相対pathを拒否する。`challenge-image/`配下にこの集合以外のfile／directoryがあればbuild前に拒否する。
+2. 各fileのraw byte SHA-256を小文字hexで求め、separatorを`/`へ統一した相対pathのordinal昇順に、`<64hex>  <relative-path>\n`形式でUTF-8 BOMなし・LF終端のcanonical manifestをmemory上に作る。そのmanifest byte列のSHA-256をbuild-input fingerprintとする。改行を含むpathや暗黙の改行変換を許可しない。
+3. `.dockerignore`は最初に`**`を除外し、`Dockerfile`、`.dockerignore`、`rootfs/`、`rootfs/**`、`fixtures/`、`fixtures/**`だけを後続ruleで許可する。build scriptはこのallowlistと手順1の対象外file拒否を併用し、fingerprint対象外のbyteをeffective Docker contextへ含めない。
+4. `scripts/build-challenge-image.ps1`だけが、共通preflight成功後、pin済みbase digestと厳密なpackage versionからimageをbuildし、fingerprintをOCI label `io.developer-dungeon.challenge.build-input-sha256=<64hex>`へ設定する。任意build argや別contextを受け取らない。
+5. build scriptがimage内の`/usr/bin/git --version`、非root user、fixture manifestをcontract確認し、APK repository URL、index取得結果、package version、canonical input manifest、fingerprintをbuild logへ記録する。
+6. contract確認後、`docker image inspect`でplatformとcontent-addressableな完全image ID（`sha256:`＋64桁小文字hex）を取得する。
+7. build scriptがrepository内のgit管理外固定path`.developer-dungeon/runtime/challenge-image.id`へ、完全image IDと改行だけをtemporary file経由で原子的に置換する。実装時に`.developer-dungeon/runtime/`を`.gitignore`へ追加する。手入力とlauncher／Runnerによる書込みを禁止する。
+8. launcherが現在のworking treeからfingerprintを再計算し、artifactを厳格parseする。`docker image inspect`でID、`linux/amd64`、期待Git version、固定OCI labelのfingerprint一致を再検証してから、image IDと期待fingerprintを子process専用環境変数でRunnerへ渡す。
+9. Runnerも完全image IDとfingerprint形式を再検証し、Docker inspectでlabel一致を再確認する。tagへfallbackせず、そのIDでcontainerを作成し、作成後のcontainer inspectで実image IDとlabelの一致を確認してからGitを許可する。
+10. artifact欠落、空、余分な行、tag、短縮ID、未知・削除済みID、現在の入力とfingerprintが異なるstale image、platform／label／Git version不一致では、Git command前にfail closedにする。READMEなどbuild input外の変更ではstale扱いにしない。
+
+Alpine repositoryから同じpackage artifactを将来も取得できることまでは保証せず、MVPではruntime imageの同一性を完全image IDで保証する。build再現性の残余リスクとして、repository側の差替え・取得不能を記録する。管理済みmirrorやAPK artifact checksum固定は、必要性を再評価してから導入する。
+
+依存またはbase imageを更新する場合は別差分とし、release noteと脆弱性情報を確認し、imageを再buildしてimage IDとfixture object IDを再生成し、parser、snapshot、全Git stage contract testを実行する。古いimage IDは同じ変更内で削除せず、rollback確認後に除去する。
+
 ### 1日縦切り版
 
-- appとgit-runnerを別JVM processで起動する。
-- Docker DesktopのLinux container modeを利用する。
+- `scripts/start-local.ps1`だけを正式な起動入口とし、appとgit-runnerを別JVM processで起動する。
+- Windows 11 x86_64、Docker Desktop 4.81.0、WSL 2 backend、Linux container modeを利用する。
+- launcherは`docker version`、`docker info`、OS／architecture、Linux container mode、固定challenge image IDを事前検査し、不一致なら子processを起動しない。
 - PostgreSQLは起動しない。
 
 ### 安定版MVP
 
 - PostgreSQLをDocker Composeで起動する。
-- appとgit-runnerはIDEまたはMavenから別processとして起動してよい。
+- 安定版MVPでも正式なlocal runtime入口は`scripts/start-local.ps1`へ一本化する。
+- IDEまたはMavenからの直接起動はunit／integration test、または明示的なdiagnostic profileだけに限定する。通常profileはtokenまたはimage IDが未設定ならruntime APIを公開せずfail closedにする。
 - Git challenge containerのlifecycleはComposeへ固定せず、git-runnerがattemptごとに管理する。
 - Web appにDocker socketをmountしない。
+- PostgreSQL／Composeの所有権、readiness、停止方式はPhase 3着手前に確定する。1日縦切り版のlauncherへ推測でDB lifecycleを追加しない。
 
 ## 16. テスト境界
 
@@ -424,12 +499,12 @@ LocalGitRunnerやhost process実行から移行する設計は採用しない。
 - stage script engine、plugin system
 - 管理DBと課題環境のnetwork共有
 
-## 19. 実装前に固定する事項
+## 19. 実装前の確定結果
 
-- Java、Spring Boot、Git、PostgreSQL、Docker imageのversion
-- challenge imageのdigestとupdate手順
-- Runner tokenの生成・受渡方法
-- Windows上でのapp／Runner起動command
-- Docker Desktop以外のsupport範囲
+- Java、Spring Boot、Maven、Git、PostgreSQL、base imageのversionは15.1に固定した。
+- challenge imageはbuild前に固定できる入力をpinし、build後の完全image ID記録を実行開始前のfail-closed gateとした。
+- Runner tokenの生成・受渡方法、loopback port、起動順序、停止時回収を7.0に固定した。
+- Windows上の正式な起動入口を`scripts/start-local.ps1`に固定した。
+- 初期support範囲をWindows 11 x86_64＋Docker Desktop WSL 2 backend＋Linux containerに限定した。
 
-これらは1日縦切り版の実装計画を井上が事前レビューする前に確定する。
+実装は、この方針に対する井上の実装前レビューを通過し、ユーザーから実装開始の明示指示を得るまで開始しない。
