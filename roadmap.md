@@ -1,0 +1,214 @@
+# Developer Dungeon 開発ロードマップ
+
+## 文書情報
+
+- 状態: Review-ready（井上P1解消済み、ユーザー確認待ち）
+- 現在地: 企画・要件定義・全体設計のレビュー完了、ユーザー確認待ち
+- 上位文書: [`docs/requirements.md`](docs/requirements.md)
+- 関連文書: [`docs/vertical-slice.md`](docs/vertical-slice.md)、[`docs/test-strategy.md`](docs/test-strategy.md)
+
+## 1. ロードマップの役割
+
+この文書は開発段階、完成条件、次段階へ進む条件を管理する。プロダクト要件や設計詳細を新たに決めず、正本となる`docs`配下の文書を参照する。
+
+## 2. 現在の方針
+
+- 現在のリポジトリはGit編専用である。
+- まず安全な1日縦切り版を試し、その結果を再評価する。
+- 安定版MVPは5ステージとする。
+- Java、SQL、Docker学習編はMVP完成後に別途再評価する。
+- コード変更前の作業ブランチ作成・切替はメインエージェントが行う。
+- `git add`、commit、push、PR、mergeはユーザーが行う。
+
+## 3. フェーズ一覧
+
+| Phase | 内容 | 状態 |
+|---|---|---|
+| 0 | 企画・要件定義・全体設計 | レビュー完了・ユーザー確認待ち |
+| 1 | 安全な1日縦切り版 | 未着手 |
+| 2 | Git Runner hardening | 未着手 |
+| 3 | 安定版MVP基盤 | 未着手 |
+| 4 | 5ステージ完成 | 未着手 |
+| 5 | MVP検証と改善 | 未着手 |
+| 6 | 高難度Gitステージ | 未着手 |
+| 7 | 将来編の再評価 | 未着手 |
+
+## 4. Phase 0 企画・要件定義・全体設計
+
+### 作成物
+
+- `docs/requirements.md`
+- `docs/game-design.md`
+- `docs/git-mvp-stages.md`
+- `docs/threat-model.md`
+- `docs/architecture.md`
+- `docs/vertical-slice.md`
+- `docs/test-strategy.md`
+- `roadmap.md`
+- `README.md`
+
+### 完成条件
+
+1. 9文書が依存順に作成されている。
+2. 用語、要件ID、stage ID、security ID、相互linkが整合している。
+3. 現在範囲と将来構想が分離されている。
+4. 井上が文書一式をまとめてレビューしている。
+5. 井上のP1がすべて修正されている。
+6. 未確定事項が明示されている。
+
+### 次へ進む条件
+
+- ユーザーが文書一式を確認し、1日縦切り版へ進むことを承認する。
+- 実装開始に必要なversionとsupport環境が確定する。
+
+## 5. Phase 1 安全な1日縦切り版
+
+### 内容
+
+- STAGE-GIT-01
+- Spring Boot / Thymeleaf 1画面
+- appとGit Runnerの別process
+- disposable challenge container
+- command allowlist
+- state-based grading
+- hint、3スター、reset
+- 最小の物語導入と振り返り
+
+### 完成条件
+
+[`docs/vertical-slice.md`](docs/vertical-slice.md)の完成条件をすべて満たす。
+
+### 次へ進む条件
+
+- host実行へfallbackせず、実Gitのend-to-end体験を確認できる。
+- 物語量、操作感、採点の理解、安全境界を再評価している。
+- 発見した要件変更を上流文書へ反映している。
+
+## 6. Phase 2 Git Runner hardening
+
+### 内容
+
+- command policyのstage別拡張
+- Git config、hook、protocolの固定
+- repository-local configとattributesのallowlist検査
+- CPU、memory、PID、workspace、output、timeout制限
+- orphan cleanup
+- Runner token、loopback、error model
+- Git出力とeditor内容のplain-text escape、CSP
+- attempt単位の直列化、request ID、workspace generation、idempotency
+- malicious inputとcontainer設定のintegration test
+- STAGE-GIT-04用限定editorの安全な境界
+
+### 完成条件
+
+- [`docs/threat-model.md`](docs/threat-model.md)のセキュリティ受け入れ条件を実containerで確認している。
+- timeout、reset、異常終了でcontainerが残らない。
+- appとchallenge containerにDocker socketとhost bind mountがない。
+
+### 次へ進む条件
+
+- 5stageへ必要なcommandとeditorを追加できる安全な境界がある。
+
+## 7. Phase 3 安定版MVP基盤
+
+### 内容
+
+- PostgreSQL
+- Flyway
+- Spring JDBC
+- `stage_attempt`、`command_history`
+- ステージ一覧
+- progressと最高スター
+- Docker Composeによる管理DB起動
+- persistence integration test
+
+### 完成条件
+
+- app再起動後もclear progressが残る。
+- attemptとhistoryのtransactionとconstraintがテストされている。
+- Runnerとchallenge containerが管理DBへ到達できない。
+
+### 次へ進む条件
+
+- STAGE-GIT-02〜05を追加しても、attempt、reset、historyを共通use caseで扱える。
+
+## 8. Phase 4 5ステージ完成
+
+### 実装順
+
+1. STAGE-GIT-02 cherry-pick
+2. STAGE-GIT-03 stash
+3. STAGE-GIT-04 merge conflict
+4. STAGE-GIT-05 reflog
+5. シーズン1の物語接続と振り返り
+
+### 完成条件
+
+- [`docs/requirements.md`](docs/requirements.md)のMVP完成条件をすべて満たす。
+- [`docs/test-strategy.md`](docs/test-strategy.md)のMVPテスト完了条件を満たす。
+- 5stageを手動でclearできる。
+
+### 次へ進む条件
+
+- 新規機能追加を止め、対象ユーザーによる検証へ移れる。
+
+## 9. Phase 5 MVP検証と改善
+
+### 検証すること
+
+- 状態確認から始められるか。
+- exact hintなしで問題を解けるか。
+- 未知の類似fixtureへ判断を転用できるか。
+- revertとresetなどの使い分けを説明できるか。
+- 物語が薄すぎる、長すぎる、正解誘導になっていないか。
+- Runner待ち時間とresetが離脱原因にならないか。
+
+### 完成条件
+
+- 実装前に決めた対象人数と成功閾値で検証結果を記録している。
+- 学習効果またはゲーム体験の重大な欠陥を要件へ反映している。
+
+### 次へ進む条件
+
+- Git編を継続改善する価値が確認できる。
+
+## 10. Phase 6 高難度Gitステージ
+
+候補：
+
+- interactive rebase
+- bisect
+- ローカル疑似remote
+- stash conflict
+- detached HEAD
+- 複数事故の複合stage
+
+安定版MVPの検証結果をもとに、1stageずつ個別承認する。ランダム生成や汎用stage engineは導入しない。
+
+## 11. Phase 7 将来編の再評価
+
+### Javaコードレビュー編
+
+- 同じ主人公と世界観が学習体験に有効かを検討する。
+- Git編のRunnerやstage実装を無理に共通化しない。
+
+### SQL編
+
+- 管理DBと別instance、別network、別credentialを前提に脅威モデルを作り直す。
+- Git編との統合、同一repository内module、別applicationを再比較する。
+
+### Docker障害対応編
+
+- Docker操作自体がhost支配につながるため、専用VM級の隔離costを再評価する。
+
+いずれもGit編MVPの完成と検証前には着手しない。
+
+## 12. 現在の次作業
+
+1. 9文書を完成させる。
+2. 文書間整合性を横断確認する。
+3. 井上が一式をまとめてレビューする。
+4. P1をすべて修正する。
+5. ユーザーへ文書一式と未確定事項を報告する。
+
+この後のコード実装は、ユーザー承認と作業ブランチ作成後に開始する。
