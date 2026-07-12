@@ -2,8 +2,8 @@
 
 ## 文書情報
 
-- 状態: 承認済み（井上の実装前レビューP1解消済み、実装指示待ち）
-- 現在地: Phase 0完了、Phase 1の実装開始はユーザー指示待ち
+- 状態: Phase 1の実装・技術確認完了（再評価待ち）
+- 現在地: Phase 0完了、Phase 1はDocker統合確認とブラウザ手動確認まで完了
 - 上位文書: [`docs/requirements.md`](docs/requirements.md)
 - 関連文書: [`docs/vertical-slice.md`](docs/vertical-slice.md)、[`docs/test-strategy.md`](docs/test-strategy.md)
 
@@ -25,7 +25,7 @@
 | Phase | 内容 | 状態 |
 |---|---|---|
 | 0 | 企画・要件定義・全体設計 | 完了・ユーザー承認済み |
-| 1 | 安全な1日縦切り版 | 未着手 |
+| 1 | 安全な1日縦切り版 | 実装・技術確認完了（再評価待ち） |
 | 2 | Git Runner hardening | 未着手 |
 | 3 | 安定版MVP基盤 | 未着手 |
 | 4 | 5ステージ完成 | 未着手 |

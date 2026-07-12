@@ -1,0 +1,6 @@
+/target/
+**/target/
+/.developer-dungeon/runtime/
+/.mvn/wrapper/apache-maven-*/
+/.mvn/wrapper/dists/
+

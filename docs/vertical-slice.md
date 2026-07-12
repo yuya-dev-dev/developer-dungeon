@@ -2,7 +2,7 @@
 
 ## 文書情報
 
-- 状態: 承認済み（井上の実装前レビューP1解消済み、実装指示待ち）
+- 状態: 実装・技術確認完了（2026年7月12日、再評価待ち）
 - 上位文書: [`requirements.md`](requirements.md)、[`game-design.md`](game-design.md)、[`threat-model.md`](threat-model.md)、[`architecture.md`](architecture.md)
 - 対象ステージ: [`STAGE-GIT-01`](git-mvp-stages.md#3-stage-git-01-公開済み変更を取り消す)
 
@@ -69,7 +69,7 @@ Browser -> Spring Boot app -> Git Runner controller -> challenge container
 - DBは使用しない。
 - 初期対応環境、固定version、challenge image IDの生成・更新手順、Runner token方式は[`architecture.md`](architecture.md)の7.0と15.1を正本とする。
 - 正式な起動入口は`scripts/start-local.ps1`とし、直接の個別起動は開発時診断に限定する。
-- launcherはPowerShell 7.6.2 LTS x64でのみ動作し、32 byte乱数をpaddingなしbase64url tokenへ変換する。全起動経路を`try/finally`で管理し、失敗段階を問わず開始済み子processを逆順に回収する。
+- launcherはPowerShell 7.6.3 LTS x64でのみ動作し、32 byte乱数をpaddingなしbase64url tokenへ変換する。全起動経路を`try/finally`で管理し、失敗段階を問わず開始済み子processを逆順に回収する。
 
 ## 6. 画面
 

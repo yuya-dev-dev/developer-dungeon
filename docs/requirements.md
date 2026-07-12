@@ -2,7 +2,7 @@
 
 ## 文書情報
 
-- 状態: 承認済み（井上の実装前レビューP1解消済み、実装指示待ち）
+- 状態: 承認済み（Phase 1実装・技術確認反映済み、再評価待ち）
 - 対象: Git編の1日縦切り版および安定版MVP
 - 上位ルール: [`../AGENTS.md`](../AGENTS.md)
 - 関連文書: [`game-design.md`](game-design.md)、[`git-mvp-stages.md`](git-mvp-stages.md)、[`threat-model.md`](threat-model.md)、[`architecture.md`](architecture.md)

@@ -1,0 +1,7 @@
+**
+!Dockerfile
+!.dockerignore
+!rootfs/
+!rootfs/**
+!fixtures/
+!fixtures/**

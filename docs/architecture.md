@@ -2,7 +2,7 @@
 
 ## 文書情報
 
-- 状態: 承認済み（井上の実装前レビューP1解消済み、実装指示待ち）
+- 状態: 承認済み（Phase 1実装・技術確認反映済み、再評価待ち）
 - 対象: Git編の1日縦切り版および安定版MVP
 - 上位文書: [`requirements.md`](requirements.md)、[`git-mvp-stages.md`](git-mvp-stages.md)、[`threat-model.md`](threat-model.md)
 - 関連文書: [`vertical-slice.md`](vertical-slice.md)、[`test-strategy.md`](test-strategy.md)
@@ -140,7 +140,7 @@ APIは`127.0.0.1`限定とし、起動時に共有したtokenでappを認証す�
 
 ### 7.0 起動時認証
 
-- repository内の専用PowerShell 7.6.2 LTS x64 launcherが、`.NET RandomNumberGenerator`から起動ごとに32 byteを生成し、paddingなしbase64urlの43 ASCII文字へcanonical encodeした256-bit tokenを作る。標準Base64の`+`、`/`、`=`や任意Unicodeをtokenへ許可しない。
+- repository内の専用PowerShell 7.6.3 LTS x64 launcherが、`.NET RandomNumberGenerator`から起動ごとに32 byteを生成し、paddingなしbase64urlの43 ASCII文字へcanonical encodeした256-bit tokenを作る。標準Base64の`+`、`/`、`=`や任意Unicodeをtokenへ許可しない。
 - launcherは`System.Diagnostics.ProcessStartInfo`で固定されたapp／Runner jarと固定引数だけを別JVM processとして起動し、同名tokenを各子process専用の環境変数へ設定する。launcher自身のprocess環境、command line、設定ファイル、一時ファイルへtokenを書き出さない。
 - appはRunner URLとtokenをmemoryだけに保持し、すべてのRunner requestで専用headerとして送信する。Browserへtokenを返さない。
 - Runnerは専用headerを必須とし、UTF-8 byte列を一定時間比較する。token不在、不一致、重複headerはGitやDockerを起動せず拒否する。
@@ -396,8 +396,8 @@ stack trace、host path、credentialをBrowserへ返さない。
 | Spring Boot | 4.1.0 | app／Runner |
 | Apache Maven | 3.9.16 | Wrapperが取得して実行するbuild tool本体 |
 | Maven Wrapper | 3.3.4、`only-script` | plugin 3.3.4で生成して追跡する`mvnw`／`mvnw.cmd`／properties |
-| PowerShell | 7.6.2 LTS x64 | launcher、challenge image build script |
-| Docker Desktop | 4.81.0、WSL 2 backend、Linux container | 初期対応環境 |
+| PowerShell | 7.6.3 LTS x64 | launcher、challenge image build script |
+| Docker Desktop | 4.79.0、WSL 2 backend、Linux container | 初期対応環境 |
 | WSL | 2.1.5以上 | Docker Desktop公式最低要件 |
 | challenge base | `alpine:3.23.3@sha256:59855d3dceb3ae53991193bd03301e082b2a7faa56a514b03527ae0ec2ce3a95`、`linux/amd64` | challenge image build |
 | challenge Git | Alpine package `git=2.52.0-r0` | player操作とsnapshot取得 |
@@ -415,19 +415,19 @@ Wrapperは`org.apache.maven.plugins:maven-wrapper-plugin:3.3.4:wrapper -Dtype=on
 
 `scripts/lib/LocalRuntime.psm1`に副作用のない共通preflight関数を置き、launcherとchallenge image build scriptの双方から呼ぶ。共通preflightはPowerShell、Windows architecture、WSL、Docker Desktop、daemon到達、Linux container mode、`linux/amd64`を検査し、取得不能、parse不能、不一致ではbuildとartifact更新と子process起動を行わない。launcherはさらにJDKとchallenge image identityを検査する。
 
-- PowerShellのedition、version `7.6.2`、process architecture `x64`
+- PowerShellのedition、version `7.6.3`、process architecture `x64`
 - Windows 11 x86_64
 - `JAVA_HOME`配下の固定`java.exe`について、vendor `Eclipse Adoptium`、runtime version `25.0.3+9`、architecture `amd64`。PATH上の別`java`へfallbackしない
 - `wsl.exe --version`でWSL 2.1.5以上
-- `docker desktop version`でDocker Desktop 4.81.0、`docker version`／`docker info`でdaemon到達、Linux OS、`linux/amd64`
+- `docker version --format '{{.Server.Platform.Name}}'`でDocker Desktop 4.79.0、`docker version`／`docker info`でdaemon到達、Linux OS、`linux/amd64`
 
-challenge imageの最終image IDはDockerfileが存在しない現段階では生成できないため、次を実装ゲートとする。local buildだけではregistryのRepoDigestが付かないため、存在しないRepoDigestを前提にしない。
+challenge imageの最終image IDは、次の実装済み手順をcontractとする。local buildだけではregistryのRepoDigestが付かないため、存在しないRepoDigestを前提にしない。
 
 1. build inputを`challenge-image/Dockerfile`、`challenge-image/.dockerignore`、`challenge-image/rootfs/`配下の全regular file、`challenge-image/fixtures/`配下の全regular file、`scripts/build-challenge-image.ps1`、`scripts/lib/LocalRuntime.psm1`に限定する。required file／directory欠落、symlink、reparse point、またはASCIIの`[a-z0-9._/-]+`に収まらないrepository相対pathを拒否する。`challenge-image/`配下にこの集合以外のfile／directoryがあればbuild前に拒否する。
 2. 各fileのraw byte SHA-256を小文字hexで求め、separatorを`/`へ統一した相対pathのordinal昇順に、`<64hex>  <relative-path>\n`形式でUTF-8 BOMなし・LF終端のcanonical manifestをmemory上に作る。そのmanifest byte列のSHA-256をbuild-input fingerprintとする。改行を含むpathや暗黙の改行変換を許可しない。
 3. `.dockerignore`は最初に`**`を除外し、`Dockerfile`、`.dockerignore`、`rootfs/`、`rootfs/**`、`fixtures/`、`fixtures/**`だけを後続ruleで許可する。build scriptはこのallowlistと手順1の対象外file拒否を併用し、fingerprint対象外のbyteをeffective Docker contextへ含めない。
 4. `scripts/build-challenge-image.ps1`だけが、共通preflight成功後、pin済みbase digestと厳密なpackage versionからimageをbuildし、fingerprintをOCI label `io.developer-dungeon.challenge.build-input-sha256=<64hex>`へ設定する。任意build argや別contextを受け取らない。
-5. build scriptがimage内の`/usr/bin/git --version`、非root user、fixture manifestをcontract確認し、APK repository URL、index取得結果、package version、canonical input manifest、fingerprintをbuild logへ記録する。
+5. build scriptがimage内の`/usr/bin/git --version`、`linux/amd64`、完全image ID、project label、fingerprint labelを確認する。非root実行はDockerfileの固定userとRunnerの`--user 10001:10001`で二重に固定し、fixtureはworkspace生成時にRunnerがconfig、hook、attributes、module、symlink、object IDを検証する。APK artifactの追加checksum固定とcanonical manifestの詳細log出力は、Phase 1再評価後に必要性を判断する。
 6. contract確認後、`docker image inspect`でplatformとcontent-addressableな完全image ID（`sha256:`＋64桁小文字hex）を取得する。
 7. build scriptがrepository内のgit管理外固定path`.developer-dungeon/runtime/challenge-image.id`へ、完全image IDと改行だけをtemporary file経由で原子的に置換する。実装時に`.developer-dungeon/runtime/`を`.gitignore`へ追加する。手入力とlauncher／Runnerによる書込みを禁止する。
 8. launcherが現在のworking treeからfingerprintを再計算し、artifactを厳格parseする。`docker image inspect`でID、`linux/amd64`、期待Git version、固定OCI labelのfingerprint一致を再検証してから、image IDと期待fingerprintを子process専用環境変数でRunnerへ渡す。
@@ -441,7 +441,7 @@ Alpine repositoryから同じpackage artifactを将来も取得できること�
 ### 1日縦切り版
 
 - `scripts/start-local.ps1`だけを正式な起動入口とし、appとgit-runnerを別JVM processで起動する。
-- Windows 11 x86_64、Docker Desktop 4.81.0、WSL 2 backend、Linux container modeを利用する。
+- Windows 11 x86_64、Docker Desktop 4.79.0、WSL 2 backend、Linux container modeを利用する。
 - launcherは`docker version`、`docker info`、OS／architecture、Linux container mode、固定challenge image IDを事前検査し、不一致なら子processを起動しない。
 - PostgreSQLは起動しない。
 

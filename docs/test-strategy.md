@@ -2,7 +2,7 @@
 
 ## 文書情報
 
-- 状態: 承認済み（井上の実装前レビューP1解消済み、実装指示待ち）
+- 状態: 承認済み（Phase 1実装・技術確認反映済み、再評価待ち）
 - 上位文書: [`requirements.md`](requirements.md)、[`git-mvp-stages.md`](git-mvp-stages.md)、[`threat-model.md`](threat-model.md)、[`architecture.md`](architecture.md)
 - 関連文書: [`vertical-slice.md`](vertical-slice.md)、[`../AGENTS.md`](../AGENTS.md)
 
@@ -132,7 +132,7 @@ Thymeleafの見た目そのものはunit testへ寄せすぎず、重要な要�
 
 ### 7.1 Launcher contract test（Docker不要）
 
-PowerShell 7.6.2 LTS x64だけで実行する自己完結したcontract testを用意し、外部moduleを暗黙に要求しない。process起動、preflight、token生成、artifact parse、cleanupを関数境界へ分離し、fake child processとfixture出力で次を自動確認する。
+PowerShell 7.6.3 LTS x64だけで実行する自己完結したcontract testを用意し、外部moduleを暗黙に要求しない。process起動、preflight、token生成、artifact parse、cleanupを関数境界へ分離し、fake child processとfixture出力で次を自動確認する。
 
 | ID | 観点 |
 |---|---|
@@ -291,7 +291,7 @@ PostgreSQL Testcontainersを使用し、次を確認する。
 
 ## 13. Maven command方針
 
-実装後、実際の`pom.xml`とmodule名を確認してから正確なcommandを提示する。想定形式は次のとおりだが、scaffold前の現在は実行しない。
+実際の`pom.xml`とmodule名に基づき、変更範囲へ対応する正確なcommandを提示する。基本形式は次のとおりとする。
 
 ```powershell
 .\mvnw.cmd -pl app "-Dtest=対象TestClass" test
