@@ -16,10 +16,12 @@
     <modules>
         <module>runner-contract</module>
         <module>git-runner</module>
+        <module>db-migrator</module>
         <module>app</module>
     </modules>
     <properties>
         <java.version>25</java.version>
         <maven.compiler.release>25</maven.compiler.release>
+        <testcontainers.version>1.21.4</testcontainers.version>
     </properties>
 </project>
