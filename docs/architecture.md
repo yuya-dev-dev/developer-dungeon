@@ -313,6 +313,8 @@ MVPでは次を行わない。
 
 1日縦切り版ではプレイ画面だけを直接表示してよい。
 
+Phase 3の現時点では、`GET /`が固定のSTAGE-GIT-01一覧をDB read-onlyで表示し、`GET /stages/STAGE-GIT-01`がプレイ画面を表示する。一覧は`CLEARED` attemptから導出した最高スターだけを読むため、閲覧時にRunner、workspace、attemptを作らない。未対応stage keyはrouteを定義せず404とする。
+
 ### 12.2 実装方式
 
 - Spring MVC

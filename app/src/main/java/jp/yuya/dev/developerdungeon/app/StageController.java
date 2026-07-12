@@ -10,7 +10,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 class StageController {
     private final StageOneService stage;
     StageController(StageOneService stage) { this.stage = stage; }
-    @GetMapping("/") String index(Model model) { add(model, stage.open()); return "stage"; }
+    @GetMapping("/") String index(Model model) { model.addAttribute("stage", stage.progress()); return "stages"; }
+    @GetMapping("/stages/STAGE-GIT-01") String play(Model model) { add(model, stage.open()); return "stage"; }
     @PostMapping("/commands") String command(@RequestParam String command, @RequestParam String requestId, Model model) { add(model, stage.execute(command, requestId)); return "stage"; }
     @PostMapping("/hint") String hint(Model model) { add(model, stage.hint()); return "stage"; }
     @PostMapping("/reset") String reset(Model model) { add(model, stage.reset()); return "stage"; }

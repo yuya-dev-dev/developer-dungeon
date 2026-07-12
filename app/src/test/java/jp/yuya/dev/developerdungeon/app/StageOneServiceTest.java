@@ -12,6 +12,33 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 class StageOneServiceTest {
+    @Test void progressReadsPersistedStarsWithoutStartingAWorkspace() {
+        RunnerClient runner = mock(RunnerClient.class);
+        StagePersistence persistence = mock(StagePersistence.class);
+        when(persistence.highestStars("STAGE-GIT-01")).thenReturn(3);
+        var service = new StageOneService(runner, new GitCommandParser(), new StageOneGrader(), new OutputSanitizer(), persistence, Clock.systemUTC());
+
+        var progress = service.progress();
+
+        assertThat(progress.stageKey()).isEqualTo("STAGE-GIT-01");
+        assertThat(progress.isCleared()).isTrue();
+        assertThat(progress.highestStars()).isEqualTo(3);
+        verify(persistence).highestStars("STAGE-GIT-01");
+        verifyNoMoreInteractions(persistence);
+        verifyNoInteractions(runner);
+    }
+    @Test void progressFailureDoesNotStartAWorkspace() {
+        RunnerClient runner = mock(RunnerClient.class);
+        StagePersistence persistence = mock(StagePersistence.class);
+        when(persistence.highestStars("STAGE-GIT-01")).thenThrow(new IllegalStateException("database unavailable"));
+        var service = new StageOneService(runner, new GitCommandParser(), new StageOneGrader(), new OutputSanitizer(), persistence, Clock.systemUTC());
+
+        assertThatThrownBy(service::progress).isInstanceOf(IllegalStateException.class);
+
+        verify(persistence).highestStars("STAGE-GIT-01");
+        verifyNoMoreInteractions(persistence);
+        verifyNoInteractions(runner);
+    }
     @Test void resetRetainsLogicalAttemptIdAndChangesGeneration() {
         RunnerClient runner = mock(RunnerClient.class);
         var snapshot = new RepositorySnapshot("c2", "bad-tree", "safe-tree", List.of("c1"), true, false, List.of("c2", "c1"));
