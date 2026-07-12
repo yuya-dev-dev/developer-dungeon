@@ -7,8 +7,10 @@ import jp.yuya.dev.developerdungeon.contract.RepositorySnapshot;
 import jp.yuya.dev.developerdungeon.contract.WorkspaceRequest;
 import jp.yuya.dev.developerdungeon.contract.WorkspaceResponse;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.boot.SpringApplication;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -18,8 +20,12 @@ class RunnerController {
     private final ConfigurableApplicationContext context;
     RunnerController(RunnerWorkspaceService service, ConfigurableApplicationContext context) { this.service = service; this.context = context; }
 
-    @GetMapping("/health") ResponseEntity<Void> health() { return ResponseEntity.noContent().build(); }
+    @GetMapping("/health") ResponseEntity<Void> health() {
+        return service.isReady() ? ResponseEntity.noContent().build() : ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();
+    }
     @PostMapping("/shutdown") ResponseEntity<Void> shutdown() {
+        try { service.beginShutdown(); }
+        catch (RuntimeException exception) { throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "challenge cleanup is incomplete"); }
         Thread.ofVirtual().start(() -> SpringApplication.exit(context));
         return ResponseEntity.noContent().build();
     }

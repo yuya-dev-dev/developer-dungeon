@@ -2,8 +2,8 @@
 
 ## 文書情報
 
-- 状態: Phase 1完了、Phase 2実装前レビューPASS
-- 現在地: Phase 2の工程1〜6完了。ユーザーの実装開始承認待ち
+- 状態: Phase 1完了、Phase 2 Git Runner hardeningローカル実装・レビュー・対象限定test完了
+- 現在地: 井上の実装後レビューPASS、Docker不要test 29件とDocker integration test 2件PASS。ユーザーの差分確認・PR判断待ち
 - 上位文書: [`docs/requirements.md`](docs/requirements.md)
 - 関連文書: [`docs/vertical-slice.md`](docs/vertical-slice.md)、[`docs/test-strategy.md`](docs/test-strategy.md)、[`docs/phase-2-hardening-plan.md`](docs/phase-2-hardening-plan.md)
 
@@ -220,13 +220,14 @@ Phase 1の次へ進む条件は満たした。安全境界を5stageへ拡張す�
 
 ## 12. 現在の次作業
 
-1. Phase 2の対象を、Phase 1で未確認のsecurity受け入れ条件と異常系へ限定した。
-2. threat modelとtest strategyから、実containerで確認すべき項目の対応表を作成した。
-3. timeout、reset、異常終了、TTL、orphan回収のDocker integration test方針を確定した。
-4. network、mount、user、capability、resource limit、Docker socket非公開の自動検証方針を確定した。
-5. launcherの失敗経路とWindows環境差を、Docker不要のcontract testへ追加する方針を確定した。
-6. 井上の実装前レビューでP1・P2をすべて解消し、PASSを得た。
+1. container作成intent、ACTIVE、DELETED tombstoneを永続化する所有台帳と排他lockを実装した。
+2. 不確定create、cleanup失敗、TTL、startup orphan回収、shutdown中の新規操作をfail closedにした。
+3. appのreset／recoveryは旧workspaceの削除成功前に次generationを作らないよう変更した。
+4. launcherのtoken生成、readiness／shutdown時間、非2xx・timeout・強制停止の結果契約を固定した。
+5. 井上の実装後レビューでP1・P2をすべて解消し、最終PASSを得た。
+6. 中谷がDocker不要の対象限定test 29件を実行し、すべて成功した。
+7. stale imageを固定build scriptで再構築後、メインがDocker integration test 2件を実行し、container isolationとstartup orphan回収の成功を確認した。
 
 詳細は[`docs/phase-2-hardening-plan.md`](docs/phase-2-hardening-plan.md)を正本とする。Phase 2では新しいstage、PostgreSQL、認証、外部公開、世界観の大幅拡張を同時に行わない。これらはRunnerの安全境界を確認した後の各Phaseで扱う。
 
-次はユーザーの明示指示後に、Phase 2実装用branchをメインエージェントが作成して着手する。実装前レビューPASSは実装開始の自動承認を意味しない。
+次はユーザーが最終差分を確認し、作業branchをcommit／pushしてPRを作成する。commit、push、PR作成、mergeはユーザーが行う。

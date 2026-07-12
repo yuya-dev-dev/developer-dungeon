@@ -46,7 +46,7 @@ class StageOneService {
             }
             attempt.grade = grader.grade(response.snapshot(), attempt.badCommitId, attempt.safeTreeId, attempt.highestHint, attempt.playerResets);
             if (attempt.grade.cleared()) {
-                runner.destroy(new DestroyRequest(attempt.attemptId, UUID.randomUUID().toString(), attempt.workspaceId, attempt.generation, "stage-cleared"));
+                destroy(attempt, "stage-cleared");
                 attempt.closed = true;
             }
         } catch (IllegalArgumentException exception) {
@@ -60,6 +60,8 @@ class StageOneService {
             } catch (RuntimeException recoveryFailure) {
                 previous.lastOutput = "Runnerへ接続できません。安全のため操作は実行されませんでした。再接続後にもう一度試してください。";
                 previous.lastExitCode = null;
+                previous.grade = new StageOneGrader.Grade(false, 0, "未復旧");
+                previous.closed = false;
                 attempt = previous;
             }
         }
@@ -78,8 +80,12 @@ class StageOneService {
         boolean systemRecovery = false;
         if (attempt != null) {
             if (!attempt.closed) {
-                try { runner.destroy(new DestroyRequest(attempt.attemptId, UUID.randomUUID().toString(), attempt.workspaceId, attempt.generation, "player-reset")); }
-                catch (RuntimeException ignored) { systemRecovery = true; }
+                try { destroy(attempt, "player-reset"); }
+                catch (RuntimeException exception) {
+                    attempt.lastOutput = "旧環境の安全な削除を確認できないため、新しい作業環境は作成しません。再接続後にもう一度リセットしてください。";
+                    attempt.lastExitCode = null;
+                    return attempt.view();
+                }
             }
             attempt = create(attempt.attemptId, attempt.highestHint, attempt.playerResets + 1, attempt.systemRecoveryCount + (systemRecovery ? 1 : 0), attempt.generation + 1, attempt.commandSequence);
         } else attempt = create(UUID.randomUUID().toString(), 0, 1, 0, 0, 0);
@@ -94,9 +100,13 @@ class StageOneService {
                 initial.firstParentTreeId(), hint, resets, systemRecoveryCount, commandSequence);
     }
     private Attempt recover(Attempt previous) {
-        try { runner.destroy(new DestroyRequest(previous.attemptId, UUID.randomUUID().toString(), previous.workspaceId, previous.generation, "system-recovery")); }
-        catch (RuntimeException ignored) { }
+        destroy(previous, "system-recovery");
         return create(previous.attemptId, previous.highestHint, previous.playerResets, previous.systemRecoveryCount + 1, previous.generation + 1, previous.commandSequence);
+    }
+    private void destroy(Attempt attempt, String reason) {
+        if (attempt.cleanupRequestId == null) attempt.cleanupRequestId = UUID.randomUUID().toString();
+        runner.destroy(new DestroyRequest(attempt.attemptId, attempt.cleanupRequestId, attempt.workspaceId, attempt.generation, reason));
+        attempt.cleanupRequestId = null;
     }
     private GitCommand normalize(GitCommand command, Attempt attempt) {
         if (command.kind() != CommandKind.SHOW && command.kind() != CommandKind.REVERT_NO_EDIT) return command;
@@ -110,7 +120,7 @@ class StageOneService {
 
     private static final class Attempt {
         final String attemptId; final String workspaceId; final long generation; final String badCommitId; final String safeTreeId;
-        RepositorySnapshot snapshot; int highestHint; final int playerResets; final int systemRecoveryCount; long commandSequence; boolean closed; Integer lastExitCode; final HashSet<String> displayedShortIds = new HashSet<>(); final java.util.HashMap<String, StageView> completedRequests = new java.util.HashMap<>(); String lastOutput = "まずは状態を調べてみましょう。";
+        RepositorySnapshot snapshot; int highestHint; final int playerResets; final int systemRecoveryCount; long commandSequence; boolean closed; Integer lastExitCode; String cleanupRequestId; final HashSet<String> displayedShortIds = new HashSet<>(); final java.util.HashMap<String, StageView> completedRequests = new java.util.HashMap<>(); String lastOutput = "まずは状態を調べてみましょう。";
         StageOneGrader.Grade grade = new StageOneGrader.Grade(false, 0, "未復旧");
         Attempt(String attemptId, String workspaceId, long generation, RepositorySnapshot snapshot, String badCommitId, String safeTreeId, int highestHint, int playerResets, int systemRecoveryCount, long commandSequence) {
             this.attemptId=attemptId; this.workspaceId=workspaceId; this.generation=generation; this.snapshot=snapshot; this.badCommitId=badCommitId; this.safeTreeId=safeTreeId; this.highestHint=highestHint; this.playerResets=playerResets; this.systemRecoveryCount=systemRecoveryCount; this.commandSequence=commandSequence;

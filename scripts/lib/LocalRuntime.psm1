@@ -68,6 +68,68 @@ function Test-LocalRuntimePrerequisites {
     }
 }
 
+function New-RunnerToken {
+    [CmdletBinding()]
+    param()
+    $bytes = [byte[]]::new(32)
+    [Security.Cryptography.RandomNumberGenerator]::Fill($bytes)
+    $token = [Convert]::ToBase64String($bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_')
+    if ($token -notmatch '^[A-Za-z0-9_-]{43}$') { throw 'Failed to generate Runner token.' }
+    return $token
+}
+
+function Get-LocalRuntimeTiming {
+    [CmdletBinding()]
+    param()
+    [pscustomobject]@{
+        RunnerReadySeconds = 45
+        AppReadySeconds = 15
+        ShutdownHttpSeconds = 8
+        ProcessExitSeconds = 5
+        RunnerCleanupSeconds = 6
+    }
+}
+
+function Get-ChildStopOutcome {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][bool]$HttpSucceeded,
+        [Parameter(Mandatory)][bool]$ExitedBeforeDeadline
+    )
+    if (-not $HttpSucceeded) { return 'ShutdownRejected' }
+    if (-not $ExitedBeforeDeadline) { return 'Forced' }
+    return 'Stopped'
+}
+
+function Invoke-ChildStop {
+    [CmdletBinding()]
+    param(
+        $Process,
+        [Parameter(Mandatory)][string]$Url,
+        [Parameter(Mandatory)][string]$Token,
+        [Parameter(Mandatory)]$Timing,
+        [scriptblock]$SendShutdown = {
+            param($requestUrl, $requestToken, $timeoutSeconds)
+            $client = [Net.Http.HttpClient]::new()
+            $client.Timeout = [TimeSpan]::FromSeconds($timeoutSeconds)
+            $request = [Net.Http.HttpRequestMessage]::new([Net.Http.HttpMethod]::Post, $requestUrl)
+            $request.Headers.Add('X-Developer-Dungeon-Runner-Token', $requestToken)
+            return $client.Send($request).IsSuccessStatusCode
+        }
+    )
+    if ($null -eq $Process -or $Process.HasExited) { return 'AlreadyStopped' }
+    try {
+        $httpSucceeded = & $SendShutdown $Url $Token $Timing.ShutdownHttpSeconds
+        $exited = $httpSucceeded -and $Process.WaitForExit($Timing.ProcessExitSeconds * 1000)
+        $outcome = Get-ChildStopOutcome -HttpSucceeded $httpSucceeded -ExitedBeforeDeadline $exited
+        if ($outcome -ne 'Stopped' -and -not $Process.HasExited) { $Process.Kill($true) }
+        return $outcome
+    } catch {
+        if (-not $Process.HasExited) { $Process.Kill($true) }
+        return 'ShutdownFailed'
+    }
+}
+
 function Get-ChallengeBuildFingerprint {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$RepositoryRoot)
@@ -96,4 +158,4 @@ function Get-ChallengeBuildFingerprint {
     return ([Security.Cryptography.SHA256]::HashData($bytes) | ForEach-Object ToString x2) -join ''
 }
 
-Export-ModuleMember -Function Get-DockerExecutable, Test-MavenWrapperIntegrity, Test-LocalRuntimePrerequisites, Get-ChallengeBuildFingerprint
+Export-ModuleMember -Function Get-DockerExecutable, Test-MavenWrapperIntegrity, Test-LocalRuntimePrerequisites, Get-ChallengeBuildFingerprint, New-RunnerToken, Get-LocalRuntimeTiming, Get-ChildStopOutcome, Invoke-ChildStop
