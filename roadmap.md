@@ -2,8 +2,8 @@
 
 ## 文書情報
 
-- 状態: Phase 1の実装・技術確認完了（再評価待ち）
-- 現在地: Phase 0完了、Phase 1はDocker統合確認とブラウザ手動確認まで完了
+- 状態: Phase 1完了、Phase 2着手判断待ち
+- 現在地: Phase 1をPR #1で`main`へ反映済み。次はGit Runner hardening
 - 上位文書: [`docs/requirements.md`](docs/requirements.md)
 - 関連文書: [`docs/vertical-slice.md`](docs/vertical-slice.md)、[`docs/test-strategy.md`](docs/test-strategy.md)
 
@@ -14,7 +14,7 @@
 ## 2. 現在の方針
 
 - 現在のリポジトリはGit編専用である。
-- まず安全な1日縦切り版を試し、その結果を再評価する。
+- 安全な1日縦切り版の実装と再評価結果を基準に、Runnerを段階的にhardeningする。
 - 安定版MVPは5ステージとする。
 - Java、SQL、Docker学習編はMVP完成後に別途再評価する。
 - コード変更前の作業ブランチ作成・切替はメインエージェントが行う。
@@ -25,8 +25,8 @@
 | Phase | 内容 | 状態 |
 |---|---|---|
 | 0 | 企画・要件定義・全体設計 | 完了・ユーザー承認済み |
-| 1 | 安全な1日縦切り版 | 実装・技術確認完了（再評価待ち） |
-| 2 | Git Runner hardening | 未着手 |
+| 1 | 安全な1日縦切り版 | 完了・PR #1マージ済み |
+| 2 | Git Runner hardening | 次工程・着手判断待ち |
 | 3 | 安定版MVP基盤 | 未着手 |
 | 4 | 5ステージ完成 | 未着手 |
 | 5 | MVP検証と改善 | 未着手 |
@@ -87,6 +87,17 @@
 - host実行へfallbackせず、実Gitのend-to-end体験を確認できる。
 - 物語量、操作感、採点の理解、安全境界を再評価している。
 - 発見した要件変更を上流文書へ反映している。
+
+### 実績と再評価結果
+
+- Java 25／Spring Boot／Thymeleaf、AppとGit Runnerの別process、Docker challenge containerで縦切り構成が成立した。
+- `status`、`log`、`show`、`revert`を使う観察・判断・復旧loopと、repository stateによる採点をブラウザから完走できた。
+- shell構文を含む禁止入力がRunnerへ送られず、clear後にchallenge containerが残らないことを確認した。
+- 固定version preflight、Windows子process環境、Docker inspect、Git引数正規化など、実環境でのみ判明する不整合を修正した。
+- 最小の物語導入でも課題目的は理解できる一方、世界観、演出、画面の手触りは安定版MVPへ向けた改善余地がある。
+- hintと3スターは動作した。学習効果と難易度幅の評価は、5stage完成後のPhase 5で対象ユーザーにより検証する。
+
+Phase 1の次へ進む条件は満たした。安全境界を5stageへ拡張する前にPhase 2を実施する。
 
 ## 6. Phase 2 Git Runner hardening
 
@@ -209,10 +220,11 @@
 
 ## 12. 現在の次作業
 
-1. 9文書を完成させる。
-2. 文書間整合性を横断確認する。
-3. 井上が一式をまとめてレビューする。
-4. P1をすべて修正する。
-5. ユーザーへ文書一式と未確定事項を報告する。
+1. Phase 2の対象を、Phase 1で未確認のsecurity受け入れ条件と異常系へ限定する。
+2. threat modelとtest strategyから、実containerで確認すべき項目を対応表にする。
+3. timeout、reset、異常終了、TTL、orphan回収のDocker integration test方針を確定する。
+4. network、mount、user、capability、resource limit、Docker socket非公開を自動検証する方針を確定する。
+5. launcherの失敗経路とWindows環境差を、Docker不要のcontract testへ追加する方針を確定する。
+6. 井上の実装前レビューを通し、ユーザー承認後にPhase 2を実装する。
 
-この後のコード実装は、ユーザー承認と作業ブランチ作成後に開始する。
+Phase 2では新しいstage、PostgreSQL、認証、外部公開、世界観の大幅拡張を同時に行わない。これらはRunnerの安全境界を確認した後の各Phaseで扱う。
