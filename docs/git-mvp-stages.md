@@ -2,7 +2,7 @@
 
 ## 文書情報
 
-- 状態: 承認済み（井上の実装前レビューP1解消済み、実装指示待ち）
+- 状態: 承認済み（Phase 1実装・技術確認反映済み、再評価待ち）
 - 上位文書: [`requirements.md`](requirements.md)、[`game-design.md`](game-design.md)
 - 関連文書: [`threat-model.md`](threat-model.md)、[`architecture.md`](architecture.md)、[`test-strategy.md`](test-strategy.md)
 

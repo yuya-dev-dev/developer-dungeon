@@ -6,13 +6,13 @@ Developer Dungeonは、新人エンジニアが複数の開発現場で技術的
 
 ## 現在の状態
 
-企画・要件定義・全体設計の9文書はユーザー承認済みで、井上の実装前レビューにおけるP1をすべて解消しました。現在は実装開始のユーザー指示待ちです。アプリケーションコードはまだ実装していません。
+企画・要件定義・全体設計の9文書はユーザー承認済みで、井上の実装前レビューにおけるP1をすべて解消しました。`codex/vertical-slice`で1日縦切り版を実装し、2026年7月12日にDockerを伴う統合確認とブラウザ手動確認を完了しました。現在は縦切り版の再評価待ちです。
 
-次の開発段階は、安全な使い捨てGit実行環境を含む1日縦切り版です。1日版でもplayer入力をhost上で直接実行せず、別processのGit Runnerとdisposable challenge containerを使用します。
+現在の1日縦切り版は、安全な使い捨てGit実行環境を含みます。player入力をhost上で直接実行せず、別processのGit Runnerとdisposable challenge containerを使用します。
 
-企画・要件・全体設計の文書一式はユーザー承認済みです。初期対応環境はWindows 11 x86_64＋Docker DesktopのWSL 2 backend／Linux containerに限定し、実装基準versionとRunner方式は[`docs/architecture.md`](docs/architecture.md)を正本とします。縦切り版の実装は、井上の実装前レビュー通過後もユーザーの明示指示を待って開始します。
+企画・要件・全体設計の文書一式はユーザー承認済みです。初期対応環境はWindows 11 x86_64＋Docker DesktopのWSL 2 backend／Linux containerに限定し、実装基準versionとRunner方式は[`docs/architecture.md`](docs/architecture.md)を正本とします。
 
-正式なlocal起動はPowerShell 7.6.2 LTS x64の`scripts/start-local.ps1`へ一本化する予定です。JDK、Docker Desktop、WSL、Maven Wrapper、challenge image IDのpreflightに失敗した場合は、app／Runnerを起動しません。
+正式なlocal起動はPowerShell 7.6.3 LTS x64の`scripts/start-local.ps1`へ一本化します。JDK、Docker Desktop、WSL、Maven Wrapper、challenge image IDのpreflightに失敗した場合は、app／Runnerを起動しません。
 
 進捗と次段階への条件は[`roadmap.md`](roadmap.md)を参照してください。
 
@@ -87,4 +87,13 @@ player入力から実Gitを動かす機能は、通常のWeb入力より高い�
 
 ## 実行方法
 
-アプリケーションはまだ実装されていないため、現在は起動できません。1日縦切り版の実装後に、前提software、version、起動command、確認手順を追記します。
+Dockerを伴う検証の実行許可後、次の順で起動します。
+
+```powershell
+.\scripts\build-challenge-image.ps1
+$env:JAVA_HOME = 'C:\Program Files\Eclipse Adoptium\jdk-25.0.3.9-hotspot'
+.\mvnw.cmd package
+.\scripts\start-local.ps1
+```
+
+Browserで`http://127.0.0.1:8080`を開きます。Dockerを起動しない単体テストは` .\mvnw.cmd test`で実行します。
