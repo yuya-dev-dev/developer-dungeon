@@ -227,10 +227,16 @@ Windows + Docker Desktopを初期対象とする場合、Docker Desktop VMは追
 ## 12. cleanup
 
 - 正常クリア、リセット、明示終了、timeout、Runner例外でcontainerを破棄する。
-- Runner起動時と定期処理で、prefixとlabelが一致しTTLを超えた孤児containerを回収する。
-- 他projectのcontainerを誤削除しないよう、固定labelとcontrollerが発行したattempt IDの双方を照合する。
+- RunnerはDocker create前にcontrollerが発行したattempt／workspace ID、generation、完全image ID、fingerprintを作成intentとして秘密値を含まないローカル所有台帳へ原子的に記録し、create後にcontainer IDを追記する。削除成功後だけentryを消す。
+- Runnerは台帳操作とstartup cleanupより前にOS排他lockを取得して終了まで保持し、二重Runnerが同じ台帳とcontainerを操作することを防ぐ。lock取得失敗時はDocker操作前に起動失敗する。
+- 起動時cleanupは所有台帳のentryと実containerのproject／owner／attempt／workspace／image／fingerprintが完全一致する場合だけ回収する。台帳破損、台帳外、不一致では削除せずfail closedにする。
+- container ID未確定intentの候補が0件でも自動削除せず、5秒期限のscanを2秒間隔で最大3回、全体20秒以内に再実行する。不明なら台帳を保持してreadinessと新規Docker操作を拒否する。
+- 定期cleanupは起動時cleanupと分離し、in-memoryのactive containerを除外した上で、TTL超過またはcleanup待ちの台帳entryだけを回収する。
+- リセットまたはsystem recoveryで旧containerの削除に失敗した場合は旧workspaceを隔離し、削除成功まで新containerを作成しない。
+- graceful shutdown開始後は新規requestをDocker起動前に拒否する。強制終了で残ったcontainerは次回起動時に所有台帳から回収する。
 - cleanup失敗は隠さず、attemptを失敗扱いにしてローカルログへ残す。
-- 再試行回数を制限し、無限cleanup loopを作らない。
+- 定期再試行は最大3回に制限し、以降は台帳entryを残して次回起動時またはユーザーの手動判断へ委ねる。無限cleanup loopを作らない。
+- container削除成功後はcleanup request ID付き`DELETED` tombstoneを保持し、応答喪失後の同一request再送をDocker再操作なしで成功扱いにする。次generation作成成功後だけ旧tombstoneを削除する。
 
 ## 13. セキュリティ受け入れ条件
 
@@ -246,11 +252,11 @@ Windows + Docker Desktopを初期対象とする場合、Docker Desktop VMは追
 10. 悪意あるlocal configまたは`.gitattributes`を含むfixtureがworkspace実行前に拒否される。
 11. Git出力、editor内容、errorにHTML・script・ANSI・制御文字を含めてもDOMとして解釈されない。
 12. command二重送信、command中reset、timeout中destroy、response喪失後再送でGit操作と履歴が一度だけ確定する。
-13. Docker default seccomp profileが有効で、writable mountが`nosuid,nodev,noexec`とsize上限を持つ。
+13. Docker daemonのSecurityOptionsでbuiltin/default seccompが有効で、challenge containerが`unconfined`または意図しないprofile overrideを持たず、writable mountが`nosuid,nodev,noexec`とsize上限を持つ。
 14. 256-bit tokenがcanonicalなpaddingなしbase64urlで生成され、引数、親process環境、file、log、Docker CLI、challenge containerへ漏れず、未認証のhealth／shutdown／Runner requestがDocker起動前に拒否される（TEST-LAUNCH-004、005、008、TEST-SEC-013、020）。
 15. PowerShell、Windows architecture、JDK、WSL、Docker Desktop、Linux container mode、Maven distributionのpreflight不一致でbuild、artifact更新、子process起動を行わない（TEST-LAUNCH-001〜003、011）。
 16. challenge image ID、`linux/amd64`、Git version、build-input fingerprint labelをlauncherとRunnerが検証し、tag、stale image、別platformへfallbackしない（TEST-LAUNCH-007、009、010、TEST-SEC-018、019、022、023）。
-17. Runner／app readiness timeout、port競合、context初期化失敗、Ctrl+C、launcher例外、通常終了の全経路で開始済み子processと所有containerを回収する（TEST-LAUNCH-006、TEST-SEC-021）。
+17. Runner／app readiness timeout、port競合、context初期化失敗、Ctrl+C、launcher例外、通常終了では開始済み子processと所有containerを回収し、graceful shutdown開始後は新規requestを拒否する。強制終了では残存containerを所有台帳へ残し、次回Runner起動時に回収する（TEST-LAUNCH-006、TEST-SEC-021）。
 
 これらのいずれかを確認できない状態では、縦切り版またはMVPを完成扱いにしない。
 

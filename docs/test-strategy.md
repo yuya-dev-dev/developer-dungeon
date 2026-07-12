@@ -87,6 +87,7 @@ stage固有観点：
 - Git error時にattemptを継続する
 - timeout時にattemptをFAILEDにしてdestroyを呼ぶ
 - reset時に旧workspaceを破棄して新規作成する
+- reset／system recoveryで旧workspaceのcleanupが失敗した場合は新workspaceを作成せず、cleanup pendingを維持する
 - reset後も同じ論理attempt、最高hint level、player reset count、system recovery count、command sequenceを保持する
 - attemptごとにcommand、snapshot、reset、destroyを直列化する
 - 同じrequest IDの二重POSTでGit操作を1回だけ実行する
@@ -130,6 +131,8 @@ Thymeleafの見た目そのものはunit testへ寄せすぎず、重要な要�
 
 ## 7. Runner security integration test
 
+Phase 2で追加する対象、実containerの検査方法、lifecycle異常系、Docker不要launcher contract testの具体的な実装前方針は[`phase-2-hardening-plan.md`](phase-2-hardening-plan.md)を正本とする。本文書のtest IDと受け入れ条件は変更せず、Phase 2ではその対応表に従って未確認の証拠を補う。
+
 ### 7.1 Launcher contract test（Docker不要）
 
 PowerShell 7.6.3 LTS x64だけで実行する自己完結したcontract testを用意し、外部moduleを暗黙に要求しない。process起動、preflight、token生成、artifact parse、cleanupを関数境界へ分離し、fake child processとfixture出力で次を自動確認する。
@@ -162,12 +165,12 @@ token漏えいtestは、実tokenをfailure messageへ展開せず、出力やart
 | TEST-SEC-004 | networkがnoneで、外部接続できない |
 | TEST-SEC-005 | Docker socket、host bind mount、device、host namespaceがない |
 | TEST-SEC-006 | CPU、memory、PID、workspace limitが設定される |
-| TEST-SEC-007 | timeoutでcontainerが停止・削除される |
+| TEST-SEC-007 | Runnerがcommand timeoutを検知した時に、実containerが停止・削除され、workspaceを再利用できない |
 | TEST-SEC-008 | outputが64 KiBで打ち切られる |
 | TEST-SEC-009 | hooks、system/global config、credential promptを利用できない |
 | TEST-SEC-010 | external protocolと未許可URLを利用できない |
 | TEST-SEC-011 | 限定editorが`.git`、`..`、absolute path、symlinkを拒否する |
-| TEST-SEC-012 | orphan cleanupが別projectのcontainerを削除しない |
+| TEST-SEC-012 | startup／periodic orphan cleanupが所有台帳とidentityの一致するorphanだけを削除し、active workspace、台帳外、別project、identity不一致のcontainerを削除しない |
 | TEST-SEC-013 | Runner APIがtokenなし、誤token、未知operationを拒否する |
 | TEST-SEC-014 | Docker default seccomp profileが有効で`unconfined`ではない |
 | TEST-SEC-015 | `/workspace`と`/tmp`だけが必要なwritable tmpfsで、size、nosuid、nodev、noexecを持つ |
@@ -176,7 +179,7 @@ token漏えいtestは、実tokenをfailure messageへ展開せず、出力やart
 | TEST-SEC-018 | image ID artifactが未知・削除済み、現在のbuild-input fingerprintとlabelが異なるstale image、別platform、誤label、誤Git versionの場合にcontainer内Git起動前に拒否する |
 | TEST-SEC-019 | container作成後の実image IDが指定IDと一致し、tag fallbackがない |
 | TEST-SEC-020 | Runner token、app設定、credentialがDocker CLI processとchallenge containerの環境に存在しない |
-| TEST-SEC-021 | Runner readiness timeout、app起動失敗、Ctrl+C、launcher例外、通常終了後に所有child／containerが残らない |
+| TEST-SEC-021 | graceful shutdown開始後に新規requestを拒否して所有containerを削除し、強制終了時は所有台帳に残ったcontainerを次回Runner起動時に回収する |
 | TEST-SEC-022 | build scriptだけがcontract成功後にimage ID artifactを原子的更新し、失敗時は既存artifactを変更しない |
 | TEST-SEC-023 | launcherとRunnerが同じ期待fingerprintを検証し、container作成後もimage IDとfingerprint labelが一致する |
 

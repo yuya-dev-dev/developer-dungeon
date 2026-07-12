@@ -129,7 +129,7 @@ com.developerdungeon.gitrunner
 | `sandbox` | fixed Docker argv、container作成・停止・削除 |
 | `git` | challenge container内の固定Git executable実行、出力制限 |
 | `snapshot` | 採点用のrefs、trees、status、途中状態の取得 |
-| `cleanup` | TTLとlabelに基づくorphan回収 |
+| `cleanup` | TTL、ローカル所有台帳、container identityに基づくorphan回収 |
 | `config` | fixed image、limit、name prefix、Docker executable path |
 
 Runnerは管理DBへ接続せず、ゲーム上のclear条件を判断しない。
@@ -145,11 +145,12 @@ APIは`127.0.0.1`限定とし、起動時に共有したtokenでappを認証す�
 - appはRunner URLとtokenをmemoryだけに保持し、すべてのRunner requestで専用headerとして送信する。Browserへtokenを返さない。
 - Runnerは専用headerを必須とし、UTF-8 byte列を一定時間比較する。token不在、不一致、重複headerはGitやDockerを起動せず拒否する。
 - Runnerは`127.0.0.1:18081`、appは`127.0.0.1:8080`へbindし、port使用中は別portへ自動退避せず起動に失敗する。
-- launcherはtoken付きhealth requestでRunner readinessを確認してからappを起動する。token値、request header、process environmentを標準出力や例外へ記録しない。
+- launcherはtoken付きhealth requestでRunner readinessを最大45秒確認してからappを起動する。この時間には最大20秒のstartup recoveryを含み、launcherは回収処理より先にRunnerを停止しない。token値、request header、process environmentを標準出力や例外へ記録しない。
 - appにも同tokenを要求するlauncher専用readiness operationを設ける。launcherはapp readinessの正常応答後だけlocal runtimeを起動成功と扱い、port競合、Spring context初期化失敗、早期process終了、timeoutでは`finally` cleanupへ移る。
 - appとRunnerは通常Web routeと分離したloopback限定の`internal shutdown` operationを持ち、同じtokenを必須とする。認証不要shutdown endpointは作らない。
-- launcherはpreflight、Runner起動、readiness待機、app起動、待機の全体を`try/finally`で囲む。通常終了、Ctrl+C、readiness timeout、app起動失敗、launcher例外のすべてで、app、Runnerの逆順に認証済みshutdownを要求し、固定期限内に終了しない該当process treeだけを終了する。
-- Runnerはshutdown受付後に新規requestを拒否し、所有containerを停止・削除してから終了する。強制終了でcleanupできなかったcontainerは、次回Runner起動時に固定project／owner labelの一致を再検証して回収する。
+- launcherはpreflight、Runner起動、readiness待機、app起動、待機の全体を`try/finally`で囲む。通常終了、Ctrl+C、readiness timeout、app起動失敗、launcher例外のすべてで、app、Runnerの逆順に認証済みshutdownを要求する。shutdown HTTPを8秒待ち、応答後のprocess終了を5秒待って、開始から最大13秒以内に終了しない該当process treeだけを終了する。
+- Runnerはshutdown開始をatomicな状態として記録し、開始後の新規workspace requestをDocker起動前に拒否する。所有containerを停止・削除してから終了する。
+- 強制終了でcleanupできなかったcontainerは、次回Runner起動時にローカル所有台帳とcontainer identityの完全一致を再検証して回収する。固定project／owner labelだけを根拠に削除しない。
 
 このtokenはBrowserや偶発的なlocal requestからRunnerを分離するためのものであり、同一Windowsユーザー権限で動く悪意あるprocessを防ぐ境界とはみなさない。開発端末上の同一ユーザーprocessは信頼境界内とする。
 
@@ -164,7 +165,7 @@ RunnerがDocker CLI processを起動するときは親環境をそのまま継�
 | `readFile` | `attemptId`、`requestId`、`workspaceId`、`generation`、stage固定file key | content、version token |
 | `writeFile` | `attemptId`、`requestId`、`workspaceId`、`generation`、stage固定file key、content、version token | write result、new version token |
 | `getSnapshot` | `attemptId`、`requestId`、`workspaceId`、`generation` | repository snapshot |
-| `replaceWorkspace` | `attemptId`、`requestId`、旧`workspaceId`、次`generation` | 新`workspaceId`、initial snapshot |
+| `replaceWorkspace` | `attemptId`、`requestId`、旧`workspaceId`、次`generation` | 旧workspace削除成功後だけ、新`workspaceId`とinitial snapshot |
 | `destroyWorkspace` | `attemptId`、`requestId`、`workspaceId`、`generation`、reason | cleanup result |
 
 `readFile`と`writeFile`は`STAGE-GIT-04`だけで有効にする。requestからhost path、container ID、image、mount、network、Docker optionを受け取らない。
@@ -186,13 +187,30 @@ Browserから受け取ったraw textはappでparseし、contractには含めな�
 ### 7.3 attemptの直列化とidempotency
 
 - appはattemptごとのlockまたはsingle-thread queueを持ち、command、snapshot、reset、destroyを直列化する。
-- attemptは`ACTIVE`、`EXECUTING`、`RESETTING`、`CLEARED`、`FAILED`、`EXPIRED`、`ABANDONED`の状態機械に従う。
+- attemptは`ACTIVE`、`EXECUTING`、`RESETTING`、`CLEANUP_PENDING`、`CLEARED`、`FAILED`、`EXPIRED`、`ABANDONED`の状態機械に従う。
 - Browserの変更requestごとに一意な`requestId`を発行し、同じIDの再送へ同じ結果を返す。
 - workspaceを再生成するたびに単調増加する`generation`を付け、古いworkspaceへのrequestを拒否する。
 - Runnerもattempt／workspaceごとに直列化し、存続中は`requestId`と結果を保持して二重実行を防ぐ。
 - Runner再起動などで実行結果を確定できない場合はcommandを自動再実行せず、workspaceを破棄して同じ論理attemptのsystem recoveryとして扱う。
 - workspace交換では論理attempt ID、`highest_hint_level`、`player_reset_count`、`system_recovery_count`、command sequenceを保持し、workspace IDとgenerationだけを交換する。
 - プレイヤーがリセットbuttonを押した場合だけ`player_reset_count`を増やし、timeout、Runner再起動、応答不明では`system_recovery_count`を増やす。
+- workspace交換では旧containerの削除成功前にgenerationを進めず、新containerも作らない。cleanup失敗時は`CLEANUP_PENDING`へ遷移し、旧workspaceのexecute／snapshotを拒否して同じcleanup requestだけを再試行可能にする。
+
+### 7.4 container所有台帳
+
+- launcherは`.developer-dungeon/runtime/runner-owned-containers.json`の固定絶対pathをRunnerの子process環境だけへ渡す。requestやBrowser入力からpathを受け取らない。
+- Runnerは台帳読込とstartup cleanupより前に、同directoryの`runner-owned-containers.lock`をWindows `FileStream`の`FileShare.None`相当で取得し、process終了まで保持する。取得失敗時はDocker操作とreadiness開始前に起動失敗する。
+- 台帳は秘密値を含まず、作成状態、作成時刻、確認回数、nullableなcontainer ID、attempt ID、workspace ID、generation、完全image ID、build fingerprintだけを持つ。
+- RunnerはDocker create前にattempt／workspace／generation／image／fingerprintを作成intentとしてtemporary file、flush、同一filesystem上のatomic replaceで保存する。intent保存失敗時はcontainerを作成しない。
+- Docker create後、workspace公開前にcontainer IDをentryへ原子的に追記する。追記失敗時はworkspaceを公開せず、intentを残して対象containerの削除を試みる。
+- container削除成功後だけ対応entryを同じ方式で削除する。削除失敗時はentryを残す。
+- 起動時cleanupは台帳entryとcontainer inspectのproject、owner、attempt、workspace、image、fingerprintが完全一致する場合だけ削除する。container ID未確定のintentはworkspace labelで候補を限定し、完全一致する候補が1件の場合だけ削除する。
+- ID未確定intentの候補が0件でもentryを削除せず、各scanのDocker期限5秒、2秒間隔、最大3回、startup recovery全体20秒以内で再scanする。解決しない0件、複数件、台帳破損、台帳外、不一致では台帳を保持してRunnerをdegradedにし、readinessとDockerを伴うworkspace operationを拒否する。
+- 定期cleanupはin-memory active containerを除外し、TTL超過または`CLEANUP_PENDING`のentryだけを対象にする。
+- 台帳はcontainerの安全な所有確認とcrash recoveryだけに使い、player progress、command history、採点を永続化しない。
+- container削除成功時はentryをcleanup request ID付き`DELETED` tombstoneへ原子的に置換する。同じrequest IDの再送にはDockerを呼ばず成功を返し、appが次generationのworkspace作成に成功した後だけ旧tombstoneを削除する。
+- internal shutdownはshutdown状態へ遷移してから同期的に所有containerをcleanupする。ローカルMVPのactive container上限を1件、cleanup全体を6秒以内、`docker rm -f`を5秒以内とし、成功時だけ204を返す。失敗時は5xxを返して台帳entryを保持し、launcherは正常終了として表示しない。
+- launcherはRunner readinessを45秒待つ。shutdown HTTP timeoutを8秒、応答後のprocess終了待機を5秒とし、shutdown開始から最大13秒を超えた場合だけ該当process treeを強制停止する。
 
 ## 8. command実行フロー
 
@@ -355,7 +373,7 @@ Spring JDBCとFlywayを使い、JPAはMVPでは導入しない。
 
 `(attempt_id, sequence_no)`と`request_id`を一意にする。変更requestでは、Git実行前に`PENDING`行を作成し、同じrequest IDの再送を再実行せず既存結果へ対応付ける。
 
-resetは`stage_attempt`の終端statusにしない。同じ論理attemptを`RESETTING`へ遷移させ、reasonに応じて`player_reset_count`または`system_recovery_count`と`current_generation`を増やし、reset eventを`command_history`へ記録して`ACTIVE`へ戻す。`highest_hint_level`とsequenceを保持する。明示的な「新しい挑戦」だけが新しい`stage_attempt`を作る。
+resetは`stage_attempt`の終端statusにしない。同じ論理attemptを`RESETTING`へ遷移させ、旧workspaceの削除成功後だけ、reasonに応じて`player_reset_count`または`system_recovery_count`と`current_generation`を増やし、reset eventを`command_history`へ記録して`ACTIVE`へ戻す。削除失敗時は`CLEANUP_PENDING`として新workspaceを作らず、`highest_hint_level`とsequenceを保持する。明示的な「新しい挑戦」だけが新しい`stage_attempt`を作る。
 
 `stage`、`player`、`player_progress` tableは作らない。ステージは固定resource、進捗と最高スターはCLEARED attemptから導出する。
 

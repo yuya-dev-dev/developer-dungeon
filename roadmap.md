@@ -2,10 +2,10 @@
 
 ## 文書情報
 
-- 状態: Phase 1完了、Phase 2着手判断待ち
-- 現在地: Phase 1をPR #1で`main`へ反映済み。次はGit Runner hardening
+- 状態: Phase 1完了、Phase 2実装前レビューPASS
+- 現在地: Phase 2の工程1〜6完了。ユーザーの実装開始承認待ち
 - 上位文書: [`docs/requirements.md`](docs/requirements.md)
-- 関連文書: [`docs/vertical-slice.md`](docs/vertical-slice.md)、[`docs/test-strategy.md`](docs/test-strategy.md)
+- 関連文書: [`docs/vertical-slice.md`](docs/vertical-slice.md)、[`docs/test-strategy.md`](docs/test-strategy.md)、[`docs/phase-2-hardening-plan.md`](docs/phase-2-hardening-plan.md)
 
 ## 1. ロードマップの役割
 
@@ -220,11 +220,13 @@ Phase 1の次へ進む条件は満たした。安全境界を5stageへ拡張す�
 
 ## 12. 現在の次作業
 
-1. Phase 2の対象を、Phase 1で未確認のsecurity受け入れ条件と異常系へ限定する。
-2. threat modelとtest strategyから、実containerで確認すべき項目を対応表にする。
-3. timeout、reset、異常終了、TTL、orphan回収のDocker integration test方針を確定する。
-4. network、mount、user、capability、resource limit、Docker socket非公開を自動検証する方針を確定する。
-5. launcherの失敗経路とWindows環境差を、Docker不要のcontract testへ追加する方針を確定する。
-6. 井上の実装前レビューを通し、ユーザー承認後にPhase 2を実装する。
+1. Phase 2の対象を、Phase 1で未確認のsecurity受け入れ条件と異常系へ限定した。
+2. threat modelとtest strategyから、実containerで確認すべき項目の対応表を作成した。
+3. timeout、reset、異常終了、TTL、orphan回収のDocker integration test方針を確定した。
+4. network、mount、user、capability、resource limit、Docker socket非公開の自動検証方針を確定した。
+5. launcherの失敗経路とWindows環境差を、Docker不要のcontract testへ追加する方針を確定した。
+6. 井上の実装前レビューでP1・P2をすべて解消し、PASSを得た。
 
-Phase 2では新しいstage、PostgreSQL、認証、外部公開、世界観の大幅拡張を同時に行わない。これらはRunnerの安全境界を確認した後の各Phaseで扱う。
+詳細は[`docs/phase-2-hardening-plan.md`](docs/phase-2-hardening-plan.md)を正本とする。Phase 2では新しいstage、PostgreSQL、認証、外部公開、世界観の大幅拡張を同時に行わない。これらはRunnerの安全境界を確認した後の各Phaseで扱う。
+
+次はユーザーの明示指示後に、Phase 2実装用branchをメインエージェントが作成して着手する。実装前レビューPASSは実装開始の自動承認を意味しない。
