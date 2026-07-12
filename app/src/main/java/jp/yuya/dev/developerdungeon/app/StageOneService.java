@@ -31,6 +31,10 @@ class StageOneService {
         return attempt.view();
     }
 
+    StageProgress progress() {
+        return new StageProgress("STAGE-GIT-01", "公開済み変更を取り消す", "公開済みの誤変更を、履歴を壊さずに戻す。", persistence.highestStars("STAGE-GIT-01"));
+    }
+
     synchronized StageView execute(String raw, String requestId) {
         if (attempt == null) attempt = persistence.findOpen("STAGE-GIT-01").map(this::recoverSaved).orElseGet(this::newAttempt);
         if (requestId == null || !requestId.matches("[0-9a-f-]{36}")) throw new IllegalArgumentException("request ID is invalid");
@@ -231,4 +235,7 @@ class StageOneService {
         StageView view() { return new StageView(UUID.randomUUID().toString(), lastOutput, lastExitCode, snapshot, highestHint, playerResets, systemRecoveryCount, commandSequence, grade.cleared(), grade.stars(), grade.message()); }
     }
     record StageView(String requestId, String output, Integer exitCode, RepositorySnapshot snapshot, int hintLevel, int resetCount, int systemRecoveryCount, long commandSequence, boolean cleared, int stars, String gradeMessage) { }
+    record StageProgress(String stageKey, String title, String summary, int highestStars) {
+        public boolean isCleared() { return highestStars > 0; }
+    }
 }
