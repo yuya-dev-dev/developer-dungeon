@@ -24,10 +24,10 @@ $appJar = Get-ChildItem (Join-Path $root 'app/target/app-*.jar') | Where-Object 
 if (-not $runnerJar -or -not $appJar) { throw 'Build the application with .\mvnw.cmd package first.' }
 $runtimeTemp = Join-Path $runtime 'tmp'
 New-Item -ItemType Directory -Force -Path $runtimeTemp | Out-Null
+$ledgerPath = Join-Path $runtime 'runner-owned-containers.json'
+$timing = Get-LocalRuntimeTiming
 
-$bytes = [byte[]]::new(32); [Security.Cryptography.RandomNumberGenerator]::Fill($bytes)
-$token = [Convert]::ToBase64String($bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_')
-if ($token -notmatch '^[A-Za-z0-9_-]{43}$') { throw 'Failed to generate Runner token.' }
+$token = New-RunnerToken
 
 function Start-JavaChild([IO.FileInfo]$jar, [hashtable]$variables) {
     $psi = [Diagnostics.ProcessStartInfo]::new((Join-Path $env:JAVA_HOME 'bin/java.exe'))
@@ -43,8 +43,8 @@ function Start-JavaChild([IO.FileInfo]$jar, [hashtable]$variables) {
     foreach ($key in $variables.Keys) { $psi.Environment[$key] = $variables[$key] }
     return [Diagnostics.Process]::Start($psi)
 }
-function Invoke-Ready([string]$url) {
-    $deadline = [DateTimeOffset]::UtcNow.AddSeconds(15)
+function Invoke-Ready([string]$url, [int]$seconds) {
+    $deadline = [DateTimeOffset]::UtcNow.AddSeconds($seconds)
     do {
         try {
             $client = [Net.Http.HttpClient]::new(); $client.Timeout = [TimeSpan]::FromSeconds(1)
@@ -56,25 +56,22 @@ function Invoke-Ready([string]$url) {
     return $false
 }
 function Stop-Child($process, [string]$url) {
-    if ($null -eq $process -or $process.HasExited) { return }
-    try {
-        $client = [Net.Http.HttpClient]::new(); $client.Timeout = [TimeSpan]::FromSeconds(3)
-        $request = [Net.Http.HttpRequestMessage]::new([Net.Http.HttpMethod]::Post, $url)
-        $request.Headers.Add('X-Developer-Dungeon-Runner-Token', $token)
-        $null = $client.Send($request)
-        if (-not $process.WaitForExit(5000)) { $process.Kill($true) }
-    } catch { if (-not $process.HasExited) { $process.Kill($true) } }
+    return Invoke-ChildStop -Process $process -Url $url -Token $token -Timing $timing
 }
 
 $runner = $null; $app = $null
 try {
-    $runner = Start-JavaChild $runnerJar @{ DEVELOPER_DUNGEON_RUNNER_TOKEN=$token; DEVELOPER_DUNGEON_CHALLENGE_IMAGE_ID=$imageId; DEVELOPER_DUNGEON_CHALLENGE_IMAGE_FINGERPRINT=$fingerprint; DEVELOPER_DUNGEON_DOCKER_EXECUTABLE=$dockerExecutable }
-    if (-not (Invoke-Ready 'http://127.0.0.1:18081/internal/health')) { throw 'Runner readiness failed.' }
+    $runner = Start-JavaChild $runnerJar @{ DEVELOPER_DUNGEON_RUNNER_TOKEN=$token; DEVELOPER_DUNGEON_CHALLENGE_IMAGE_ID=$imageId; DEVELOPER_DUNGEON_CHALLENGE_IMAGE_FINGERPRINT=$fingerprint; DEVELOPER_DUNGEON_DOCKER_EXECUTABLE=$dockerExecutable; DEVELOPER_DUNGEON_CONTAINER_LEDGER_PATH=$ledgerPath }
+    if (-not (Invoke-Ready 'http://127.0.0.1:18081/internal/health' $timing.RunnerReadySeconds)) { throw 'Runner readiness failed.' }
     $app = Start-JavaChild $appJar @{ DEVELOPER_DUNGEON_RUNNER_TOKEN=$token; DEVELOPER_DUNGEON_RUNNER_URL='http://127.0.0.1:18081' }
-    if (-not (Invoke-Ready 'http://127.0.0.1:8080/internal/health')) { throw 'App readiness failed.' }
+    if (-not (Invoke-Ready 'http://127.0.0.1:8080/internal/health' $timing.AppReadySeconds)) { throw 'App readiness failed.' }
     Write-Host 'Developer Dungeon is running at http://127.0.0.1:8080'
     $app.WaitForExit()
 } finally {
-    Stop-Child $app 'http://127.0.0.1:8080/internal/shutdown'
-    Stop-Child $runner 'http://127.0.0.1:18081/internal/shutdown'
+    $appStop = Stop-Child $app 'http://127.0.0.1:8080/internal/shutdown'
+    $runnerStop = Stop-Child $runner 'http://127.0.0.1:18081/internal/shutdown'
+    $failedStops = @(@($appStop, $runnerStop) | Where-Object { $_ -notin @('Stopped', 'AlreadyStopped') })
+    if ($failedStops.Count -gt 0) {
+        throw "Local shutdown was incomplete ($($failedStops -join ', ')); the next startup must perform recovery."
+    }
 }

@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import jp.yuya.dev.developerdungeon.contract.CommandKind;
@@ -28,6 +29,9 @@ class RunnerWorkspaceService {
     private static final Logger log = LoggerFactory.getLogger(RunnerWorkspaceService.class);
     private static final Duration COMMAND_TIMEOUT = Duration.ofSeconds(5);
     private static final Duration WORKSPACE_TTL = Duration.ofMinutes(15);
+    private static final int MAX_CLEANUP_ATTEMPTS = 3;
+    private static final String UUID_PATTERN = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
+    private static final String CONTAINER_ID_PATTERN = "[0-9a-f]{12,64}";
     private final ConcurrentHashMap<String, Workspace> workspaces = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Set<String>> allowedObjects = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, String> revertTargets = new ConcurrentHashMap<>();
@@ -35,34 +39,46 @@ class RunnerWorkspaceService {
     private final ConcurrentHashMap<String, CommandResponse> executedRequests = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Workspace> destroyedWorkspaces = new ConcurrentHashMap<>();
     private final Set<String> expiredWorkspaces = ConcurrentHashMap.newKeySet();
+    private final Set<String> cleanupPending = ConcurrentHashMap.newKeySet();
+    private final ConcurrentHashMap<String, Integer> cleanupAttempts = new ConcurrentHashMap<>();
     private final DockerGateway docker;
     private final RunnerProperties properties;
     private final RunnerCommandValidator validator;
     private final Clock clock;
+    private final ContainerOwnershipLedger ledger;
+    private final AtomicBoolean shuttingDown = new AtomicBoolean();
+    private final AtomicBoolean degraded = new AtomicBoolean();
 
     @Autowired
-    RunnerWorkspaceService(DockerGateway docker, RunnerProperties properties, RunnerCommandValidator validator, Clock clock) {
-        this.docker = docker; this.properties = properties; this.validator = validator; this.clock = clock;
+    RunnerWorkspaceService(DockerGateway docker, RunnerProperties properties, RunnerCommandValidator validator, Clock clock, ContainerOwnershipLedger ledger) {
+        this.docker = docker; this.properties = properties; this.validator = validator; this.clock = clock; this.ledger = ledger;
     }
+    RunnerWorkspaceService(DockerGateway docker, RunnerProperties properties, RunnerCommandValidator validator, Clock clock) { this(docker, properties, validator, clock, new MemoryContainerOwnershipLedger(clock)); }
     RunnerWorkspaceService(DockerGateway docker, RunnerProperties properties, RunnerCommandValidator validator) { this(docker, properties, validator, Clock.systemUTC()); }
 
     @PostConstruct
-    void cleanupOrphansOnStartup() { cleanupOrphans(); }
+    void cleanupOrphansOnStartup() {
+        try { cleanupStartupOrphans(); }
+        catch (RuntimeException exception) {
+            degraded.set(true);
+            log.warn("Startup challenge container recovery is incomplete");
+        }
+    }
 
     @Scheduled(fixedDelay = 60_000)
     synchronized void cleanupExpiredWorkspaces() {
         Instant cutoff = clock.instant().minus(WORKSPACE_TTL);
         workspaces.values().stream().filter(workspace -> !workspace.lastActivityAt().isAfter(cutoff)).toList().forEach(workspace -> {
             expiredWorkspaces.add(workspace.workspaceId());
-            try { removeWorkspace(workspace); }
-            catch (RuntimeException exception) { log.error("Expired challenge container cleanup failed: {}", workspace.workspaceId(), exception); }
+            tryCleanup(workspace, UUID.randomUUID().toString(), "expired");
         });
+        cleanupLedgerOrphans(cutoff);
     }
 
     @PreDestroy
     synchronized void cleanupOnShutdown() {
         workspaces.values().forEach(workspace -> {
-            try { removeWorkspace(workspace); }
+            try { removeWorkspace(workspace, UUID.randomUUID().toString()); }
             catch (RuntimeException exception) { log.error("Challenge container cleanup failed during shutdown: {}", workspace.workspaceId(), exception); }
         });
         workspaces.clear();
@@ -72,11 +88,14 @@ class RunnerWorkspaceService {
         executedRequests.clear();
         destroyedWorkspaces.clear();
         expiredWorkspaces.clear();
-        cleanupOrphans();
+        cleanupPending.clear();
+        cleanupAttempts.clear();
     }
 
     synchronized WorkspaceResponse create(WorkspaceRequest request) {
+        requireOperational();
         cleanupExpiredWorkspaces();
+        requireNoCleanupPending();
         requireStage(request.stageKey());
         requireRequest(request.attemptId(), request.requestId(), request.generation());
         String idempotencyKey = requestKey(request.attemptId(), request.requestId());
@@ -85,22 +104,30 @@ class RunnerWorkspaceService {
         String workspaceId = UUID.randomUUID().toString();
         String imageId = requiredImageId();
         verifyChallengeImage(imageId);
-        var result = docker.run(List.of("run", "-d", "--platform", "linux/amd64", "--read-only", "--network", "none", "--user", "10001:10001",
-                "--cap-drop", "ALL", "--security-opt", "no-new-privileges", "--pids-limit", "64", "--memory", "256m",
-                "--cpus", "0.5", "--tmpfs", "/workspace:rw,nosuid,nodev,noexec,size=64m,mode=0700,uid=10001,gid=10001",
-                "--tmpfs", "/tmp:rw,nosuid,nodev,noexec,size=16m,mode=0700,uid=10001,gid=10001",
-                "--label", "io.developer-dungeon.project=developer-dungeon",
-                "--label", "io.developer-dungeon.owner=git-runner",
-                "--label", "io.developer-dungeon.workspace=" + workspaceId, imageId), COMMAND_TIMEOUT);
-        if (result.exitCode() != 0) throw new IllegalStateException("container create failed: " + result.stderr());
-        String containerId = result.stdout().trim();
-        var workspace = new Workspace(workspaceId, request.attemptId(), request.generation(), containerId, clock.instant(), clock.instant());
-        workspaces.put(workspaceId, workspace);
+        try { ledger.recordIntent(request.attemptId(), workspaceId, request.generation(), imageId, properties.imageFingerprint()); }
+        catch (RuntimeException exception) { degraded.set(true); throw exception; }
+        String containerId = null;
+        Workspace workspace = null;
         try {
+            var result = docker.run(List.of("run", "-d", "--platform", "linux/amd64", "--read-only", "--network", "none", "--user", "10001:10001",
+                    "--cap-drop", "ALL", "--security-opt", "no-new-privileges", "--pids-limit", "64", "--memory", "256m",
+                    "--cpus", "0.5", "--tmpfs", "/workspace:rw,nosuid,nodev,noexec,size=64m,mode=0700,uid=10001,gid=10001",
+                    "--tmpfs", "/tmp:rw,nosuid,nodev,noexec,size=16m,mode=0700,uid=10001,gid=10001",
+                    "--label", "io.developer-dungeon.project=developer-dungeon",
+                    "--label", "io.developer-dungeon.owner=git-runner",
+                    "--label", "io.developer-dungeon.attempt=" + request.attemptId(),
+                    "--label", "io.developer-dungeon.workspace=" + workspaceId,
+                    "--label", "io.developer-dungeon.challenge.build-input-sha256=" + properties.imageFingerprint(), imageId), COMMAND_TIMEOUT);
+            if (result.exitCode() != 0) throw new IllegalStateException("container create failed");
+            containerId = result.stdout().trim();
+            if (!containerId.matches(CONTAINER_ID_PATTERN)) throw new IllegalStateException("container create returned invalid identity");
+            ledger.attachContainer(workspaceId, containerId);
+            workspace = new Workspace(workspaceId, request.attemptId(), request.generation(), containerId, clock.instant(), clock.instant());
+            workspaces.put(workspaceId, workspace);
             var copy = docker.run(List.of("exec", containerId, "/bin/cp", "-a", "/opt/fixtures/stage-git-01/.", "/workspace"), COMMAND_TIMEOUT);
-            if (copy.exitCode() != 0) throw new IllegalStateException("fixture copy failed: " + copy.stderr());
+            if (copy.exitCode() != 0) throw new IllegalStateException("fixture copy failed");
             var writable = docker.run(List.of("exec", containerId, "/bin/chmod", "-R", "u+rwX", "/workspace"), COMMAND_TIMEOUT);
-            if (writable.exitCode() != 0) throw new IllegalStateException("workspace permission setup failed: " + writable.stderr());
+            if (writable.exitCode() != 0) throw new IllegalStateException("workspace permission setup failed");
             verifyCreatedContainer(workspace, imageId);
             validateWorkspace(workspace);
             RepositorySnapshot initial = snapshot(workspace);
@@ -108,15 +135,25 @@ class RunnerWorkspaceService {
             revertTargets.put(workspaceId, initial.headObjectId());
             WorkspaceResponse response = new WorkspaceResponse(workspaceId, request.generation(), initial);
             createdRequests.put(idempotencyKey, response);
+            ledger.pruneDeletedBeforeGeneration(request.attemptId(), request.generation());
             return response;
         } catch (RuntimeException exception) {
-            try { removeWorkspace(workspace); }
-            catch (RuntimeException cleanupFailure) { exception.addSuppressed(cleanupFailure); log.error("Challenge container cleanup failed after create error: {}", workspaceId, cleanupFailure); }
+            if (workspace == null) {
+                recoverUnpublishedCreate(request, workspaceId, imageId, containerId, exception);
+            } else {
+                try { removeFailedCreate(workspace); }
+                catch (RuntimeException cleanupFailure) {
+                    recordCleanupFailure(workspace, "create");
+                    exception.addSuppressed(cleanupFailure);
+                    log.warn("Challenge container cleanup failed after create error: workspaceId={}", workspaceId);
+                }
+            }
             throw exception;
         }
     }
 
     synchronized CommandResponse execute(ExecuteRequest request) {
+        requireOperational();
         cleanupExpiredWorkspaces();
         validator.validate(request.command());
         requireRequest(request.attemptId(), request.requestId(), request.generation());
@@ -134,8 +171,9 @@ class RunnerWorkspaceService {
             touch(workspace);
             return response;
         } catch (RuntimeException exception) {
-            try { removeWorkspace(workspace); }
-            catch (RuntimeException cleanupFailure) { exception.addSuppressed(cleanupFailure); }
+            cleanupPending.add(workspace.workspaceId());
+            try { removeWorkspace(workspace, request.requestId()); }
+            catch (RuntimeException cleanupFailure) { recordCleanupFailure(workspace, "execute"); exception.addSuppressed(cleanupFailure); }
             throw exception;
         }
     }
@@ -144,6 +182,7 @@ class RunnerWorkspaceService {
         cleanupExpiredWorkspaces();
         requireRequest(request.attemptId(), request.requestId(), request.generation());
         String idempotencyKey = requestKey(request.workspaceId(), request.requestId());
+        if (ledger.wasDeleted(request.attemptId(), request.workspaceId(), request.generation(), request.requestId())) return;
         Workspace workspace = workspaces.get(request.workspaceId());
         if (workspace == null) {
             Workspace destroyed = destroyedWorkspaces.get(idempotencyKey);
@@ -153,15 +192,13 @@ class RunnerWorkspaceService {
         if (!workspace.attemptId().equals(request.attemptId()) || workspace.generation() != request.generation()) {
             throw new IllegalArgumentException("unknown workspace");
         }
-        removeContainer(workspace.containerId());
-        workspaces.remove(workspace.workspaceId(), workspace);
-        allowedObjects.remove(workspace.workspaceId());
-        revertTargets.remove(workspace.workspaceId());
-        expiredWorkspaces.remove(workspace.workspaceId());
-        destroyedWorkspaces.put(idempotencyKey, workspace);
+        cleanupPending.add(workspace.workspaceId());
+        try { removeWorkspace(workspace, request.requestId()); destroyedWorkspaces.put(idempotencyKey, workspace); }
+        catch (RuntimeException exception) { recordCleanupFailure(workspace, "destroy"); throw exception; }
     }
 
     synchronized RepositorySnapshot snapshotFor(String workspaceId, String attemptId, long generation) {
+        requireOperational();
         cleanupExpiredWorkspaces();
         Workspace workspace = workspace(workspaceId, attemptId, generation);
         RepositorySnapshot snapshot = snapshot(workspace);
@@ -217,20 +254,19 @@ class RunnerWorkspaceService {
         var arguments = new ArrayList<String>();
         arguments.addAll(List.of("exec", "--env", "HOME=/tmp/empty-home", "--env", "XDG_CONFIG_HOME=/tmp/empty-xdg",
                 "--env", "GIT_CONFIG_NOSYSTEM=1", "--env", "GIT_CONFIG_GLOBAL=/dev/null", "--env", "GIT_TERMINAL_PROMPT=0",
-                "--env", "GIT_ASKPASS=/bin/false", containerId, "/usr/bin/git"));
+                "--env", "GIT_ASKPASS=/bin/false", "--env", "GIT_ALLOW_PROTOCOL=", "--env", "GIT_PROTOCOL_FROM_USER=0", containerId, "/usr/bin/git"));
         return arguments;
     }
 
     private Workspace workspace(String workspaceId, String attemptId, long generation) {
         Workspace workspace = workspaces.get(workspaceId);
-        if (workspace == null || expiredWorkspaces.contains(workspaceId) || !workspace.attemptId().equals(attemptId) || workspace.generation() != generation) {
+        if (workspace == null || expiredWorkspaces.contains(workspaceId) || cleanupPending.contains(workspaceId) || !workspace.attemptId().equals(attemptId) || workspace.generation() != generation) {
             throw new IllegalArgumentException("unknown workspace");
         }
         return workspace;
     }
     private void requireRequest(String attemptId, String requestId, long generation) {
-        String uuid = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
-        if (attemptId == null || !attemptId.matches(uuid) || requestId == null || !requestId.matches(uuid) || generation < 0) {
+        if (attemptId == null || !attemptId.matches(UUID_PATTERN) || requestId == null || !requestId.matches(UUID_PATTERN) || generation < 0) {
             throw new IllegalArgumentException("invalid request identity");
         }
     }
@@ -260,7 +296,10 @@ class RunnerWorkspaceService {
         String labels = output.startsWith(expectedPrefix) ? output.substring(expectedPrefix.length()) : "";
         if (inspect.exitCode() != 0 || !output.startsWith(expectedPrefix)
                 || !labels.contains("\"io.developer-dungeon.project\":\"developer-dungeon\"")
-                || !labels.contains("\"io.developer-dungeon.owner\":\"git-runner\"")) {
+                || !labels.contains("\"io.developer-dungeon.owner\":\"git-runner\"")
+                || !labels.contains("\"io.developer-dungeon.attempt\":\"" + workspace.attemptId() + "\"")
+                || !labels.contains("\"io.developer-dungeon.workspace\":\"" + workspace.workspaceId() + "\"")
+                || !labels.contains("\"io.developer-dungeon.challenge.build-input-sha256\":\"" + properties.imageFingerprint() + "\"")) {
             throw new IllegalStateException("created challenge container verification failed");
         }
     }
@@ -294,32 +333,116 @@ class RunnerWorkspaceService {
     }
     private void removeContainer(String containerId) {
         var result = docker.run(List.of("rm", "-f", containerId), COMMAND_TIMEOUT);
-        if (result.exitCode() != 0) throw new IllegalStateException("container cleanup failed: " + result.stderr());
+        if (result.exitCode() != 0) throw new IllegalStateException("container cleanup failed");
     }
-    private void removeWorkspace(Workspace workspace) {
+    private void removeWorkspace(Workspace workspace, String cleanupRequestId) {
         removeContainer(workspace.containerId());
+        ledger.markDeleted(workspace.workspaceId(), cleanupRequestId);
         workspaces.remove(workspace.workspaceId(), workspace);
         allowedObjects.remove(workspace.workspaceId());
         revertTargets.remove(workspace.workspaceId());
         expiredWorkspaces.remove(workspace.workspaceId());
+        cleanupPending.remove(workspace.workspaceId());
+        cleanupAttempts.remove(workspace.workspaceId());
         executedRequests.keySet().removeIf(key -> key.startsWith(workspace.workspaceId() + ":"));
         createdRequests.entrySet().removeIf(entry -> entry.getValue().workspaceId().equals(workspace.workspaceId()));
         destroyedWorkspaces.entrySet().removeIf(entry -> entry.getValue().workspaceId().equals(workspace.workspaceId()));
+    }
+    private void removeFailedCreate(Workspace workspace) {
+        removeContainer(workspace.containerId()); ledger.remove(workspace.workspaceId()); workspaces.remove(workspace.workspaceId(), workspace);
+        allowedObjects.remove(workspace.workspaceId()); revertTargets.remove(workspace.workspaceId()); cleanupPending.remove(workspace.workspaceId()); cleanupAttempts.remove(workspace.workspaceId());
     }
     private void touch(Workspace workspace) {
         workspaces.replace(workspace.workspaceId(), workspace,
                 new Workspace(workspace.workspaceId(), workspace.attemptId(), workspace.generation(), workspace.containerId(), workspace.createdAt(), clock.instant()));
     }
-    private void cleanupOrphans() {
-        var result = docker.run(List.of("ps", "-aq", "--filter", "label=io.developer-dungeon.project=developer-dungeon",
-                "--filter", "label=io.developer-dungeon.owner=git-runner"), COMMAND_TIMEOUT);
-        if (result.exitCode() != 0) return;
-        for (String id : result.stdout().split("\\R")) {
-            if (id.matches("[0-9a-f]{12,64}")) {
-                try { removeContainer(id); }
-                catch (RuntimeException exception) { log.error("Orphaned challenge container cleanup failed: {}", id, exception); }
-            }
+    synchronized void beginShutdown() {
+        shuttingDown.set(true);
+        RuntimeException failure = null;
+        for (Workspace workspace : List.copyOf(workspaces.values())) {
+            try { cleanupPending.add(workspace.workspaceId()); removeWorkspace(workspace, UUID.randomUUID().toString()); }
+            catch (RuntimeException exception) { recordCleanupFailure(workspace, "shutdown"); failure = exception; }
         }
+        if (failure != null) throw new IllegalStateException("challenge cleanup is incomplete", failure);
+    }
+    boolean isReady() { return !shuttingDown.get() && !degraded.get(); }
+    private void requireOperational() {
+        if (shuttingDown.get()) throw new IllegalStateException("Git Runner is shutting down");
+        if (degraded.get()) throw new IllegalStateException("Git Runner requires cleanup recovery");
+    }
+    private void requireNoCleanupPending() {
+        if (!cleanupPending.isEmpty()) throw new IllegalStateException("challenge cleanup is incomplete");
+    }
+    private void cleanupStartupOrphans() {
+        for (ContainerOwnershipLedger.Entry entry : ledger.entries()) {
+            if (entry.state() == ContainerOwnershipLedger.State.DELETED) continue;
+            String id = entry.containerId();
+            if (id == null) id = resolveIntent(entry);
+            verifyOwnedContainer(entry, id); removeContainer(id); ledger.remove(entry.workspaceId());
+        }
+    }
+    private void recoverUnpublishedCreate(WorkspaceRequest request, String workspaceId, String imageId, String knownContainerId, RuntimeException original) {
+        degraded.set(true);
+        ContainerOwnershipLedger.Entry intent = new ContainerOwnershipLedger.Entry(ContainerOwnershipLedger.State.INTENT, clock.instant(), 0,
+                request.attemptId(), workspaceId, request.generation(), imageId, properties.imageFingerprint(), null, null);
+        try {
+            String containerId = knownContainerId == null ? resolveIntent(intent) : knownContainerId;
+            verifyOwnedContainer(intent, containerId);
+            removeContainer(containerId);
+            ledger.remove(workspaceId);
+            degraded.set(false);
+        } catch (RuntimeException recoveryFailure) {
+            original.addSuppressed(recoveryFailure);
+            log.warn("Unpublished challenge container recovery is incomplete: workspaceId={}", workspaceId);
+        }
+    }
+    private String resolveIntent(ContainerOwnershipLedger.Entry entry) {
+        for (int attempt = 0; attempt < 3; attempt++) {
+            var result = docker.run(List.of("ps", "-aq", "--filter", "label=io.developer-dungeon.workspace=" + entry.workspaceId()), COMMAND_TIMEOUT);
+            if (result.exitCode() != 0) throw new IllegalStateException("ownership recovery failed");
+            List<String> ids = result.stdout().lines().map(String::trim).filter(id -> id.matches(CONTAINER_ID_PATTERN)).toList();
+            if (ids.size() == 1) return ids.getFirst();
+            if (ids.size() > 1) throw new IllegalStateException("ownership recovery is ambiguous");
+            ledger.incrementConfirmation(entry.workspaceId());
+            if (attempt < 2) try { Thread.sleep(2_000); } catch (InterruptedException exception) { Thread.currentThread().interrupt(); throw new IllegalStateException("ownership recovery interrupted", exception); }
+        }
+        throw new IllegalStateException("unresolved container creation intent");
+    }
+    private void verifyOwnedContainer(ContainerOwnershipLedger.Entry entry, String containerId) {
+        var inspect = docker.run(List.of("container", "inspect", "--format", "{{.Id}}|{{.Image}}|{{json .Config.Labels}}", containerId), COMMAND_TIMEOUT);
+        String output = inspect.stdout().trim();
+        String[] parts = output.split("\\|", 3);
+        if (inspect.exitCode() != 0 || parts.length != 3 || !(parts[0].equals(containerId) || parts[0].startsWith(containerId)) || !parts[1].equals(entry.imageId())
+                || !output.contains("\"io.developer-dungeon.project\":\"developer-dungeon\"")
+                || !output.contains("\"io.developer-dungeon.owner\":\"git-runner\"")
+                || !output.contains("\"io.developer-dungeon.attempt\":\"" + entry.attemptId() + "\"")
+                || !output.contains("\"io.developer-dungeon.workspace\":\"" + entry.workspaceId() + "\"")
+                || !output.contains("\"io.developer-dungeon.challenge.build-input-sha256\":\"" + entry.fingerprint() + "\"")) throw new IllegalStateException("owned container identity is invalid");
+    }
+    private void cleanupLedgerOrphans(Instant cutoff) {
+        Set<String> active = workspaces.values().stream().map(Workspace::containerId).collect(java.util.stream.Collectors.toSet());
+        for (ContainerOwnershipLedger.Entry entry : ledger.entries()) {
+            if (entry.state() != ContainerOwnershipLedger.State.ACTIVE || entry.containerId() == null || active.contains(entry.containerId()) || entry.createdAt().isAfter(cutoff)) continue;
+            verifyOwnedContainer(entry, entry.containerId()); removeContainer(entry.containerId()); ledger.remove(entry.workspaceId());
+        }
+    }
+    private void tryCleanup(Workspace workspace, String cleanupRequestId, String reason) {
+        if (cleanupAttempts.getOrDefault(workspace.workspaceId(), 0) >= MAX_CLEANUP_ATTEMPTS) {
+            cleanupPending.add(workspace.workspaceId());
+            log.warn("Skipping challenge container cleanup after max attempts: workspaceId={}, reason={}", workspace.workspaceId(), reason);
+            return;
+        }
+        cleanupPending.add(workspace.workspaceId());
+        try {
+            removeWorkspace(workspace, cleanupRequestId);
+        } catch (RuntimeException exception) {
+            recordCleanupFailure(workspace, reason);
+        }
+    }
+    private void recordCleanupFailure(Workspace workspace, String reason) {
+        int attempts = cleanupAttempts.merge(workspace.workspaceId(), 1, Integer::sum);
+        cleanupPending.add(workspace.workspaceId());
+        log.warn("Challenge container cleanup failed: workspaceId={}, reason={}, attempts={}", workspace.workspaceId(), reason, attempts);
     }
     private record Workspace(String workspaceId, String attemptId, long generation, String containerId, Instant createdAt, Instant lastActivityAt) { }
 }
