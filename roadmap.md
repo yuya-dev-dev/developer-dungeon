@@ -220,14 +220,13 @@ Phase 1の次へ進む条件は満たした。安全境界を5stageへ拡張す�
 
 ## 12. 現在の次作業
 
-1. container作成intent、ACTIVE、DELETED tombstoneを永続化する所有台帳と排他lockを実装した。
-2. 不確定create、cleanup失敗、TTL、startup orphan回収、shutdown中の新規操作をfail closedにした。
-3. appのreset／recoveryは旧workspaceの削除成功前に次generationを作らないよう変更した。
-4. launcherのtoken生成、readiness／shutdown時間、非2xx・timeout・強制停止の結果契約を固定した。
-5. 井上の実装後レビューでP1・P2をすべて解消し、最終PASSを得た。
-6. 中谷がDocker不要の対象限定test 29件を実行し、すべて成功した。
-7. stale imageを固定build scriptで再構築後、メインがDocker integration test 2件を実行し、container isolationとstartup orphan回収の成功を確認した。
+1. Phase 3の永続化基盤として、管理用PostgreSQL 18.4、専用Flyway migrator、Spring JDBC、`stage_attempt`／`command_history`を追加した。
+2. appはruntime DB credentialだけを受け取り、Runner／challenge containerへDB接続情報を渡さない。DBはloopback bind、分離role、固定volume、所有label検証、逆順停止で扱う。
+3. STAGE-GIT-01の開始、command history、hint、reset、system recovery、clearと最高スター導出を永続化した。
+4. 井上の実装後レビューでP1・P2を解消し、最終PASSを得た。
+5. 対象限定確認として、LocalRuntime契約テスト、`StageOneServiceTest` 9件、PostgreSQL Testcontainers integration test 1件が成功した。
+6. 次はPhase 3の画面側（ステージ一覧と最高スターの表示）を、永続化済みのqueryを利用して個別に設計・実装する。
 
-詳細は[`docs/phase-2-hardening-plan.md`](docs/phase-2-hardening-plan.md)を正本とする。Phase 2では新しいstage、PostgreSQL、認証、外部公開、世界観の大幅拡張を同時に行わない。これらはRunnerの安全境界を確認した後の各Phaseで扱う。
+詳細は[`docs/phase-3-persistence-plan.md`](docs/phase-3-persistence-plan.md)を正本とする。今回の範囲にはlogin、複数ユーザー識別、STAGE-GIT-02〜05、Browser E2Eを含めない。
 
 次はユーザーが最終差分を確認し、作業branchをcommit／pushしてPRを作成する。commit、push、PR作成、mergeはユーザーが行う。

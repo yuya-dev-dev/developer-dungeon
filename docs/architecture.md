@@ -345,15 +345,20 @@ Spring JDBCとFlywayを使い、JPAはMVPでは導入しない。
 |---|---|
 | `id` | UUID primary key |
 | `stage_key` | `STAGE-GIT-01`など |
-| `status` | ACTIVE / EXECUTING / RESETTING / CLEARED / FAILED / EXPIRED / ABANDONED |
+| `status` | STARTING / ACTIVE / EXECUTING / CLEARING / RESETTING / CLEANUP_PENDING / CLEARED / FAILED / EXPIRED / ABANDONED |
 | `version` | optimistic lock用の単調増加値 |
 | `current_generation` | 現在workspaceの世代。resetごとに増加 |
+| `workspace_id` | Runnerが発行した現在workspaceのUUID。終端時はnull |
+| `create_request_id` | STARTING／reset後のworkspace作成に使う安定request ID |
+| `cleanup_request_id` | clear／reset／recoveryの削除に使う安定request ID |
+| `pending_stars` | CLEARING中に確定待ちの1〜3スター |
 | `started_at` | 開始時刻 |
 | `completed_at` | 終了時刻、nullable |
 | `highest_hint_level` | 0〜4 |
 | `player_reset_count` | プレイヤーが明示したreset回数。スター判定に使用 |
 | `system_recovery_count` | timeout、Runner再起動、応答不明などによるworkspace再生成回数。スター判定に使用しない |
 | `stars` | clear後の1〜3、nullable |
+| `last_sequence_no` | commandとreset eventを含むattempt内の最終sequence |
 
 #### `command_history`
 
@@ -371,18 +376,18 @@ Spring JDBCとFlywayを使い、JPAはMVPでは導入しない。
 | `duration_ms` | 実行時間 |
 | `executed_at` | 実行時刻 |
 
-`(attempt_id, sequence_no)`と`request_id`を一意にする。変更requestでは、Git実行前に`PENDING`行を作成し、同じrequest IDの再送を再実行せず既存結果へ対応付ける。
+`(attempt_id, sequence_no)`と`request_id`を一意にする。同一stageで非終端attemptを複数作らないpartial unique制約を持つ。変更requestでは、Git実行前に`PENDING`行を作成し、同じrequest IDの再送を再実行せず既存結果へ対応付ける。拒否入力はraw textを保存せず、固定reason codeだけを保存する。
 
-resetは`stage_attempt`の終端statusにしない。同じ論理attemptを`RESETTING`へ遷移させ、旧workspaceの削除成功後だけ、reasonに応じて`player_reset_count`または`system_recovery_count`と`current_generation`を増やし、reset eventを`command_history`へ記録して`ACTIVE`へ戻す。削除失敗時は`CLEANUP_PENDING`として新workspaceを作らず、`highest_hint_level`とsequenceを保持する。明示的な「新しい挑戦」だけが新しい`stage_attempt`を作る。
+外部Runner操作とDB更新は同一transactionにしない。短いDB transactionで中間状態と安定request IDを記録し、transaction外でRunner操作を行い、短いDB transactionで結果を確定する。clearは`CLEARING`へstarsとcleanup request IDを記録してから削除し、成功後だけ`CLEARED`へ確定する。resetは`RESETTING`へcleanup/create request IDを記録し、旧workspaceの削除成功後だけgenerationとreasonに応じたcounterを増やして`STARTING`へ戻す。削除失敗時は`CLEANUP_PENDING`として新workspaceを作らない。明示的な「新しい挑戦」だけが新しい`stage_attempt`を作る。
 
 `stage`、`player`、`player_progress` tableは作らない。ステージは固定resource、進捗と最高スターはCLEARED attemptから導出する。
 
 ### 13.3 startup recovery
 
 - Git Runner起動時は、前processのidempotency記録を失っているため、固定labelを持つ既存challenge containerを新規commandへ再利用せず、安全に停止・削除する。
-- app起動時は`EXECUTING`、`RESETTING`、`PENDING`を1 transactionずつ照合する。
+- app起動時は`STARTING`、`ACTIVE`、`EXECUTING`、`CLEARING`、`RESETTING`、`CLEANUP_PENDING`を1 transactionずつ照合する。
 - `PENDING` commandは自動再実行せず`RUNNER_ERROR`へ終端化し、対応するattemptをsystem recoveryへ遷移させる。
-- system recoveryでは`system_recovery_count`と`current_generation`を増やし、新しいworkspaceを作成して`ACTIVE`へ戻す。再生成できない場合だけ`FAILED`にする。
+- system recoveryでは記録済みcleanup request IDで旧workspaceの削除を再確認してから、`system_recovery_count`と`current_generation`を増やし、新しいworkspaceを作成して`ACTIVE`へ戻す。CLEARINGは同じcleanup request IDで再送してからCLEAREDを確定する。矛盾または複数非終端attemptでは新workspaceを作らずfail closedにする。
 - `CLEARED`、`FAILED`、`EXPIRED`、`ABANDONED`は再開しない。
 - recovery処理自体もrequest ID、optimistic lock、generationで多重実行を防ぐ。
 - app停止、Runner停止、response確定直前停止をそれぞれintegration testで再現する。
@@ -422,6 +427,7 @@ stack trace、host path、credentialをBrowserへ返さない。
 | challenge image | `developer-dungeon/git-challenge:0.1.0`をlocal buildし、runtimeでは生成されたimmutable image IDだけを使用 | 1日縦切り版 |
 | PostgreSQL | 18.4 | 安定版MVPから。1日版では起動しない |
 | PostgreSQL image | `postgres:18.4-alpine3.23` | 安定版MVP着手時にplatform別digestを固定 |
+| Testcontainers | 1.21.4 | persistence integration test |
 
 Spring Bootの依存versionは原則として4.1.0のdependency managementへ従い、個別上書きしない。Gitの教材挙動は最新Git 2.55.0ではなく、challenge image内で再現可能なAlpine package 2.52.0-r0を正とする。
 
@@ -470,7 +476,7 @@ Alpine repositoryから同じpackage artifactを将来も取得できること�
 - IDEまたはMavenからの直接起動はunit／integration test、または明示的なdiagnostic profileだけに限定する。通常profileはtokenまたはimage IDが未設定ならruntime APIを公開せずfail closedにする。
 - Git challenge containerのlifecycleはComposeへ固定せず、git-runnerがattemptごとに管理する。
 - Web appにDocker socketをmountしない。
-- PostgreSQL／Composeの所有権、readiness、停止方式はPhase 3着手前に確定する。1日縦切り版のlauncherへ推測でDB lifecycleを追加しない。
+- Compose project名`developer-dungeon`、service名`postgres`、volume名`developer-dungeon-postgres-data`を固定する。DB portはloopbackだけへbindし、launcherがCompose labelを検証してから起動・停止する。volumeが存在するのにruntime credential fileが欠落・破損している場合は再生成せずfail closedにする。launcherはDB healthcheck、専用migrator JVM、Runner、appの順に起動し、逆順に停止する。
 
 ## 16. テスト境界
 

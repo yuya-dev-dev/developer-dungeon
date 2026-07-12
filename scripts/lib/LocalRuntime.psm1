@@ -78,6 +78,65 @@ function New-RunnerToken {
     return $token
 }
 
+function Initialize-DatabaseSecrets {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$RuntimeDirectory,
+        [Parameter(Mandatory)][string]$DockerExecutable
+    )
+    $paths = [ordered]@{
+        Admin = Join-Path $RuntimeDirectory 'db-admin-password'
+        Migrator = Join-Path $RuntimeDirectory 'db-migrator-password'
+        App = Join-Path $RuntimeDirectory 'db-app-password'
+    }
+    $missing = @($paths.Values | Where-Object { -not (Test-Path -LiteralPath $_ -PathType Leaf) })
+    if ($missing.Count -gt 0) {
+        & $DockerExecutable volume inspect developer-dungeon-postgres-data *> $null
+        if ($LASTEXITCODE -eq 0) { throw 'Database credential files are missing while the persistent volume exists. Recovery is required.' }
+        if ($missing.Count -ne $paths.Count) { throw 'Database credential files are incomplete.' }
+        New-Item -ItemType Directory -Force -Path $RuntimeDirectory | Out-Null
+        foreach ($path in $paths.Values) {
+            [IO.File]::WriteAllText($path, (New-RunnerToken), [Text.UTF8Encoding]::new($false))
+            $security = [Security.AccessControl.FileSecurity]::new()
+            $security.SetAccessRuleProtection($true, $false)
+            $currentSid = [Security.Principal.WindowsIdentity]::GetCurrent().User
+            $systemSid = [Security.Principal.SecurityIdentifier]::new([Security.Principal.WellKnownSidType]::LocalSystemSid, $null)
+            $security.AddAccessRule([Security.AccessControl.FileSystemAccessRule]::new($currentSid, 'FullControl', 'Allow'))
+            $security.AddAccessRule([Security.AccessControl.FileSystemAccessRule]::new($systemSid, 'FullControl', 'Allow'))
+            Set-Acl -LiteralPath $path -AclObject $security
+        }
+    }
+    $values = [ordered]@{}
+    foreach ($name in $paths.Keys) {
+        Test-DatabaseSecretFile -Path $paths[$name]
+        $value = Get-Content -LiteralPath $paths[$name] -Raw
+        if ($value -notmatch '^[A-Za-z0-9_-]{43}$') { throw "Database credential file is invalid: $name" }
+        $values[$name] = $value
+    }
+    return [pscustomobject]@{ Paths = [pscustomobject]$paths; Values = [pscustomobject]$values }
+}
+
+function Test-DatabaseSecretFile {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Path)
+    $item = Get-Item -LiteralPath $Path -Force -ErrorAction Stop
+    if ($item.PSIsContainer -or (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0)) { throw 'Database credential path is unsafe.' }
+    $currentSid = [Security.Principal.WindowsIdentity]::GetCurrent().User
+    $systemSid = [Security.Principal.SecurityIdentifier]::new([Security.Principal.WellKnownSidType]::LocalSystemSid, $null)
+    $acl = Get-Acl -LiteralPath $Path
+    if ($acl.GetOwner([Security.Principal.SecurityIdentifier]) -ne $currentSid) { throw 'Database credential owner is invalid.' }
+    $rules = @($acl.GetAccessRules($true, $true, [Security.Principal.SecurityIdentifier]))
+    $seen = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+    foreach ($rule in $rules) {
+        $sid = $rule.IdentityReference.Translate([Security.Principal.SecurityIdentifier])
+        if ($rule.IsInherited -or $rule.AccessControlType -ne [Security.AccessControl.AccessControlType]::Allow -or $rule.FileSystemRights -ne [Security.AccessControl.FileSystemRights]::FullControl -or ($sid -ne $currentSid -and $sid -ne $systemSid)) {
+            throw 'Database credential ACL is unsafe.'
+        }
+        if (-not $seen.Add($sid.Value)) { throw 'Database credential ACL is ambiguous.' }
+    }
+    if (-not $seen.SetEquals([string[]]@($currentSid.Value, $systemSid.Value))) { throw 'Database credential ACL is incomplete.' }
+}
+
 function Get-LocalRuntimeTiming {
     [CmdletBinding()]
     param()
@@ -158,4 +217,4 @@ function Get-ChallengeBuildFingerprint {
     return ([Security.Cryptography.SHA256]::HashData($bytes) | ForEach-Object ToString x2) -join ''
 }
 
-Export-ModuleMember -Function Get-DockerExecutable, Test-MavenWrapperIntegrity, Test-LocalRuntimePrerequisites, Get-ChallengeBuildFingerprint, New-RunnerToken, Get-LocalRuntimeTiming, Get-ChildStopOutcome, Invoke-ChildStop
+Export-ModuleMember -Function Get-DockerExecutable, Test-MavenWrapperIntegrity, Test-LocalRuntimePrerequisites, Get-ChallengeBuildFingerprint, New-RunnerToken, Initialize-DatabaseSecrets, Get-LocalRuntimeTiming, Get-ChildStopOutcome, Invoke-ChildStop

@@ -4,6 +4,9 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+import java.time.Clock;
 import jp.yuya.dev.developerdungeon.contract.*;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -14,7 +17,7 @@ class StageOneServiceTest {
         var snapshot = new RepositorySnapshot("c2", "bad-tree", "safe-tree", List.of("c1"), true, false, List.of("c2", "c1"));
         when(runner.create(any())).thenAnswer(invocation -> {
             WorkspaceRequest request = invocation.getArgument(0);
-            return new WorkspaceResponse("workspace-" + request.generation(), request.generation(), snapshot);
+            return new WorkspaceResponse(workspaceId(request), request.generation(), snapshot);
         });
         var service = new StageOneService(runner, new GitCommandParser(), new StageOneGrader(), new OutputSanitizer());
         service.open(); service.reset();
@@ -25,7 +28,7 @@ class StageOneServiceTest {
     @Test void duplicateRequestIdExecutesGitOnlyOnce() {
         RunnerClient runner = mock(RunnerClient.class);
         var initial = new RepositorySnapshot("c2", "bad-tree", "safe-tree", List.of("c1"), true, false, List.of("c2", "c1"));
-        when(runner.create(any())).thenReturn(new WorkspaceResponse("workspace", 0, initial));
+        when(runner.create(any())).thenAnswer(invocation -> { WorkspaceRequest request = invocation.getArgument(0); return new WorkspaceResponse(workspaceId(request), request.generation(), initial); });
         when(runner.execute(any())).thenReturn(new CommandResponse(0, "", "", false, 1, initial));
         var service = new StageOneService(runner, new GitCommandParser(), new StageOneGrader(), new OutputSanitizer());
         service.open(); String requestId = "11111111-1111-1111-1111-111111111111";
@@ -37,7 +40,7 @@ class StageOneServiceTest {
         var initial = new RepositorySnapshot("c2", "bad-tree", "safe-tree", List.of("c1"), true, false, List.of("c2", "c1"));
         when(runner.create(any())).thenAnswer(invocation -> {
             WorkspaceRequest request = invocation.getArgument(0);
-            return new WorkspaceResponse("workspace-" + request.generation(), request.generation(), initial);
+            return new WorkspaceResponse(workspaceId(request), request.generation(), initial);
         });
         when(runner.execute(any())).thenThrow(new IllegalStateException("runner unavailable"));
         var service = new StageOneService(runner, new GitCommandParser(), new StageOneGrader(), new OutputSanitizer());
@@ -48,16 +51,16 @@ class StageOneServiceTest {
 
         assertThat(recovered.systemRecoveryCount()).isEqualTo(1);
         assertThat(recovered.resetCount()).isZero();
-        assertThat(recovered.commandSequence()).isEqualTo(1);
+        assertThat(recovered.commandSequence()).isEqualTo(2);
         assertThat(reset.systemRecoveryCount()).isEqualTo(1);
         assertThat(reset.resetCount()).isEqualTo(1);
-        assertThat(reset.commandSequence()).isEqualTo(1);
+        assertThat(reset.commandSequence()).isEqualTo(3);
     }
     @Test void destroysWorkspaceWhenTheStageIsCleared() {
         RunnerClient runner = mock(RunnerClient.class);
         var initial = new RepositorySnapshot("c2", "bad-tree", "safe-tree", List.of("c1"), true, false, List.of("c2", "c1"));
         var cleared = new RepositorySnapshot("c3", "safe-tree", "bad-tree", List.of("c2"), true, false, List.of("c3", "c2", "c1"));
-        when(runner.create(any())).thenReturn(new WorkspaceResponse("workspace", 0, initial));
+        when(runner.create(any())).thenAnswer(invocation -> { WorkspaceRequest request = invocation.getArgument(0); return new WorkspaceResponse(workspaceId(request), request.generation(), initial); });
         when(runner.execute(any())).thenReturn(new CommandResponse(0, "", "", false, 1, cleared));
         var service = new StageOneService(runner, new GitCommandParser(), new StageOneGrader(), new OutputSanitizer());
 
@@ -75,7 +78,7 @@ class StageOneServiceTest {
         var cleared = new RepositorySnapshot("c3", "safe-tree", "bad-tree", List.of("c2"), true, false, List.of("c3", "c2", "c1"));
         when(runner.create(any())).thenAnswer(invocation -> {
             WorkspaceRequest request = invocation.getArgument(0);
-            return new WorkspaceResponse("workspace-" + request.generation(), request.generation(), initial);
+            return new WorkspaceResponse(workspaceId(request), request.generation(), initial);
         });
         when(runner.execute(any())).thenReturn(new CommandResponse(0, "", "", false, 1, cleared));
         doThrow(new IllegalStateException("cleanup failed")).when(runner).destroy(any(DestroyRequest.class));
@@ -90,7 +93,7 @@ class StageOneServiceTest {
     @Test void resetDoesNotCreateNewWorkspaceWhenCleanupFails() {
         RunnerClient runner = mock(RunnerClient.class);
         var initial = new RepositorySnapshot("c2", "bad-tree", "safe-tree", List.of("c1"), true, false, List.of("c2", "c1"));
-        when(runner.create(any())).thenReturn(new WorkspaceResponse("workspace", 0, initial));
+        when(runner.create(any())).thenAnswer(invocation -> { WorkspaceRequest request = invocation.getArgument(0); return new WorkspaceResponse(workspaceId(request), request.generation(), initial); });
         doThrow(new IllegalStateException("cleanup failed")).when(runner).destroy(any(DestroyRequest.class));
         var service = new StageOneService(runner, new GitCommandParser(), new StageOneGrader(), new OutputSanitizer());
 
@@ -100,4 +103,60 @@ class StageOneServiceTest {
         assertThat(view.output()).contains("新しい作業環境は作成しません");
         verify(runner, times(1)).create(any());
     }
+    @Test void destroysCreatedWorkspaceWhenPersistenceActivationFails() {
+        RunnerClient runner = mock(RunnerClient.class);
+        StagePersistence persistence = mock(StagePersistence.class);
+        UUID attemptId = UUID.randomUUID(); UUID createId = UUID.randomUUID(); UUID workspaceId = UUID.randomUUID();
+        var starting = new StagePersistence.SavedAttempt(attemptId, "STARTING", 0, 0, null, createId, createId, null, 0, 0, 0, 0, null);
+        var created = new StagePersistence.SavedAttempt(attemptId, "STARTING", 1, 0, workspaceId, createId, createId, null, 0, 0, 0, 0, null);
+        var snapshot = new RepositorySnapshot("c2", "bad-tree", "safe-tree", List.of("c1"), true, false, List.of("c2", "c1"));
+        when(persistence.findOpen("STAGE-GIT-01")).thenReturn(Optional.empty());
+        when(persistence.createStarting(any(), any(), any(), any())).thenReturn(starting);
+        when(runner.create(any())).thenReturn(new WorkspaceResponse(workspaceId.toString(), 0, snapshot));
+        when(persistence.workspaceCreated(attemptId, 0, workspaceId)).thenReturn(created);
+        doThrow(new IllegalStateException("database unavailable")).when(persistence).activate(attemptId, 1, workspaceId);
+        when(persistence.beginCreateCleanup(eq(attemptId), eq(1L), eq(workspaceId))).thenReturn(new StagePersistence.SavedAttempt(attemptId, "CLEANUP_PENDING", 2, 0, workspaceId, createId, createId, null, 0, 0, 0, 0, null));
+        when(persistence.restartStartingAfterCleanup(attemptId, 2)).thenReturn(starting);
+        var service = new StageOneService(runner, new GitCommandParser(), new StageOneGrader(), new OutputSanitizer(), persistence, Clock.systemUTC());
+
+        assertThatThrownBy(service::open).isInstanceOf(IllegalStateException.class);
+
+        verify(runner).destroy(argThat(request -> request.attemptId().equals(attemptId.toString()) && request.workspaceId().equals(workspaceId.toString()) && request.requestId().equals(createId.toString())));
+    }
+    @Test void destroysCreatedWorkspaceWhenWorkspacePersistenceFailsBeforeCleanupStateIsSaved() {
+        RunnerClient runner = mock(RunnerClient.class);
+        StagePersistence persistence = mock(StagePersistence.class);
+        UUID attemptId = UUID.randomUUID(); UUID createId = UUID.randomUUID(); UUID workspaceId = UUID.randomUUID();
+        var starting = new StagePersistence.SavedAttempt(attemptId, "STARTING", 0, 0, null, createId, createId, null, 0, 0, 0, 0, null);
+        var snapshot = new RepositorySnapshot("c2", "bad-tree", "safe-tree", List.of("c1"), true, false, List.of("c2", "c1"));
+        when(persistence.findOpen("STAGE-GIT-01")).thenReturn(Optional.empty());
+        when(persistence.createStarting(any(), any(), any(), any())).thenReturn(starting);
+        when(runner.create(any())).thenReturn(new WorkspaceResponse(workspaceId.toString(), 0, snapshot));
+        doThrow(new IllegalStateException("database unavailable")).when(persistence).workspaceCreated(attemptId, 0, workspaceId);
+        var service = new StageOneService(runner, new GitCommandParser(), new StageOneGrader(), new OutputSanitizer(), persistence, Clock.systemUTC());
+
+        assertThatThrownBy(service::open).isInstanceOf(IllegalStateException.class);
+
+        verify(runner).destroy(argThat(request -> request.workspaceId().equals(workspaceId.toString()) && request.requestId().equals(createId.toString())));
+    }
+    @Test void destroysCreatedWorkspaceWhenCleanupStatePersistenceFails() {
+        RunnerClient runner = mock(RunnerClient.class);
+        StagePersistence persistence = mock(StagePersistence.class);
+        UUID attemptId = UUID.randomUUID(); UUID createId = UUID.randomUUID(); UUID workspaceId = UUID.randomUUID();
+        var starting = new StagePersistence.SavedAttempt(attemptId, "STARTING", 0, 0, null, createId, createId, null, 0, 0, 0, 0, null);
+        var created = new StagePersistence.SavedAttempt(attemptId, "STARTING", 1, 0, workspaceId, createId, createId, null, 0, 0, 0, 0, null);
+        var snapshot = new RepositorySnapshot("c2", "bad-tree", "safe-tree", List.of("c1"), true, false, List.of("c2", "c1"));
+        when(persistence.findOpen("STAGE-GIT-01")).thenReturn(Optional.empty());
+        when(persistence.createStarting(any(), any(), any(), any())).thenReturn(starting);
+        when(runner.create(any())).thenReturn(new WorkspaceResponse(workspaceId.toString(), 0, snapshot));
+        when(persistence.workspaceCreated(attemptId, 0, workspaceId)).thenReturn(created);
+        doThrow(new IllegalStateException("database unavailable")).when(persistence).activate(attemptId, 1, workspaceId);
+        doThrow(new IllegalStateException("cleanup state unavailable")).when(persistence).beginCreateCleanup(attemptId, 1, workspaceId);
+        var service = new StageOneService(runner, new GitCommandParser(), new StageOneGrader(), new OutputSanitizer(), persistence, Clock.systemUTC());
+
+        assertThatThrownBy(service::open).isInstanceOf(IllegalStateException.class);
+
+        verify(runner).destroy(argThat(request -> request.workspaceId().equals(workspaceId.toString()) && request.requestId().equals(createId.toString())));
+    }
+    private static String workspaceId(WorkspaceRequest request) { return String.format("00000000-0000-0000-0000-%012d", request.generation() + 1); }
 }
