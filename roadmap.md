@@ -2,8 +2,8 @@
 
 ## 文書情報
 
-- 状態: Phase 1完了、Phase 2 Git Runner hardeningローカル実装・レビュー・対象限定test完了
-- 現在地: 井上の実装後レビューPASS、Docker不要test 29件とDocker integration test 2件PASS。ユーザーの差分確認・PR判断待ち
+- 状態: Phase 4進行中、STAGE-GIT-01／02完了
+- 現在地: STAGE-GIT-03着手前のゲームループ改善方針をユーザー承認済み。正式文書反映後、Stage 1・2の振り返りと自己確認を実装する
 - 上位文書: [`docs/requirements.md`](docs/requirements.md)
 - 関連文書: [`docs/vertical-slice.md`](docs/vertical-slice.md)、[`docs/test-strategy.md`](docs/test-strategy.md)、[`docs/phase-2-hardening-plan.md`](docs/phase-2-hardening-plan.md)
 
@@ -26,9 +26,9 @@
 |---|---|---|
 | 0 | 企画・要件定義・全体設計 | 完了・ユーザー承認済み |
 | 1 | 安全な1日縦切り版 | 完了・PR #1マージ済み |
-| 2 | Git Runner hardening | 次工程・着手判断待ち |
-| 3 | 安定版MVP基盤 | 未着手 |
-| 4 | 5ステージ完成 | 未着手 |
+| 2 | Git Runner hardening | 完了・main反映済み |
+| 3 | 安定版MVP基盤 | 完了・main反映済み |
+| 4 | 5ステージ完成 | 進行中・STAGE-GIT-01／02完了 |
 | 5 | MVP検証と改善 | 未着手 |
 | 6 | 高難度Gitステージ | 未着手 |
 | 7 | 将来編の再評価 | 未着手 |
@@ -151,11 +151,12 @@ Phase 1の次へ進む条件は満たした。安全境界を5stageへ拡張す�
 
 ### 実装順
 
-1. STAGE-GIT-02 cherry-pick
-2. STAGE-GIT-03 stash
-3. STAGE-GIT-04 merge conflict
-4. STAGE-GIT-05 reflog
-5. シーズン1の物語接続と振り返り
+1. STAGE-GIT-02 cherry-pick（完了）
+2. Stage 1・2のゲームループ補完（固定振り返り、物語結果、クリア後の非採点自己確認）
+3. STAGE-GIT-03 stash（案内量削減を先行確認し、読み取り専用状態要約は独立して必要時だけ有効化）
+4. STAGE-GIT-04 merge conflict
+5. STAGE-GIT-05 reflog
+6. シーズン1全体の物語接続と振り返り整合
 
 ### 完成条件
 
@@ -177,6 +178,8 @@ Phase 1の次へ進む条件は満たした。安全境界を5stageへ拡張す�
 - revertとresetなどの使い分けを説明できるか。
 - 物語が薄すぎる、長すぎる、正解誘導になっていないか。
 - Runner待ち時間とresetが離脱原因にならないか。
+- クリア後の自己確認だけで復旧根拠を考える体験が成立するか、ライブworkspace上の復旧報告が必要か。
+- player resetを3スター条件に含めることが、安全な試行錯誤を妨げていないか。
 
 ### 完成条件
 
@@ -220,15 +223,13 @@ Phase 1の次へ進む条件は満たした。安全境界を5stageへ拡張す�
 
 ## 12. 現在の次作業
 
-1. Phase 3の永続化基盤として、管理用PostgreSQL 18.4、専用Flyway migrator、Spring JDBC、`stage_attempt`／`command_history`を追加した。
-2. appはruntime DB credentialだけを受け取り、Runner／challenge containerへDB接続情報を渡さない。DBはloopback bind、分離role、固定volume、所有label検証、逆順停止で扱う。
-3. STAGE-GIT-01の開始、command history、hint、reset、system recovery、clearと最高スター導出を永続化した。
-4. STAGE-GIT-02を追加した。固定fixtureはC0を`feature/notification`、C1を誤って`feature/profile`へ置き、C1のcherry-pick、profileのC0へのreset、notificationへの復帰を状態で採点する。
-5. appはSTAGE-GIT-01／02の固定定義と固定ルートだけを持つ。STAGE-GIT-02ではC0・C1を初期snapshotから不変に保持し、log出力または第4hintで表示済みのIDだけを操作対象にする。
-6. 井上の実装前レビューと実装後レビューでP1・P2を解消し、最終PASSを得た。
-7. 対象限定確認として、Dockerなしのサービス・ルーティング・Runner契約44件と、STAGE-GIT-02固定fixtureを使うDocker統合1件が成功した。
-8. 次はSTAGE-GIT-03を個別設計し、STAGE-GIT-02の固定パターンを安易に汎用化せずに追加可否を検討する。
+1. STAGE-GIT-01／02、MVP永続化、固定ルート、状態採点、対象限定テストは完了しmainへ反映済みである。
+2. ゲームループ改善として、現在の自動クリアを維持し、Stage 1・2へ固定振り返り、危険な代替案、clear scene、成長beat、クリア後の非採点・非永続な自己確認を追加する方針を採用した。
+3. ライブworkspaceの完了を宣言する復旧報告、`POST /report`、report待機用状態機械、TTL、sweeperは採用せず、Phase 5で必要性を再評価する。
+4. 次は正式文書に沿って、Stage 1・2のゲームループ補完を独立した作業branchで実装する。
+5. 補完後にSTAGE-GIT-03を個別設計する。案内量と読み取り専用状態要約を別の固定表示方針とし、最初は概念案内のみ・状態要約なしで手動確認する。
+6. 状態把握不足が主要な詰まりと確認された場合だけ、Stage 3の最小状態要約を有効にして再確認する。
 
-詳細は[`docs/phase-3-persistence-plan.md`](docs/phase-3-persistence-plan.md)、[`docs/phase-3-stage-progress-plan.md`](docs/phase-3-stage-progress-plan.md)、[`docs/phase-4-stage-git-02-plan.md`](docs/phase-4-stage-git-02-plan.md)を正本とする。今回の範囲にはlogin、複数ユーザー識別、STAGE-GIT-03〜05、Browser E2Eを含めない。
+詳細は[`docs/requirements.md`](docs/requirements.md)、[`docs/game-design.md`](docs/game-design.md)、[`docs/git-mvp-stages.md`](docs/git-mvp-stages.md)、[`docs/architecture.md`](docs/architecture.md)、[`docs/test-strategy.md`](docs/test-strategy.md)を正本とする。
 
-次はユーザーが最終差分を確認し、作業branchをcommit／pushしてPRを作成する。commit、push、PR作成、mergeはユーザーが行う。
+コード変更では作業branch作成、実装前後レビュー、対象限定テストを行う。commit、push、PR作成、mergeはユーザーが行う。

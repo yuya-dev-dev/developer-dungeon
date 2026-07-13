@@ -2,7 +2,7 @@
 
 ## 文書情報
 
-- 状態: 承認済み（Phase 1実装・技術確認反映済み、再評価待ち）
+- 状態: 承認済み（STAGE-GIT-02完了、ゲームループ改善方針反映済み）
 - 上位文書: [`requirements.md`](requirements.md)、[`game-design.md`](game-design.md)
 - 関連文書: [`threat-model.md`](threat-model.md)、[`architecture.md`](architecture.md)、[`test-strategy.md`](test-strategy.md)
 
@@ -31,6 +31,8 @@ fixture内の具体的な文章、コミットメッセージ、object IDは実�
 
 採点は信頼できるRunnerが取得したrepository snapshotをJavaのステージ別ポリシーが評価する。入力履歴は採点条件にしない。
 
+安定版MVPでは、clear条件を満たしたコマンドの確定後に自動クリアし、workspaceを破棄する。ライブworkspaceを保持してプレイヤーの復旧報告を待つ状態機械は導入しない。
+
 共通条件：
 
 - 指定されたbranchまたはHEADが期待する位置にある。
@@ -42,9 +44,13 @@ fixture内の具体的な文章、コミットメッセージ、object IDは実�
 
 全ステージで4段階ヒントと累積3スターを使う。詳細は[`game-design.md`](game-design.md)を正本とする。
 
+Stage 1・2は正確な許可構文を常時表示する。Stage 3は概念カテゴリだけを常時表示し、正確な構文はヒントレベル3、対象を含む具体手順はヒントレベル4で開示する。案内量と読み取り専用状態要約は独立した表示方針とし、command allowlist、fixture、clear policyを変更しない。
+
 ### 2.4 物語resource
 
-各ステージに、固定導入scene、固定clear scene、主人公の成長beat、技術振り返りを持たせる。スター別反応は任意とし、技術上のクリア条件を変えない。
+各ステージに、固定導入scene、固定clear scene、主人公の成長beat、技術振り返りを持たせる。技術振り返りは「何が壊れていたか」「なぜ採用方法が安全か」「危険または状況上不適切な代替案」を含む。
+
+クリア後は、固定解説をすぐ表示し切らず、復旧完了の根拠を考えてから解説を開く非採点・非永続の自己確認を置く。回答をスターや進捗へ使用せず、DBへ保存しない。スター別反応は任意とし、技術上のクリア条件を変えない。
 
 ## 3. STAGE-GIT-01 公開済み変更を取り消す
 

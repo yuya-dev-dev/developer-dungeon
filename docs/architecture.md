@@ -187,7 +187,7 @@ Browserから受け取ったraw textはappでparseし、contractには含めな�
 ### 7.3 attemptの直列化とidempotency
 
 - appはattemptごとのlockまたはsingle-thread queueを持ち、command、snapshot、reset、destroyを直列化する。
-- attemptは`ACTIVE`、`EXECUTING`、`RESETTING`、`CLEANUP_PENDING`、`CLEARED`、`FAILED`、`EXPIRED`、`ABANDONED`の状態機械に従う。
+- attemptは`STARTING`、`ACTIVE`、`EXECUTING`、`CLEARING`、`RESETTING`、`CLEANUP_PENDING`、`CLEARED`、`FAILED`、`EXPIRED`、`ABANDONED`の状態機械に従う。
 - Browserの変更requestごとに一意な`requestId`を発行し、同じIDの再送へ同じ結果を返す。
 - workspaceを再生成するたびに単調増加する`generation`を付け、古いworkspaceへのrequestを拒否する。
 - Runnerもattempt／workspaceごとに直列化し、存続中は`requestId`と結果を保持して二重実行を防ぐ。
@@ -224,7 +224,8 @@ Browserから受け取ったraw textはappでparseし、contractには含めな�
 8. challenge container内で固定絶対pathのGitをargv配列で実行する。
 9. Runnerが時間と出力を制限し、採点用snapshotを別に取得する。
 10. appがrequest IDに対応するcommand historyを確定し、stage clear policyを評価する。
-11. Browserへplayer向け結果だけを返す。
+11. clear成立時は`CLEARING`へ遷移し、workspaceの破棄成功後に`CLEARED`とスターを確定する。
+12. Browserへplayer向け結果だけを返し、クリア後は非採点・非永続の自己確認と固定振り返りを表示する。
 
 入力拒否は手順6以前で終了し、Git processを起動しない。
 
@@ -297,6 +298,13 @@ expected object IDとtree IDはfixture manifestからstage定義へ読み込む�
 
 stageの文章、hint、許可command kind、fixture ID、clear policy IDをappの固定resourceまたはJava定義で管理する。
 
+表示上の案内量と読み取り専用状態要約は、stageの技術定義から分離したdeveloper管理の固定表示方針で扱う。初期MVPでは少なくとも次の2軸を独立させる。
+
+- `guidanceMode`: `FULL_SYNTAX` / `CONCEPT_ONLY`
+- `incidentBoardMode`: `OFF` / `BASIC`
+
+表示方針はcommand allowlist、fixture、clear policy、Runner contractへ影響させず、player入力、DB、外部設定から変更できない。Controllerへ渡す案内用view modelと状態要約用view modelを分け、Thymeleafでも別sectionとして条件表示する。汎用feature flag、plugin、動的stage作成基盤は導入しない。
+
 MVPでは次を行わない。
 
 - DBから任意stage scriptを読み込む
@@ -315,6 +323,10 @@ MVPでは次を行わない。
 1日縦切り版ではプレイ画面だけを直接表示してよい。
 
 Phase 4の現時点では、`GET /`が固定のSTAGE-GIT-01／STAGE-GIT-02一覧をDB read-onlyで表示し、各固定URLの`GET /stages/STAGE-GIT-01`と`GET /stages/STAGE-GIT-02`がプレイ画面を表示する。command、hint、resetも各stageの固定POST URLに分け、formから任意のstage keyを受け取らない。一覧は`CLEARED` attemptから導出した最高スターだけを読むため、閲覧時にRunner、workspace、attemptを作らない。未対応stage keyはrouteを定義せず404とする。
+
+安定版MVPはrepository snapshotによる自動クリアを維持し、プレイヤーの復旧報告を待つ`report` routeは追加しない。クリア後の自己確認は、固定の問いと解説を表示するだけの非採点・非永続UIとし、POST、DB、Runner、attempt状態を追加しない。
+
+Stage 1・2は`FULL_SYNTAX + BASIC`で現行表示を維持する。Stage 3の最初の手動確認は`CONCEPT_ONLY + OFF`とし、状態把握不足が主要な詰まりと確認された場合だけ`CONCEPT_ONLY + BASIC`へ変更して再確認する。
 
 ### 12.2 実装方式
 

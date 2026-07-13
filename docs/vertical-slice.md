@@ -94,8 +94,8 @@ Browser -> Spring Boot app -> Git Runner controller -> challenge container
 
 - 段階hint
 - リセット
-- 復旧報告／判定
-- clear後のスターと振り返り
+- repository snapshotによる自動判定
+- clear後のスター、非採点の自己確認、振り返り
 
 物語と技術条件を別の視覚領域に置き、会話をskipしても課題条件を確認できるようにする。
 

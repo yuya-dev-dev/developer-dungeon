@@ -110,6 +110,10 @@ stage固有観点：
 - hintの段階開示
 - reset確認
 - clear後のstarと振り返り表示
+- Stage 1・2でstage固有のclear scene、安全な理由、危険な代替案、成長beatが表示され、別stageの文言が混在しない
+- クリア後の自己確認が非採点・非永続で、POST、DB更新、Runner呼び出しを発生させない
+- `guidanceMode`と`incidentBoardMode`を独立して切り替え、4組合せで案内領域と状態要約領域が不可分になっていない
+- `CONCEPT_ONLY`では正確な構文を常時表示せず、ヒントレベル3以降だけで開示する
 - STAGE-GIT-04以外でeditor endpointを拒否
 
 Thymeleafの見た目そのものはunit testへ寄せすぎず、重要な要素と条件分岐だけを確認する。
@@ -234,6 +238,9 @@ PostgreSQL Testcontainersを使用し、次を確認する。
 7. 主要画面をPC幅とスマートフォン相当幅で確認する。
 8. 物語をskipしても技術条件が理解できることを確認する。
 9. Git outputと演出が混同されないことを確認する。
+10. 各stageのクリア後に、復旧完了の根拠を考えてから固定解説を開けることを確認する。
+11. Stage 3を最初に`CONCEPT_ONLY + OFF`で確認し、案内削減による詰まりを記録する。
+12. 状態把握不足が主要な詰まりの場合だけStage 3を`CONCEPT_ONLY + BASIC`で再確認し、ボード追加前後の行動差だけを記録する。
 
 ## 11. 要件traceability
 
@@ -250,6 +257,8 @@ PostgreSQL Testcontainersを使用し、次を確認する。
 | REQ-GAME-011 | TEST-SEC-011、STAGE-GIT-04 integration、manual |
 | REQ-GAME-012 | TEST-CMD-008〜009、STAGE-GIT-01・02・05 integration |
 | REQ-GAME-013 | application concurrency test、TEST-SEC-017、persistence一意制約test |
+| REQ-GAME-014 | clear後の自己確認Web test、各stage manual play、DB／Runner非呼出しtest |
+| REQ-GAME-015 | 表示方針4組合せのWeb test、Stage 3段階手動確認、hint level test |
 | REQ-VS-001〜006 | vertical-slice unit／Docker integration／manual checklist、文書scope確認 |
 | REQ-MVP-001 | 5stage fixture integration、manual |
 | REQ-MVP-002 | Web route／view test、manual |

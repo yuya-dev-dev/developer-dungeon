@@ -226,6 +226,8 @@ Windows + Docker Desktopを初期対象とする場合、Docker Desktop VMは追
 
 ## 12. cleanup
 
+- 安定版MVPは信頼済みsnapshotによる自動クリア後に直ちにcontainerを破棄し、プレイヤーの復旧報告待ちを理由にclear可能なworkspaceを保持しない。
+- `report`待機を将来導入する場合は、idle TTL、attemptの最大生存時間、定期sweeper、期限切れ状態、cleanup目的、再送、古いgenerationの拒否を先に脅威モデルと状態機械へ追加し、未確定のまま実装しない。
 - 正常クリア、リセット、明示終了、timeout、Runner例外でcontainerを破棄する。
 - RunnerはDocker create前にcontrollerが発行したattempt／workspace ID、generation、完全image ID、fingerprintを作成intentとして秘密値を含まないローカル所有台帳へ原子的に記録し、create後にcontainer IDを追記する。削除成功後だけentryを消す。
 - Runnerは台帳操作とstartup cleanupより前にOS排他lockを取得して終了まで保持し、二重Runnerが同じ台帳とcontainerを操作することを防ぐ。lock取得失敗時はDocker操作前に起動失敗する。
@@ -271,5 +273,6 @@ SQL編へ着手する場合は別の脅威モデルを作成する。最低条�
 - Git本体の未知の脆弱性
 - 固定imageや依存packageのsupply-chain risk
 - localhost限定でも、同一PC上の別processからRunnerを狙われる可能性
+- app上で`ACTIVE`な論理attemptを長時間放置した場合のplayer session単位の自動期限切れは未実装であり、現行MVPではshutdown、startup recovery、Runner所有台帳によるcleanupへ依存する
 
 MVPはこれらを完全に排除するものではない。外部公開、複数ユーザー、本番運用へ進む前に、専用VM、認証、監視、更新運用を含む別設計が必要である。

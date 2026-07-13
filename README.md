@@ -6,7 +6,7 @@ Developer Dungeonは、新人エンジニアが複数の開発現場で技術的
 
 ## 現在の状態
 
-企画・要件定義・全体設計の9文書はユーザー承認済みで、井上の実装前レビューにおけるP1をすべて解消しました。`codex/vertical-slice`で1日縦切り版を実装し、2026年7月12日にDockerを伴う統合確認とブラウザ手動確認を完了しました。現在は縦切り版の再評価待ちです。
+企画・要件定義・全体設計の文書一式はユーザー承認済みです。安全な縦切り版、Git Runner hardening、PostgreSQLによるMVP基盤を経て、STAGE-GIT-01（revert）とSTAGE-GIT-02（cherry-pick）を実装しmainへ反映しました。現在はSTAGE-GIT-03の前に、Stage 1・2の固定振り返り、物語結果、クリア後の非採点自己確認を補うゲームループ改善工程です。
 
 現在の1日縦切り版は、安全な使い捨てGit実行環境を含みます。player入力をhost上で直接実行せず、別processのGit Runnerとdisposable challenge containerを使用します。
 
@@ -22,8 +22,10 @@ Developer Dungeonは、新人エンジニアが複数の開発現場で技術的
 - 複数のプロジェクト現場でGit事故を解決する
 - 現実のGit用語とコマンドをそのまま使用する
 - 状態の観察、仮説、安全な操作、振り返りを1つのgame loopにする
+- 信頼済みsnapshotによる自動クリア後に、復旧完了の根拠を考える非採点・非永続の自己確認を行う
 - 4段階hintと累積3スターで、探索を罰せず自力判断を評価する
 - 安定版MVPはrevert、cherry-pick、stash、merge conflict、reflogの5stage
+- Stage 3では正確なコマンド構文を常時表示せず、案内量削減と読み取り専用状態要約を別々に検証する
 
 ## 現在の範囲
 
@@ -41,6 +43,7 @@ Developer Dungeonは、新人エンジニアが複数の開発現場で技術的
 - Javaコードレビュー編、SQL編、Docker障害対応編
 - ログイン、複数player、ランキング、外部公開
 - 汎用Runner、plugin、microservice、stage作成UI
+- ライブworkspaceの完了をプレイヤーが宣言する復旧報告と、その待機用TTL・状態機械
 - rebase、bisect、実remoteを使う高難度stage
 
 将来編は同じ主人公と世界観で展開できる候補ですが、Git編MVPの完成と検証後に改めて判断します。
