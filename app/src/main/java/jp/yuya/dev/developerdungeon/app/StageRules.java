@@ -23,7 +23,7 @@ class StageRules {
     private static final String STAGE_FOUR_FEATURE_TREE = "e4d8a76dfb74d699e48a7437d60811202ba7face";
     private static final String STAGE_FOUR_FINAL_TREE = "0c0ff72db8de95d04ed1169388a4f345c870d686";
     private static final StageDefinition STAGE_ONE = new StageDefinition("STAGE-GIT-01", "第1現場 / リリース障害", "公開済み変更を取り消す",
-            "公開済みの誤変更を、履歴を壊さずに戻す。", "新人のあなたは、先輩から緊急チケットを受け取った。公開済みの誤変更を、履歴を壊さずに戻そう。",
+            "公開済みの誤変更を、履歴を壊さずに戻す。", "公開済みのmainから必要な設定が消え、運用担当は次のリリース確認を進められない。新人のあなたは、先輩から緊急チケットを受け取った。共有履歴を壊さずに設定を戻そう。",
             "誤ったcommitがmainへ公開された。履歴を消さず、利用者へ安全な取り消しを届けること。", "誤commitを履歴に残したまま、正常な状態へ戻す。",
             "git status / git log --oneline / git show <12または40桁ID> / git revert --no-edit <12または40桁ID>",
             new StageOutcome("公開済みのmainに、必要な設定を削除する誤commitが含まれていました。",
@@ -32,10 +32,10 @@ class StageRules {
                     "reset --hardで公開済みcommitを消すと、他メンバーが参照する履歴を書き換え、共有branchを混乱させるおそれがあります。",
                     "公開済み履歴を壊さずに復旧できたと判断するには、履歴と作業ツリーのどの状態を確認すべきでしょうか？",
                     "誤commitが履歴に残り、その変更を打ち消す新しいcommitによって作業ツリーが正常な状態へ戻っていることを確認します。",
-                    "「公開済みの履歴を消さずに戻せたね」と運用担当は、静かにうなずいた。",
+                    "運用担当が設定の復旧確認を再開すると、先輩は「共有履歴を守る判断ができたね」と主人公にうなずいた。",
                     "主人公は、最短に見える操作ではなく、共有中の履歴を守る判断を初めて任された。"));
     private static final StageDefinition STAGE_TWO = new StageDefinition("STAGE-GIT-02", "第2現場 / branchの取り違え", "間違ったbranchのcommitを移す",
-            "未公開の通知機能commitを、正しいbranchへ安全に移し直す。", "通知機能の変更が、誤って別の作業branchへcommitされている。先輩は、共有前に正しいbranchへ戻すよう依頼した。",
+            "未公開の通知機能commitを、正しいbranchへ安全に移し直す。", "主人公は通知機能の変更を、誤って別の作業branchへcommitした。正しいbranchに変更がないため、QA担当はレビューを始められない。先輩は、共有前に二つのbranchを正しい位置へ戻すよう主人公へ依頼した。",
             "通知機能のcommitはfeature/profileにある。未公開のうちにfeature/notificationへ移し、profileを元の位置へ戻すこと。", "C1をnotificationへ移し、profileをC0へ戻してnotificationにいる。",
             "git status / git log --oneline --all --decorate / git branch / git show <12または40桁ID> / git switch <feature/profile|feature/notification> / git cherry-pick <12または40桁ID> / git reset --hard <12または40桁ID>",
             new StageOutcome("未公開の通知機能commitがfeature/profileに置かれ、正しいfeature/notificationにはまだありませんでした。",
@@ -44,10 +44,10 @@ class StageRules {
                     "通知機能を移す前にfeature/profileをresetすると、必要なcommitを参照しにくくなります。誤ったbranchへ残したまま共有するのも、後の統合を複雑にします。",
                     "通知機能を正しいbranchへ移し、誤ったbranchを元へ戻せたと判断するには、二つのbranchの位置と作業ツリーのどこを確認すべきでしょうか？",
                     "feature/notificationが通知機能を持つ新しいcommitを指し、feature/profileが元のC0へ戻り、作業ツリーがcleanであることを確認します。",
-                    "「共有前に気づけたのは大きい。これで安心してレビューへ回せる」と先輩は息をついた。",
-                    "主人公は、commitの内容だけでなく、どのbranchに置くべきかまで説明できるようになった。"));
+                    "QA担当がレビューを再開すると、先輩は「なぜ二つのbranchがこの位置で安全なのか、君から説明して」と主人公に任せた。",
+                    "主人公は、commitの内容だけでなく、branch位置の安全性をQA担当へ説明する役割を任された。"));
     private static final StageDefinition STAGE_THREE = new StageDefinition("STAGE-GIT-03", "第3現場 / 作業中のbranch移動", "未commitの作業を正しいbranchへ移す",
-            "mainで始めた検索機能の作業を失わずに、feature/searchへ移す。", "検索機能の作業をmainで始めてしまった。commitする前に、既存のfeature/searchへ安全に移そう。",
+            "mainで始めた検索機能の作業を失わずに、feature/searchへ移す。", "同期と検索機能を分担している最中、主人公はmain上で作業を始めてしまった。同期との共同作業をfeature/searchで続けたいが、変更はまだcommitできる段階ではない。作業を失わず、正しいbranchへ移そう。",
             "検索機能の未commit変更がmainに残っている。作業を一時退避し、feature/searchで復元してmainをきれいに戻すこと。", "検索機能の変更をfeature/searchへ未commitのまま移し、stashを残さない。",
             "観察 / 一時退避 / branch移動",
             new StageOutcome("main上の未commitな検索機能の変更が、正しいfeature/searchではなく作業ツリーに残っていました。",
@@ -56,11 +56,11 @@ class StageRules {
                     "変更を残したままbranchを切り替えようとすると、別branchの変更と衝突したり、意図しない場所へ作業を持ち込んだりします。",
                     "検索機能の作業を失わず正しいbranchへ移せたと判断するには、branch、作業ツリー、index、stashの何を確認すべきでしょうか？",
                     "feature/search上で検索機能の変更だけが未commitで残り、indexは空、mainとfeature/searchのcommit位置は変わらず、stashも空であることを確認します。",
-                    "「作業を急いでcommitしなくても、整理して運べるんだ」と先輩は次のタスクを指さした。",
-                    "主人公は、作業中の変更を失わずに整理し、正しい場所で続ける段取りを身につけた。"),
+                    "同期がfeature/searchの状態を確認すると、先輩は「急いでcommitせず、状況を整理してから運べたね。次の作業段取りは任せる」と主人公に告げた。",
+                    "主人公は、作業中の変更を失わずに整理し、次の作業段取りを任されるようになった。"),
             StagePresentationPolicy.conceptOnlyOff("観察", "一時退避", "branch移動"));
     private static final StageDefinition STAGE_FOUR = new StageDefinition("STAGE-GIT-04", "第4現場 / チーム間の変更衝突", "コンフリクトを解消して統合する",
-            "二つのチームの意図を残して、競合したメッセージ定義をmainへ統合する。", "プロフィール画面の文言を、運用チームと機能チームが同じ行で変更した。片方を捨てず、両方の要件を残して統合しよう。",
+            "二つのチームの意図を残して、競合したメッセージ定義をmainへ統合する。", "プロフィール画面の文言を、運用チームと機能チームが同じ行で変更した。QA担当は片方の要件だけではリリース確認を承認できない。主人公は、双方の意図を残してmainへ統合する必要がある。",
             "mainはsecurity settings、feature/profile-messageはpublic profileの案内を必要としている。競合を解消し、双方を含むmerge commitを完成させること。",
             "messages.propertiesを限定編集し、両方の要件を残したmerge commitをmainへ作る。",
             "git status / git log --oneline --all --decorate --graph / git diff / git branch / git merge feature/profile-message / git add src/main/resources/messages.properties / git commit --no-edit",
@@ -70,8 +70,8 @@ class StageRules {
                     "oursまたはtheirsだけを採用すると、一方のチームが必要とする案内が失われます。単一親commitでは統合履歴も残りません。",
                     "双方の意図を残して統合できたと判断するには、commitの親、ファイル内容、作業ツリーの何を確認すべきでしょうか？",
                     "merge commitがmainとfeatureの両方を直接parentに持ち、期待する統合文言と一致し、競合状態・index・作業ツリーがcleanであることを確認します。",
-                    "「どちらかを消すのではなく、要件を聞いて一つにまとめたんだね」と先輩は解消内容を確認した。",
-                    "主人公は、コンフリクトを単なる記号の削除ではなく、他者の意図を統合する作業として扱えるようになった。"));
+                    "QA担当が双方の要件を満たすと確認すると、先輩は「二つのチームへの解消説明は君に任せる」と主人公に告げた。",
+                    "主人公は、コンフリクトを他者の意図を統合する作業として扱い、その判断を両チームへ説明する役割を任された。"));
     private static final Map<String, StageDefinition> DEFINITIONS = Map.of(
             STAGE_ONE.key(), STAGE_ONE, STAGE_TWO.key(), STAGE_TWO, STAGE_THREE.key(), STAGE_THREE, STAGE_FOUR.key(), STAGE_FOUR);
 

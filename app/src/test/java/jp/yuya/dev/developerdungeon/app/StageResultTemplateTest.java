@@ -27,22 +27,23 @@ class StageResultTemplateTest {
 
         assertThat(stageOne).contains("公開済みのmainに、必要な設定を削除する誤commitが含まれていました。",
                 "mainには誤commitが履歴として残り", "revertは公開済みの履歴を変えずに", "reset --hardで公開済みcommitを消すと",
-                "公開済み履歴を壊さずに復旧できたと判断するには", "誤commitが履歴に残り", "公開済みの履歴を消さずに戻せたね",
+                "公開済み履歴を壊さずに復旧できたと判断するには", "誤commitが履歴に残り", "共有履歴を守る判断ができたね",
                 "主人公は、最短に見える操作ではなく", "復旧根拠を確認する", "根拠と解説を開く");
         assertThat(stageOne).doesNotContain("未公開の通知機能commitがfeature/profileに置かれ", "feature/notificationが通知機能を持つ新しいcommitを指し");
         assertThat(stageTwo).contains("未公開の通知機能commitがfeature/profileに置かれ、正しいfeature/notificationにはまだありませんでした。",
                 "feature/notificationが通知機能を持つ新しいcommitを指し", "通知機能を先にcherry-pickしてからprofileを戻すことで",
                 "通知機能を移す前にfeature/profileをresetすると", "通知機能を正しいbranchへ移し", "feature/profileが元のC0へ戻り",
-                "共有前に気づけたのは大きい", "commitの内容だけでなく", "復旧根拠を確認する", "根拠と解説を開く");
+                "なぜ二つのbranchがこの位置で安全なのか", "branch位置の安全性をQA担当へ説明する役割", "復旧根拠を確認する", "根拠と解説を開く");
         assertThat(stageTwo).doesNotContain("公開済みのmainに、必要な設定を削除する誤commitが含まれていました。", "mainには誤commitが履歴として残り");
         assertThat(stageThree).contains("main上の未commitな検索機能の変更が、正しいfeature/searchではなく作業ツリーに残っていました。",
                 "mainとfeature/searchのcommit位置を変えずに", "stashで作業中の変更を一時退避してからbranchを切り替えると",
                 "変更を残したままbranchを切り替えようとすると", "検索機能の作業を失わず正しいbranchへ移せたと判断するには",
-                "feature/search上で検索機能の変更だけが未commitで残り", "作業を急いでcommitしなくても", "作業中の変更を失わずに整理し");
+                "feature/search上で検索機能の変更だけが未commitで残り", "急いでcommitせず、状況を整理してから運べたね", "次の作業段取りを任されるようになった");
         assertThat(stageThree).doesNotContain("公開済みのmainに、必要な設定を削除する誤commitが含まれていました。", "未公開の通知機能commitがfeature/profileに置かれ");
         assertThat(stageFour).contains("mainとfeature/profile-messageが、同じプロフィール説明文を異なる目的で変更していました。",
                 "security settingsとpublic profileの両方", "片方を選ぶのではなく要件を統合し", "oursまたはtheirsだけを採用すると",
-                "双方の意図を残して統合できたと判断するには", "merge commitがmainとfeatureの両方を直接parentに持ち");
+                "双方の意図を残して統合できたと判断するには", "merge commitがmainとfeatureの両方を直接parentに持ち",
+                "二つのチームへの解消説明は君に任せる", "その判断を両チームへ説明する役割を任された");
     }
 
     @Test void selfCheckIsDisplayOnlyAndDoesNotRenderBeforeClear() {
