@@ -16,6 +16,12 @@ class StageRules {
     private static final Pattern LOG_ID = Pattern.compile("^([0-9a-f]{12})\\b.*");
     private static final String STAGE_THREE_INITIAL_BLOB = "80b018f3f86a4e710347ea98c0b903a1c6fcd9e7";
     private static final String STAGE_THREE_FINAL_BLOB = "0861e3929141f32f4e5c8bcd68fc03173a3e3c8e";
+    private static final String STAGE_FOUR_PATH = "src/main/resources/messages.properties";
+    private static final String STAGE_FOUR_MAIN_BLOB = "a6306bacd230ac74aaf017cde7717bc3eb83684c";
+    private static final String STAGE_FOUR_FINAL_BLOB = "e9de6755c74ff6bee8b96abcccfec27a06f23881";
+    private static final String STAGE_FOUR_MAIN_TREE = "63ec3ef493c5b54618798e50fe8d2e58bc40a4a9";
+    private static final String STAGE_FOUR_FEATURE_TREE = "e4d8a76dfb74d699e48a7437d60811202ba7face";
+    private static final String STAGE_FOUR_FINAL_TREE = "0c0ff72db8de95d04ed1169388a4f345c870d686";
     private static final StageDefinition STAGE_ONE = new StageDefinition("STAGE-GIT-01", "第1現場 / リリース障害", "公開済み変更を取り消す",
             "公開済みの誤変更を、履歴を壊さずに戻す。", "新人のあなたは、先輩から緊急チケットを受け取った。公開済みの誤変更を、履歴を壊さずに戻そう。",
             "誤ったcommitがmainへ公開された。履歴を消さず、利用者へ安全な取り消しを届けること。", "誤commitを履歴に残したまま、正常な状態へ戻す。",
@@ -53,9 +59,23 @@ class StageRules {
                     "「作業を急いでcommitしなくても、整理して運べるんだ」と先輩は次のタスクを指さした。",
                     "主人公は、作業中の変更を失わずに整理し、正しい場所で続ける段取りを身につけた。"),
             StagePresentationPolicy.conceptOnlyOff("観察", "一時退避", "branch移動"));
-    private static final Map<String, StageDefinition> DEFINITIONS = Map.of(STAGE_ONE.key(), STAGE_ONE, STAGE_TWO.key(), STAGE_TWO, STAGE_THREE.key(), STAGE_THREE);
+    private static final StageDefinition STAGE_FOUR = new StageDefinition("STAGE-GIT-04", "第4現場 / チーム間の変更衝突", "コンフリクトを解消して統合する",
+            "二つのチームの意図を残して、競合したメッセージ定義をmainへ統合する。", "プロフィール画面の文言を、運用チームと機能チームが同じ行で変更した。片方を捨てず、両方の要件を残して統合しよう。",
+            "mainはsecurity settings、feature/profile-messageはpublic profileの案内を必要としている。競合を解消し、双方を含むmerge commitを完成させること。",
+            "messages.propertiesを限定編集し、両方の要件を残したmerge commitをmainへ作る。",
+            "git status / git log --oneline --all --decorate --graph / git diff / git branch / git merge feature/profile-message / git add src/main/resources/messages.properties / git commit --no-edit",
+            new StageOutcome("mainとfeature/profile-messageが、同じプロフィール説明文を異なる目的で変更していました。",
+                    "mainに2親のmerge commitが作られ、security settingsとpublic profileの両方を案内する文言になりました。",
+                    "片方を選ぶのではなく要件を統合し、merge commitで二つの履歴を残すと、変更の由来と解決内容を追跡できます。",
+                    "oursまたはtheirsだけを採用すると、一方のチームが必要とする案内が失われます。単一親commitでは統合履歴も残りません。",
+                    "双方の意図を残して統合できたと判断するには、commitの親、ファイル内容、作業ツリーの何を確認すべきでしょうか？",
+                    "merge commitがmainとfeatureの両方を直接parentに持ち、期待する統合文言と一致し、競合状態・index・作業ツリーがcleanであることを確認します。",
+                    "「どちらかを消すのではなく、要件を聞いて一つにまとめたんだね」と先輩は解消内容を確認した。",
+                    "主人公は、コンフリクトを単なる記号の削除ではなく、他者の意図を統合する作業として扱えるようになった。"));
+    private static final Map<String, StageDefinition> DEFINITIONS = Map.of(
+            STAGE_ONE.key(), STAGE_ONE, STAGE_TWO.key(), STAGE_TWO, STAGE_THREE.key(), STAGE_THREE, STAGE_FOUR.key(), STAGE_FOUR);
 
-    List<StageDefinition> definitions() { return List.of(STAGE_ONE, STAGE_TWO, STAGE_THREE); }
+    List<StageDefinition> definitions() { return List.of(STAGE_ONE, STAGE_TWO, STAGE_THREE, STAGE_FOUR); }
     StageDefinition definition(String stageKey) {
         StageDefinition definition = DEFINITIONS.get(stageKey);
         if (definition == null) throw new IllegalArgumentException("unknown stage");
@@ -67,6 +87,7 @@ class StageRules {
             case "STAGE-GIT-01" -> parseStageOne(raw);
             case "STAGE-GIT-02" -> parseStageTwo(raw);
             case "STAGE-GIT-03" -> parseStageThree(raw);
+            case "STAGE-GIT-04" -> parseStageFour(raw);
             default -> throw new IllegalArgumentException("unknown stage");
         };
     }
@@ -86,6 +107,23 @@ class StageRules {
                 throw new IllegalStateException("invalid stage fixture");
             }
             return new StageTargets(state.mainTip(), state.featureSearchTip(), state.searchFileBlobId(), Set.of());
+        }
+        if ("STAGE-GIT-04".equals(definition.key())) {
+            var state = snapshot.stageFour();
+            if (!"main".equals(snapshot.currentBranch()) || !snapshot.headObjectId().equals(state.mainTip())
+                    || state.mainTip().isBlank() || state.featureProfileMessageTip().isBlank()
+                    || state.mainTip().equals(state.featureProfileMessageTip())
+                    || snapshot.headParents().size() != 1 || !snapshot.headParents().getFirst().equals(state.mainParent())
+                    || !state.mainParent().equals(state.featureProfileMessageParent())
+                    || !STAGE_FOUR_MAIN_BLOB.equals(state.messagesBlobId())
+                    || !STAGE_FOUR_MAIN_TREE.equals(state.mainTreeId()) || !STAGE_FOUR_FEATURE_TREE.equals(state.featureTreeId())
+                    || !snapshot.clean() || !state.workingTreePaths().isEmpty() || !state.indexPaths().isEmpty()
+                    || !state.unmergedPaths().isEmpty() || !state.untrackedPaths().isEmpty()
+                    || snapshot.revertInProgress() || snapshot.cherryPickInProgress()
+                    || snapshot.mergeInProgress() || snapshot.rebaseInProgress()) {
+                throw new IllegalStateException("invalid stage fixture");
+            }
+            return new StageTargets(state.mainTip(), state.featureProfileMessageTip(), STAGE_FOUR_FINAL_TREE, Set.of());
         }
         String c1 = snapshot.headObjectId();
         String c0 = snapshot.featureNotificationTip();
@@ -136,6 +174,13 @@ class StageRules {
             if (hintLevel == 3) return List.of("git stash push、git switch <branch>、git stash popの形を順に使う。");
             return List.of("git stash pushで退避し、git switch feature/searchへ移動してから、git stash popで検索機能の変更を戻そう。");
         }
+        if ("STAGE-GIT-04".equals(definition.key())) {
+            if (hintLevel == 1) return List.of("statusとdiffで、競合中のファイルと双方の変更を確認しよう。");
+            if (hintLevel == 2) return List.of("片方を選ぶのではなく、security settingsとpublic profileの両方を残す文言を考えよう。");
+            if (hintLevel == 3) return List.of("限定エディタで解消した後、git addで解消済みにし、git commit --no-editでmerge commitを完成させる。");
+            return List.of("限定エディタへ `profile.description=Manage security settings and edit your public profile.` と入力し、git add "
+                    + STAGE_FOUR_PATH + "、git commit --no-editの順に実行しよう。");
+        }
         if (hintLevel == 1) return List.of("--all --decorateで、2つのbranchがどこを指すか比較しよう。");
         if (hintLevel == 2) return List.of("commitを移す操作と、未公開branchを元へ戻す操作を分けて考えよう。");
         if (hintLevel == 3) return List.of("feature/notificationへswitchし、C1をcherry-pickしてからprofileをC0へ戻す順序を考えよう。");
@@ -162,6 +207,22 @@ class StageRules {
                     && state.unmergedPaths().isEmpty() && state.untrackedPaths().isEmpty() && state.stashObjectIds().isEmpty();
             if (!cleared) return new StageGrade(false, 0, "branch、作業ツリー、index、stashの状態をもう一度確認しましょう。");
             return new StageGrade(true, stars(highestHint, playerResets), "未commitの検索機能を正しいbranchへ移し、作業を整理できました。");
+        }
+        if ("STAGE-GIT-04".equals(definition.key())) {
+            var state = snapshot.stageFour();
+            cleared = snapshot.clean() && "main".equals(snapshot.currentBranch())
+                    && !snapshot.revertInProgress() && !snapshot.cherryPickInProgress()
+                    && !snapshot.mergeInProgress() && !snapshot.rebaseInProgress()
+                    && snapshot.headParents().equals(List.of(targets.primaryObjectId(), targets.secondaryObjectId()))
+                    && targets.expectedTreeId().equals(snapshot.headTreeId())
+                    && snapshot.headObjectId().equals(state.mainTip())
+                    && targets.primaryObjectId().equals(state.mainParent())
+                    && targets.secondaryObjectId().equals(state.featureProfileMessageTip())
+                    && STAGE_FOUR_FINAL_BLOB.equals(state.messagesBlobId())
+                    && state.workingTreePaths().isEmpty() && state.indexPaths().isEmpty()
+                    && state.unmergedPaths().isEmpty() && state.untrackedPaths().isEmpty();
+            if (!cleared) return new StageGrade(false, 0, "merge commit、双方を残した文言、競合と作業ツリーの状態を確認しましょう。");
+            return new StageGrade(true, stars(highestHint, playerResets), "双方の要件を残してコンフリクトを解消し、mainへ統合できました。");
         }
         cleared = snapshot.clean() && !snapshot.revertInProgress() && !snapshot.cherryPickInProgress() && "feature/notification".equals(snapshot.currentBranch())
                 && targets.secondaryObjectId().equals(snapshot.featureProfileTip())
@@ -198,6 +259,16 @@ class StageRules {
         if ("git stash list".equals(raw)) return new GitCommand(CommandKind.STASH_LIST);
         if ("git switch feature/search".equals(raw)) return GitCommand.switchTo("feature/search");
         if ("git stash pop".equals(raw)) return new GitCommand(CommandKind.STASH_POP);
+        throw new IllegalArgumentException("このステージで許可されたGitコマンドではありません。");
+    }
+    private GitCommand parseStageFour(String raw) {
+        if ("git status".equals(raw)) return new GitCommand(CommandKind.STATUS);
+        if ("git log --oneline --all --decorate --graph".equals(raw)) return new GitCommand(CommandKind.LOG_GRAPH_ALL);
+        if ("git diff".equals(raw)) return new GitCommand(CommandKind.DIFF);
+        if ("git branch".equals(raw)) return new GitCommand(CommandKind.BRANCH);
+        if ("git merge feature/profile-message".equals(raw)) return new GitCommand(CommandKind.MERGE_PROFILE_MESSAGE);
+        if (("git add " + STAGE_FOUR_PATH).equals(raw)) return new GitCommand(CommandKind.ADD_PROFILE_MESSAGES);
+        if ("git commit --no-edit".equals(raw)) return new GitCommand(CommandKind.COMMIT_NO_EDIT);
         throw new IllegalArgumentException("このステージで許可されたGitコマンドではありません。");
     }
     private void rejectUnsafeRaw(String raw) {

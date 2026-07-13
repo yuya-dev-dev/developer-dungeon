@@ -20,5 +20,7 @@ class RunnerClient {
     }
     WorkspaceResponse create(WorkspaceRequest request) { return client.post().uri("/internal/workspaces").body(request).retrieve().body(WorkspaceResponse.class); }
     CommandResponse execute(ExecuteRequest request) { return client.post().uri("/internal/commands").body(request).retrieve().body(CommandResponse.class); }
+    FileContentResponse readFile(ReadFileRequest request) { return client.post().uri("/internal/files/read").body(request).retrieve().body(FileContentResponse.class); }
+    WriteFileResponse writeFile(WriteFileRequest request) { return client.post().uri("/internal/files/write").body(request).retrieve().body(WriteFileResponse.class); }
     void destroy(DestroyRequest request) { client.post().uri("/internal/workspaces/destroy").body(request).retrieve().toBodilessEntity(); }
 }

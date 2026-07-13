@@ -3,7 +3,7 @@ FROM alpine:3.23.3@sha256:59855d3dceb3ae53991193bd03301e082b2a7faa56a514b03527ae
 RUN apk add --no-cache git=2.52.0-r0 \
  && addgroup -S -g 10001 challenge \
  && adduser -S -D -H -u 10001 -G challenge challenge \
- && mkdir -p /opt/fixtures/stage-git-01 /opt/fixtures/stage-git-02 /opt/fixtures/stage-git-03 /opt/empty-hooks \
+ && mkdir -p /opt/fixtures/stage-git-01 /opt/fixtures/stage-git-02 /opt/fixtures/stage-git-03 /opt/fixtures/stage-git-04 /opt/empty-hooks \
  && git init --initial-branch=main /opt/fixtures/stage-git-01 \
  && rm -rf /opt/fixtures/stage-git-01/.git/hooks \
  && mkdir -p /opt/fixtures/stage-git-01/.git/hooks \
@@ -35,10 +35,26 @@ RUN apk add --no-cache git=2.52.0-r0 \
  && GIT_AUTHOR_DATE='2026-01-03T00:01:00Z' GIT_COMMITTER_DATE='2026-01-03T00:01:00Z' git -C /opt/fixtures/stage-git-03 -c user.name='Developer Dungeon' -c user.email='fixture@example.invalid' commit -m "C1: search placeholder" \
  && git -C /opt/fixtures/stage-git-03 switch main \
  && printf 'search.enabled=true\nsearch.query.minimum=2\nsearch.query.maximum=100\nsearch.sort=relevance\nsearch.page.size=20\nsearch.cache=false\nsearch.locale=ja\nsearch.placeholder=Search\n' > /opt/fixtures/stage-git-03/search.txt \
+ && git init --initial-branch=main /opt/fixtures/stage-git-04 \
+ && rm -rf /opt/fixtures/stage-git-04/.git/hooks \
+ && mkdir -p /opt/fixtures/stage-git-04/.git/hooks /opt/fixtures/stage-git-04/src/main/resources \
+ && printf 'profile.description=Manage your account.\n' > /opt/fixtures/stage-git-04/src/main/resources/messages.properties \
+ && git -C /opt/fixtures/stage-git-04 add src/main/resources/messages.properties \
+ && GIT_AUTHOR_DATE='2026-01-04T00:00:00Z' GIT_COMMITTER_DATE='2026-01-04T00:00:00Z' git -C /opt/fixtures/stage-git-04 -c user.name='Developer Dungeon' -c user.email='fixture@example.invalid' commit -m "C0: shared profile message" \
+ && git -C /opt/fixtures/stage-git-04 switch -c feature/profile-message \
+ && printf 'profile.description=Edit your public profile.\n' > /opt/fixtures/stage-git-04/src/main/resources/messages.properties \
+ && git -C /opt/fixtures/stage-git-04 add src/main/resources/messages.properties \
+ && GIT_AUTHOR_DATE='2026-01-04T00:02:00Z' GIT_COMMITTER_DATE='2026-01-04T00:02:00Z' git -C /opt/fixtures/stage-git-04 -c user.name='Developer Dungeon' -c user.email='fixture@example.invalid' commit -m "C2: public profile message" \
+ && git -C /opt/fixtures/stage-git-04 switch main \
+ && printf 'profile.description=Manage security settings.\n' > /opt/fixtures/stage-git-04/src/main/resources/messages.properties \
+ && git -C /opt/fixtures/stage-git-04 add src/main/resources/messages.properties \
+ && GIT_AUTHOR_DATE='2026-01-04T00:01:00Z' GIT_COMMITTER_DATE='2026-01-04T00:01:00Z' git -C /opt/fixtures/stage-git-04 -c user.name='Developer Dungeon' -c user.email='fixture@example.invalid' commit -m "C1: security settings message" \
  && chown -R challenge:challenge /opt/fixtures /opt/empty-hooks \
  && chmod -R a-w /opt/fixtures /opt/empty-hooks
 
 COPY rootfs/ /opt/image-rootfs/
+RUN chown root:root /opt/image-rootfs/stage-four-file \
+ && chmod 0555 /opt/image-rootfs/stage-four-file
 USER 10001:10001
 WORKDIR /workspace
 CMD ["/bin/sleep", "infinity"]

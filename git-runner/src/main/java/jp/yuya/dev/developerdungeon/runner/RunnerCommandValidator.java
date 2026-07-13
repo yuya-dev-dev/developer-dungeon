@@ -13,7 +13,9 @@ class RunnerCommandValidator {
         if (command.kind() == CommandKind.STATUS || command.kind() == CommandKind.LOG_ONELINE
                 || command.kind() == CommandKind.LOG_ONELINE_ALL_DECORATE || command.kind() == CommandKind.BRANCH
                 || command.kind() == CommandKind.DIFF || command.kind() == CommandKind.DIFF_STAGED
-                || command.kind() == CommandKind.STASH_PUSH || command.kind() == CommandKind.STASH_LIST || command.kind() == CommandKind.STASH_POP) {
+                || command.kind() == CommandKind.STASH_PUSH || command.kind() == CommandKind.STASH_LIST || command.kind() == CommandKind.STASH_POP
+                || command.kind() == CommandKind.LOG_GRAPH_ALL || command.kind() == CommandKind.MERGE_PROFILE_MESSAGE
+                || command.kind() == CommandKind.ADD_PROFILE_MESSAGES || command.kind() == CommandKind.COMMIT_NO_EDIT) {
             if (objectId != null || branchName != null) throw new IllegalArgumentException("command target is not allowed");
             return;
         }

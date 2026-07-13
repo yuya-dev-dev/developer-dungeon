@@ -2,6 +2,9 @@ package jp.yuya.dev.developerdungeon.runner;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.ByteBuffer;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.CodingErrorAction;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -20,6 +23,10 @@ class DockerGateway {
     DockerGateway(RunnerProperties properties) { this.properties = properties; }
 
     ProcessResult run(List<String> arguments, Duration timeout) {
+        return run(arguments, timeout, null);
+    }
+
+    ProcessResult run(List<String> arguments, Duration timeout, byte[] stdin) {
         var command = new ArrayList<String>();
         if (!java.nio.file.Path.of(properties.dockerExecutable()).isAbsolute() || !java.nio.file.Files.isRegularFile(java.nio.file.Path.of(properties.dockerExecutable()))) {
             throw new IllegalStateException("docker executable is invalid");
@@ -35,6 +42,9 @@ class DockerGateway {
             var process = processBuilder.start();
             var stdout = CompletableFuture.supplyAsync(() -> readLimited(process.getInputStream()));
             var stderr = CompletableFuture.supplyAsync(() -> readLimited(process.getErrorStream()));
+            try (var processInput = process.getOutputStream()) {
+                if (stdin != null) processInput.write(stdin);
+            }
             boolean finished = process.waitFor(timeout.toMillis(), TimeUnit.MILLISECONDS);
             if (!finished) {
                 process.destroyForcibly();
@@ -59,9 +69,18 @@ class DockerGateway {
                 if (remaining > 0) captured.write(buffer, 0, Math.min(read, remaining));
                 if (read > remaining) truncated = true;
             }
-            return new LimitedOutput(captured.toString(StandardCharsets.UTF_8), truncated);
+            return new LimitedOutput(decodeUtf8(captured.toByteArray()), truncated);
         } catch (IOException exception) {
             throw new IllegalStateException("docker output read failed", exception);
+        }
+    }
+
+    private String decodeUtf8(byte[] bytes) {
+        try {
+            return StandardCharsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT)
+                    .onUnmappableCharacter(CodingErrorAction.REPORT).decode(ByteBuffer.wrap(bytes)).toString();
+        } catch (CharacterCodingException exception) {
+            throw new IllegalStateException("docker output is not valid UTF-8", exception);
         }
     }
 

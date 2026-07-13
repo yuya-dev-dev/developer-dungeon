@@ -4,4 +4,5 @@
 /.mvn/wrapper/wrapper-files.sha256 text eol=lf
 /compose.yaml text eol=lf
 /database/init/*.sh text eol=lf
+/challenge-image/rootfs/stage-four-file text eol=lf
 

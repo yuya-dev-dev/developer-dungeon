@@ -6,7 +6,7 @@ Developer Dungeonは、新人エンジニアが複数の開発現場で技術的
 
 ## 現在の状態
 
-企画・要件定義・全体設計の文書一式はユーザー承認済みです。安全な縦切り版、Git Runner hardening、PostgreSQLによるMVP基盤を経て、STAGE-GIT-01（revert）、STAGE-GIT-02（cherry-pick）、Stage 1・2のゲームループ補完をmainへ反映しました。STAGE-GIT-03（stash）は、`main`上の未commit変更を既存の`feature/search`へ安全に移すステージとして実装を進めています。
+企画・要件定義・全体設計の文書一式はユーザー承認済みです。安全な縦切り版、Git Runner hardening、PostgreSQLによるMVP基盤を経て、STAGE-GIT-01（revert）、STAGE-GIT-02（cherry-pick）、STAGE-GIT-03（stash）とゲームループ補完をmainへ反映しました。現在は、二つのチームの意図を残して競合を解消するSTAGE-GIT-04（merge conflict）を実装しています。
 
 現在の1日縦切り版は、安全な使い捨てGit実行環境を含みます。player入力をhost上で直接実行せず、別processのGit Runnerとdisposable challenge containerを使用します。
 
@@ -26,6 +26,7 @@ Developer Dungeonは、新人エンジニアが複数の開発現場で技術的
 - 4段階hintと累積3スターで、探索を罰せず自力判断を評価する
 - 安定版MVPはrevert、cherry-pick、stash、merge conflict、reflogの5stage
 - Stage 3では正確なコマンド構文を常時表示せず、案内量削減と読み取り専用状態要約を別々に検証する
+- Stage 4では固定ファイルだけをversion token付き限定エディタで編集し、双方の要件と2親のmerge commitを状態採点する
 
 ## 現在の範囲
 

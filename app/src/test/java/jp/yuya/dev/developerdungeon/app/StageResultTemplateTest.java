@@ -23,6 +23,7 @@ class StageResultTemplateTest {
         String stageOne = render("STAGE-GIT-01", true);
         String stageTwo = render("STAGE-GIT-02", true);
         String stageThree = render("STAGE-GIT-03", true);
+        String stageFour = render("STAGE-GIT-04", true);
 
         assertThat(stageOne).contains("公開済みのmainに、必要な設定を削除する誤commitが含まれていました。",
                 "mainには誤commitが履歴として残り", "revertは公開済みの履歴を変えずに", "reset --hardで公開済みcommitを消すと",
@@ -39,6 +40,9 @@ class StageResultTemplateTest {
                 "変更を残したままbranchを切り替えようとすると", "検索機能の作業を失わず正しいbranchへ移せたと判断するには",
                 "feature/search上で検索機能の変更だけが未commitで残り", "作業を急いでcommitしなくても", "作業中の変更を失わずに整理し");
         assertThat(stageThree).doesNotContain("公開済みのmainに、必要な設定を削除する誤commitが含まれていました。", "未公開の通知機能commitがfeature/profileに置かれ");
+        assertThat(stageFour).contains("mainとfeature/profile-messageが、同じプロフィール説明文を異なる目的で変更していました。",
+                "security settingsとpublic profileの両方", "片方を選ぶのではなく要件を統合し", "oursまたはtheirsだけを採用すると",
+                "双方の意図を残して統合できたと判断するには", "merge commitがmainとfeatureの両方を直接parentに持ち");
     }
 
     @Test void selfCheckIsDisplayOnlyAndDoesNotRenderBeforeClear() {
