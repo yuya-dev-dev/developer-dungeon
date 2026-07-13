@@ -11,7 +11,7 @@ class GitCommandParserTest {
         String id = "a".repeat(40);
         var revert = parser.parse("git revert --no-edit " + id);
         assertThat(revert.kind()).isEqualTo(CommandKind.REVERT_NO_EDIT);
-        assertThat(revert.objectIds()).containsExactly(id);
+        assertThat(revert.objectId()).isEqualTo(id);
         assertThatThrownBy(() -> parser.parse("git revert " + id)).isInstanceOf(IllegalArgumentException.class);
         assertThat(parser.parse("git show " + "a".repeat(12)).kind()).isEqualTo(CommandKind.SHOW);
         assertThatThrownBy(() -> parser.parse("git show " + "a".repeat(11))).isInstanceOf(IllegalArgumentException.class);

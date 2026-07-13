@@ -72,7 +72,30 @@ class RunnerWorkspaceServiceIdempotencyTest {
         var workspace = service.create(new WorkspaceRequest("11111111-1111-1111-1111-111111111111", "22222222-2222-2222-2222-222222222222", "STAGE-GIT-01", 0));
 
         assertThatThrownBy(() -> service.execute(new ExecuteRequest("11111111-1111-1111-1111-111111111111", "33333333-3333-3333-3333-333333333333", workspace.workspaceId(), 0,
-                new GitCommand(CommandKind.REVERT_NO_EDIT, List.of("b".repeat(40)))))).isInstanceOf(IllegalArgumentException.class);
+                new GitCommand(CommandKind.REVERT_NO_EDIT, "b".repeat(40))))).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void rejectsStageTwoCommandForStageOneBeforeExecutingGit() {
+        DockerGateway docker = fixtureDocker();
+        var service = new RunnerWorkspaceService(docker, new RunnerProperties("a".repeat(43), IMAGE, FINGERPRINT, "C:\\docker.exe"), new RunnerCommandValidator());
+        var workspace = service.create(new WorkspaceRequest("11111111-1111-1111-1111-111111111111", "22222222-2222-2222-2222-222222222222", "STAGE-GIT-01", 0));
+
+        assertThatThrownBy(() -> service.execute(new ExecuteRequest("11111111-1111-1111-1111-111111111111", "33333333-3333-3333-3333-333333333333", workspace.workspaceId(), 0,
+                new GitCommand(CommandKind.CHERRY_PICK, "c".repeat(40))))).isInstanceOf(IllegalArgumentException.class);
+
+        verify(docker, times(0)).run(argThat(arguments -> arguments.contains("cherry-pick")), any(Duration.class));
+    }
+
+    @Test
+    void failsClosedWhenGitStateFileCheckCannotBeCompleted() {
+        DockerGateway docker = fixtureDocker();
+        when(docker.run(argThat(arguments -> arguments.contains("/usr/bin/test") && arguments.stream().anyMatch(argument -> argument.contains("CHERRY_PICK_HEAD"))), any(Duration.class)))
+                .thenReturn(new DockerGateway.ProcessResult(2, "", "permission denied", false));
+        var service = new RunnerWorkspaceService(docker, new RunnerProperties("a".repeat(43), IMAGE, FINGERPRINT, "C:\\docker.exe"), new RunnerCommandValidator());
+
+        assertThatThrownBy(() -> service.create(new WorkspaceRequest("11111111-1111-1111-1111-111111111111", "22222222-2222-2222-2222-222222222222", "STAGE-GIT-01", 0)))
+                .isInstanceOf(IllegalStateException.class).hasMessage("Git state file check failed");
     }
 
     @Test
@@ -82,7 +105,7 @@ class RunnerWorkspaceServiceIdempotencyTest {
         var workspace = service.create(new WorkspaceRequest("11111111-1111-1111-1111-111111111111", "22222222-2222-2222-2222-222222222222", "STAGE-GIT-01", 0));
 
         service.execute(new ExecuteRequest("11111111-1111-1111-1111-111111111111", "33333333-3333-3333-3333-333333333333", workspace.workspaceId(), 0,
-                new GitCommand(CommandKind.SHOW, List.of("c".repeat(40)))));
+                new GitCommand(CommandKind.SHOW, "c".repeat(40))));
 
         verify(docker).run(argThat(arguments -> arguments.containsAll(List.of("GIT_CONFIG_NOSYSTEM=1", "GIT_CONFIG_GLOBAL=/dev/null", "GIT_TERMINAL_PROMPT=0", "GIT_ALLOW_PROTOCOL=", "GIT_PROTOCOL_FROM_USER=0", "--no-ext-diff", "--no-textconv"))), any(Duration.class));
     }
@@ -93,7 +116,7 @@ class RunnerWorkspaceServiceIdempotencyTest {
         var service = new RunnerWorkspaceService(docker, new RunnerProperties("a".repeat(43), IMAGE, FINGERPRINT, "C:\\docker.exe"), new RunnerCommandValidator());
         var workspace = service.create(new WorkspaceRequest("11111111-1111-1111-1111-111111111111", "22222222-2222-2222-2222-222222222222", "STAGE-GIT-01", 0));
         var request = new ExecuteRequest("11111111-1111-1111-1111-111111111111", "33333333-3333-3333-3333-333333333333", workspace.workspaceId(), 0,
-                new GitCommand(CommandKind.SHOW, List.of("c".repeat(40))));
+                new GitCommand(CommandKind.SHOW, "c".repeat(40)));
 
         service.execute(request);
         service.execute(request);
@@ -299,6 +322,7 @@ class RunnerWorkspaceServiceIdempotencyTest {
         if (arguments.contains("rev-parse")) return result("c".repeat(40) + "\n");
         if (arguments.contains("show")) return result("b".repeat(40) + "\n");
         if (arguments.contains("rev-list")) return result("c".repeat(40) + "\n" + "b".repeat(40) + "\n");
+        if (arguments.contains("branch") && arguments.contains("--show-current")) return result("main\n");
         if (arguments.contains("status")) return result("");
         throw new AssertionError("Unexpected Docker arguments: " + arguments);
     }

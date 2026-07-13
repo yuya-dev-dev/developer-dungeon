@@ -223,12 +223,12 @@ Phase 1の次へ進む条件は満たした。安全境界を5stageへ拡張す�
 1. Phase 3の永続化基盤として、管理用PostgreSQL 18.4、専用Flyway migrator、Spring JDBC、`stage_attempt`／`command_history`を追加した。
 2. appはruntime DB credentialだけを受け取り、Runner／challenge containerへDB接続情報を渡さない。DBはloopback bind、分離role、固定volume、所有label検証、逆順停止で扱う。
 3. STAGE-GIT-01の開始、command history、hint、reset、system recovery、clearと最高スター導出を永続化した。
-4. 井上の実装後レビューでP1・P2を解消し、最終PASSを得た。
-5. 対象限定確認として、LocalRuntime契約テスト、`StageOneServiceTest` 9件、PostgreSQL Testcontainers integration test 1件が成功した。
-6. `GET /`のSTAGE-GIT-01一覧と`GET /stages/STAGE-GIT-01`のプレイ画面を分け、一覧にクリア状態と最高スターを表示した。閲覧時にRunner、workspace、attemptを作らない。
-7. 井上の実装後レビューでP1を解消し最終PASSを得た。中谷がサービス・ルーティング・Thymeleaf表示の対象限定16件を実行し、すべて成功した。
-8. 次はSTAGE-GIT-02を個別設計し、一覧へ新しい固定カードを追加する工程を検討する。
+4. STAGE-GIT-02を追加した。固定fixtureはC0を`feature/notification`、C1を誤って`feature/profile`へ置き、C1のcherry-pick、profileのC0へのreset、notificationへの復帰を状態で採点する。
+5. appはSTAGE-GIT-01／02の固定定義と固定ルートだけを持つ。STAGE-GIT-02ではC0・C1を初期snapshotから不変に保持し、log出力または第4hintで表示済みのIDだけを操作対象にする。
+6. 井上の実装前レビューと実装後レビューでP1・P2を解消し、最終PASSを得た。
+7. 対象限定確認として、Dockerなしのサービス・ルーティング・Runner契約44件と、STAGE-GIT-02固定fixtureを使うDocker統合1件が成功した。
+8. 次はSTAGE-GIT-03を個別設計し、STAGE-GIT-02の固定パターンを安易に汎用化せずに追加可否を検討する。
 
-詳細は[`docs/phase-3-persistence-plan.md`](docs/phase-3-persistence-plan.md)と[`docs/phase-3-stage-progress-plan.md`](docs/phase-3-stage-progress-plan.md)を正本とする。今回の範囲にはlogin、複数ユーザー識別、STAGE-GIT-02〜05、Browser E2Eを含めない。
+詳細は[`docs/phase-3-persistence-plan.md`](docs/phase-3-persistence-plan.md)、[`docs/phase-3-stage-progress-plan.md`](docs/phase-3-stage-progress-plan.md)、[`docs/phase-4-stage-git-02-plan.md`](docs/phase-4-stage-git-02-plan.md)を正本とする。今回の範囲にはlogin、複数ユーザー識別、STAGE-GIT-03〜05、Browser E2Eを含めない。
 
 次はユーザーが最終差分を確認し、作業branchをcommit／pushしてPRを作成する。commit、push、PR作成、mergeはユーザーが行う。

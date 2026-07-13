@@ -1,5 +1,5 @@
 package jp.yuya.dev.developerdungeon.contract;
 
 public enum CommandKind {
-    STATUS, LOG_ONELINE, SHOW, REVERT_NO_EDIT
+    STATUS, LOG_ONELINE, LOG_ONELINE_ALL_DECORATE, BRANCH, SHOW, SWITCH, CHERRY_PICK, RESET_HARD, REVERT_NO_EDIT
 }
