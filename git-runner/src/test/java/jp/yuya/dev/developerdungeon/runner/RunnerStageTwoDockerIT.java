@@ -43,6 +43,7 @@ class RunnerStageTwoDockerIT {
 
             assertThatThrownBy(() -> execute(service, attemptId, activeWorkspaceId, 0, 90, new GitCommand(CommandKind.CHERRY_PICK, c0))).isInstanceOf(IllegalArgumentException.class);
             assertThatThrownBy(() -> execute(service, attemptId, activeWorkspaceId, 0, 91, new GitCommand(CommandKind.RESET_HARD, c1))).isInstanceOf(IllegalArgumentException.class);
+            assertThatThrownBy(() -> execute(service, attemptId, activeWorkspaceId, 0, 92, GitCommand.switchTo("feature/search"))).isInstanceOf(IllegalArgumentException.class);
 
             execute(service, attemptId, workspaceId, 0, 1, GitCommand.switchTo("feature/notification"));
             execute(service, attemptId, workspaceId, 0, 2, new GitCommand(CommandKind.CHERRY_PICK, c1));

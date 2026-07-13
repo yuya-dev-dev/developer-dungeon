@@ -11,12 +11,14 @@ class RunnerCommandValidator {
         String objectId = command.objectId();
         String branchName = command.branchName();
         if (command.kind() == CommandKind.STATUS || command.kind() == CommandKind.LOG_ONELINE
-                || command.kind() == CommandKind.LOG_ONELINE_ALL_DECORATE || command.kind() == CommandKind.BRANCH) {
+                || command.kind() == CommandKind.LOG_ONELINE_ALL_DECORATE || command.kind() == CommandKind.BRANCH
+                || command.kind() == CommandKind.DIFF || command.kind() == CommandKind.DIFF_STAGED
+                || command.kind() == CommandKind.STASH_PUSH || command.kind() == CommandKind.STASH_LIST || command.kind() == CommandKind.STASH_POP) {
             if (objectId != null || branchName != null) throw new IllegalArgumentException("command target is not allowed");
             return;
         }
         if (command.kind() == CommandKind.SWITCH) {
-            if (objectId != null || branchName == null || !branchName.matches("feature/(profile|notification)")) {
+            if (objectId != null || branchName == null || !branchName.matches("feature/(profile|notification|search)")) {
                 throw new IllegalArgumentException("invalid Git command");
             }
             return;

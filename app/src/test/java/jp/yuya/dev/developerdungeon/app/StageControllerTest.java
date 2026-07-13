@@ -38,13 +38,20 @@ class StageControllerTest {
         verify(stages).definition("STAGE-GIT-02");
         verifyNoMoreInteractions(stages);
     }
-    @Test void unsupportedStageDoesNotInvokeTheService() throws Exception {
+    @Test void stageThreeRouteOpensOnlyItsOwnPlayScreen() throws Exception {
         StageService stages = mock(StageService.class);
+        var definition = new StageDefinition("STAGE-GIT-03", "chapter", "title", "summary", "intro", "ticket", "objective", "concepts", outcome(),
+                StagePresentationPolicy.conceptOnlyOff("観察"));
+        var view = new StageView("request", "output", null, null, 0, 0, 0, 0, false, 0, "未復旧", List.of());
+        when(stages.open("STAGE-GIT-03")).thenReturn(view);
+        when(stages.definition("STAGE-GIT-03")).thenReturn(definition);
         MockMvc mvc = MockMvcBuilders.standaloneSetup(new StageController(stages)).build();
 
-        mvc.perform(get("/stages/STAGE-GIT-03")).andExpect(status().isNotFound());
+        mvc.perform(get("/stages/STAGE-GIT-03")).andExpect(status().isOk()).andExpect(view().name("stage"));
 
-        verifyNoInteractions(stages);
+        verify(stages).open("STAGE-GIT-03");
+        verify(stages).definition("STAGE-GIT-03");
+        verifyNoMoreInteractions(stages);
     }
     @Test void stageTwoPostUsesOnlyTheFixedStageTwoKey() throws Exception {
         StageService stages = mock(StageService.class);

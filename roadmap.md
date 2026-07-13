@@ -2,8 +2,8 @@
 
 ## 文書情報
 
-- 状態: Phase 4進行中、STAGE-GIT-01／02完了
-- 現在地: STAGE-GIT-03着手前のゲームループ改善方針をユーザー承認済み。正式文書反映後、Stage 1・2の振り返りと自己確認を実装する
+- 状態: Phase 4進行中、STAGE-GIT-01／02とゲームループ補完完了、STAGE-GIT-03実装完了・PR前
+- 現在地: STAGE-GIT-03（stash）の固定fixture、snapshot採点、CONCEPT_ONLY＋状態要約OFF、対象限定テストまで完了。次はPR後にSTAGE-GIT-04を個別設計する
 - 上位文書: [`docs/requirements.md`](docs/requirements.md)
 - 関連文書: [`docs/vertical-slice.md`](docs/vertical-slice.md)、[`docs/test-strategy.md`](docs/test-strategy.md)、[`docs/phase-2-hardening-plan.md`](docs/phase-2-hardening-plan.md)
 
@@ -152,8 +152,8 @@ Phase 1の次へ進む条件は満たした。安全境界を5stageへ拡張す�
 ### 実装順
 
 1. STAGE-GIT-02 cherry-pick（完了）
-2. Stage 1・2のゲームループ補完（固定振り返り、物語結果、クリア後の非採点自己確認）
-3. STAGE-GIT-03 stash（案内量削減を先行確認し、読み取り専用状態要約は独立して必要時だけ有効化）
+2. Stage 1・2のゲームループ補完（完了）
+3. STAGE-GIT-03 stash（実装完了・PR前。案内量削減を先行確認し、読み取り専用状態要約はOFF）
 4. STAGE-GIT-04 merge conflict
 5. STAGE-GIT-05 reflog
 6. シーズン1全体の物語接続と振り返り整合
@@ -223,12 +223,11 @@ Phase 1の次へ進む条件は満たした。安全境界を5stageへ拡張す�
 
 ## 12. 現在の次作業
 
-1. STAGE-GIT-01／02、MVP永続化、固定ルート、状態採点、対象限定テストは完了しmainへ反映済みである。
-2. ゲームループ改善として、現在の自動クリアを維持し、Stage 1・2へ固定振り返り、危険な代替案、clear scene、成長beat、クリア後の非採点・非永続な自己確認を追加する方針を採用した。
-3. ライブworkspaceの完了を宣言する復旧報告、`POST /report`、report待機用状態機械、TTL、sweeperは採用せず、Phase 5で必要性を再評価する。
-4. 次は正式文書に沿って、Stage 1・2のゲームループ補完を独立した作業branchで実装する。
-5. 補完後にSTAGE-GIT-03を個別設計する。案内量と読み取り専用状態要約を別の固定表示方針とし、最初は概念案内のみ・状態要約なしで手動確認する。
-6. 状態把握不足が主要な詰まりと確認された場合だけ、Stage 3の最小状態要約を有効にして再確認する。
+1. STAGE-GIT-01／02、ゲームループ補完、MVP永続化、固定ルート、状態採点、対象限定テストは完了している。
+2. STAGE-GIT-03では、`main`上の未commit変更を`feature/search`へstashで移す。最終working treeは意図的にdirty、index／stash／途中状態は空、branch tipは不変というsnapshotで自動clearする。
+3. 表示は`CONCEPT_ONLY`＋`incidentBoardMode=OFF`で開始し、正確な構文はhint level 3以降だけに表示する。状態要約の有効化はPhase 5の観察結果を待つ。
+4. ライブworkspaceの完了を宣言する復旧報告、`POST /report`、report待機用状態機械、TTL、sweeperは採用せず、Phase 5で必要性を再評価する。
+5. このPRの後、STAGE-GIT-04を個別設計し、井上の実装前レビューを通してから実装する。
 
 詳細は[`docs/requirements.md`](docs/requirements.md)、[`docs/game-design.md`](docs/game-design.md)、[`docs/git-mvp-stages.md`](docs/git-mvp-stages.md)、[`docs/architecture.md`](docs/architecture.md)、[`docs/test-strategy.md`](docs/test-strategy.md)を正本とする。
 

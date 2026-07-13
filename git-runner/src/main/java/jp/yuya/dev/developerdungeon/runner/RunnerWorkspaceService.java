@@ -220,15 +220,29 @@ class RunnerWorkspaceService {
         var ancestorList = ancestors.isBlank() ? List.<String>of() : List.of(ancestors.split("\\R"));
         boolean reverting = stateFileExists(workspace, "REVERT_HEAD");
         boolean cherryPicking = stateFileExists(workspace, "CHERRY_PICK_HEAD");
+        boolean merging = stateFileExists(workspace, "MERGE_HEAD");
+        boolean rebasing = stateFileExists(workspace, "rebase-merge") || stateFileExists(workspace, "rebase-apply");
         String currentBranch = gitOutput(workspace.containerId(), List.of("branch", "--show-current")).trim();
         String profileTip = "";
         String notificationTip = "";
+        RepositorySnapshot.StageThreeState stageThree = RepositorySnapshot.StageThreeState.empty();
         if ("STAGE-GIT-02".equals(workspace.stageKey())) {
             profileTip = gitOutput(workspace.containerId(), List.of("rev-parse", "refs/heads/feature/profile")).trim();
             notificationTip = gitOutput(workspace.containerId(), List.of("rev-parse", "refs/heads/feature/notification")).trim();
         }
+        if ("STAGE-GIT-03".equals(workspace.stageKey())) {
+            String mainTip = gitOutput(workspace.containerId(), List.of("rev-parse", "refs/heads/main")).trim();
+            String searchTip = gitOutput(workspace.containerId(), List.of("rev-parse", "refs/heads/feature/search")).trim();
+            String searchParent = gitOutput(workspace.containerId(), List.of("rev-parse", "refs/heads/feature/search^1")).trim();
+            String searchFileBlobId = gitOutput(workspace.containerId(), List.of("hash-object", "--", "search.txt")).trim();
+            stageThree = new RepositorySnapshot.StageThreeState(mainTip, searchTip, searchParent, searchFileBlobId,
+                    gitLines(workspace.containerId(), List.of("diff", "--name-only", "--no-ext-diff", "--")),
+                    gitLines(workspace.containerId(), List.of("diff", "--cached", "--name-only", "--no-ext-diff", "--")),
+                    unmergedPaths(workspace), gitLines(workspace.containerId(), List.of("ls-files", "--others", "--exclude-standard")),
+                    readStashObjectIds(workspace));
+        }
         return new RepositorySnapshot(head, tree, firstParentTree, parentList, status.isEmpty(), reverting, ancestorList,
-                currentBranch, profileTip, notificationTip, cherryPicking);
+                currentBranch, profileTip, notificationTip, cherryPicking, merging, rebasing, stageThree);
     }
 
     private String gitOutput(String containerId, List<String> gitArguments) {
@@ -244,7 +258,7 @@ class RunnerWorkspaceService {
         arguments.add("-c"); arguments.add("user.email=player@developer-dungeon.invalid");
         arguments.addAll(gitArguments);
         var result = docker.run(arguments, COMMAND_TIMEOUT);
-        if (result.exitCode() != 0) throw new IllegalStateException("snapshot failed: " + result.stderr());
+        if (result.exitCode() != 0 || result.outputTruncated()) throw new IllegalStateException("snapshot failed");
         return result.stdout();
     }
     private boolean stateFileExists(Workspace workspace, String name) {
@@ -253,6 +267,35 @@ class RunnerWorkspaceService {
             throw new IllegalStateException("Git state file check failed");
         }
         return result.exitCode() == 0;
+    }
+    private List<String> gitLines(String containerId, List<String> gitArguments) {
+        String output = gitOutput(containerId, gitArguments);
+        return output.isBlank() ? List.of() : output.lines().filter(line -> !line.isBlank()).toList();
+    }
+    private List<String> unmergedPaths(Workspace workspace) {
+        String output = gitOutput(workspace.containerId(), List.of("ls-files", "--unmerged"));
+        if (output.isBlank()) return List.of();
+        var paths = new java.util.LinkedHashSet<String>();
+        for (String line : output.lines().toList()) {
+            int separator = line.indexOf('\t');
+            if (separator <= 0 || separator == line.length() - 1) throw new IllegalStateException("invalid unmerged path output");
+            paths.add(line.substring(separator + 1));
+        }
+        return List.copyOf(paths);
+    }
+    private List<String> readStashObjectIds(Workspace workspace) {
+        var arguments = gitPrefix(workspace.containerId());
+        arguments.addAll(List.of("-C", "/workspace", "-c", "core.hooksPath=/opt/empty-hooks", "-c", "core.attributesFile=/dev/null",
+                "-c", "credential.helper=", "-c", "core.pager=cat", "-c", "core.editor=:", "-c", "protocol.file.allow=never",
+                "-c", "user.name=Developer Dungeon Player", "-c", "user.email=player@developer-dungeon.invalid", "stash", "list", "--format=%H"));
+        var result = docker.run(arguments, COMMAND_TIMEOUT);
+        if (result.exitCode() != 0 || result.outputTruncated()) throw new IllegalStateException("stash snapshot failed");
+        if (result.stdout().isBlank()) return List.of();
+        List<String> objectIds = result.stdout().lines().toList();
+        if (objectIds.stream().anyMatch(id -> !id.matches("[0-9a-f]{40}")) || new java.util.LinkedHashSet<>(objectIds).size() != objectIds.size()) {
+            throw new IllegalStateException("invalid stash snapshot");
+        }
+        return List.copyOf(objectIds);
     }
 
     private List<String> gitArguments(String containerId, GitCommand command) {
@@ -271,6 +314,11 @@ class RunnerWorkspaceService {
             case CHERRY_PICK -> { arguments.add("cherry-pick"); arguments.add(command.objectId()); }
             case RESET_HARD -> { arguments.addAll(List.of("reset", "--hard")); arguments.add(command.objectId()); }
             case REVERT_NO_EDIT -> { arguments.addAll(List.of("revert", "--no-edit")); arguments.add(command.objectId()); }
+            case DIFF -> arguments.addAll(List.of("diff", "--no-ext-diff", "--no-textconv", "--"));
+            case DIFF_STAGED -> arguments.addAll(List.of("diff", "--staged", "--no-ext-diff", "--no-textconv", "--"));
+            case STASH_PUSH -> arguments.addAll(List.of("stash", "push"));
+            case STASH_LIST -> arguments.addAll(List.of("stash", "list"));
+            case STASH_POP -> arguments.addAll(List.of("stash", "pop"));
         }
         return arguments;
     }
@@ -296,12 +344,13 @@ class RunnerWorkspaceService {
     }
     private String requestKey(String scope, String requestId) { return scope + ":" + requestId; }
     private void requireStage(String stageKey) {
-        if (!"STAGE-GIT-01".equals(stageKey) && !"STAGE-GIT-02".equals(stageKey)) throw new IllegalArgumentException("unknown stage");
+        if (!"STAGE-GIT-01".equals(stageKey) && !"STAGE-GIT-02".equals(stageKey) && !"STAGE-GIT-03".equals(stageKey)) throw new IllegalArgumentException("unknown stage");
     }
     private String fixturePath(String stageKey) {
         return switch (stageKey) {
             case "STAGE-GIT-01" -> "/opt/fixtures/stage-git-01";
             case "STAGE-GIT-02" -> "/opt/fixtures/stage-git-02";
+            case "STAGE-GIT-03" -> "/opt/fixtures/stage-git-03";
             default -> throw new IllegalArgumentException("unknown stage");
         };
     }
@@ -355,6 +404,17 @@ class RunnerWorkspaceService {
             }
             return;
         }
+        if ("STAGE-GIT-03".equals(workspace.stageKey())) {
+            if (command.kind() != CommandKind.STATUS && command.kind() != CommandKind.DIFF && command.kind() != CommandKind.DIFF_STAGED
+                    && command.kind() != CommandKind.BRANCH && command.kind() != CommandKind.STASH_PUSH && command.kind() != CommandKind.STASH_LIST
+                    && command.kind() != CommandKind.STASH_POP && command.kind() != CommandKind.SWITCH) {
+                throw new IllegalArgumentException("command is not allowed for this stage");
+            }
+            if (command.kind() == CommandKind.SWITCH && !"feature/search".equals(command.branchName())) {
+                throw new IllegalArgumentException("only the stage's search branch can be selected");
+            }
+            return;
+        }
         if (command.kind() != CommandKind.STATUS && command.kind() != CommandKind.LOG_ONELINE_ALL_DECORATE
                 && command.kind() != CommandKind.BRANCH && command.kind() != CommandKind.SHOW
                 && command.kind() != CommandKind.SWITCH && command.kind() != CommandKind.CHERRY_PICK
@@ -367,10 +427,24 @@ class RunnerWorkspaceService {
         if (command.kind() == CommandKind.RESET_HARD && !command.objectId().equals(targets.resetTarget())) {
             throw new IllegalArgumentException("only the stage's original branch tip can be reset");
         }
+        if (command.kind() == CommandKind.SWITCH && !"feature/profile".equals(command.branchName()) && !"feature/notification".equals(command.branchName())) {
+            throw new IllegalArgumentException("only the stage's branches can be selected");
+        }
     }
     private StageTargets captureStageTargets(String stageKey, RepositorySnapshot initial) {
         if ("STAGE-GIT-01".equals(stageKey)) {
             return new StageTargets(initial.headObjectId(), null, null, Set.copyOf(initial.ancestorObjectIds()));
+        }
+        if ("STAGE-GIT-03".equals(stageKey)) {
+            var state = initial.stageThree();
+            if (!"main".equals(initial.currentBranch()) || !initial.headObjectId().equals(state.mainTip()) || state.mainTip().isBlank()
+                    || state.featureSearchTip().isBlank() || !state.mainTip().equals(state.featureSearchParent()) || initial.clean()
+                    || !state.workingTreePaths().equals(List.of("search.txt")) || !state.indexPaths().isEmpty() || !state.unmergedPaths().isEmpty()
+                    || !state.untrackedPaths().isEmpty() || !state.stashObjectIds().isEmpty() || initial.revertInProgress()
+                    || initial.cherryPickInProgress() || initial.mergeInProgress() || initial.rebaseInProgress()) {
+                throw new IllegalStateException("stage fixture is invalid");
+            }
+            return new StageTargets(null, null, null, Set.of());
         }
         String c1 = initial.headObjectId();
         String c0 = initial.featureNotificationTip();

@@ -99,6 +99,17 @@ class RunnerWorkspaceServiceIdempotencyTest {
     }
 
     @Test
+    void failsClosedWhenSnapshotOutputIsTruncated() {
+        DockerGateway docker = fixtureDocker();
+        when(docker.run(argThat(arguments -> arguments.contains("rev-list")), any(Duration.class)))
+                .thenReturn(new DockerGateway.ProcessResult(0, "c".repeat(40), "", true));
+        var service = new RunnerWorkspaceService(docker, new RunnerProperties("a".repeat(43), IMAGE, FINGERPRINT, "C:\\docker.exe"), new RunnerCommandValidator());
+
+        assertThatThrownBy(() -> service.create(new WorkspaceRequest("11111111-1111-1111-1111-111111111111", "22222222-2222-2222-2222-222222222222", "STAGE-GIT-01", 0)))
+                .isInstanceOf(IllegalStateException.class).hasMessage("snapshot failed");
+    }
+
+    @Test
     void runsGitWithFixedConfigurationAndNoExternalDiffOrTextConversion() {
         DockerGateway docker = fixtureDocker();
         var service = new RunnerWorkspaceService(docker, new RunnerProperties("a".repeat(43), IMAGE, FINGERPRINT, "C:\\docker.exe"), new RunnerCommandValidator());

@@ -7,7 +7,14 @@ import org.junit.jupiter.api.Test;
 
 class RunnerCommandValidatorTest {
     private final RunnerCommandValidator validator = new RunnerCommandValidator();
-    @Test void acceptsOnlyExpectedShapes() { assertThatCode(() -> validator.validate(new GitCommand(CommandKind.STATUS))).doesNotThrowAnyException(); }
+    @Test void acceptsOnlyExpectedShapes() {
+        assertThatCode(() -> validator.validate(new GitCommand(CommandKind.STATUS))).doesNotThrowAnyException();
+        assertThatCode(() -> validator.validate(new GitCommand(CommandKind.DIFF))).doesNotThrowAnyException();
+        assertThatCode(() -> validator.validate(new GitCommand(CommandKind.DIFF_STAGED))).doesNotThrowAnyException();
+        assertThatCode(() -> validator.validate(new GitCommand(CommandKind.STASH_PUSH))).doesNotThrowAnyException();
+        assertThatCode(() -> validator.validate(new GitCommand(CommandKind.STASH_LIST))).doesNotThrowAnyException();
+        assertThatCode(() -> validator.validate(new GitCommand(CommandKind.STASH_POP))).doesNotThrowAnyException();
+    }
     @Test void rejectsRevisionSyntaxAndShortIds() {
         assertThatThrownBy(() -> validator.validate(new GitCommand(CommandKind.SHOW, "HEAD^"))).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> validator.validate(new GitCommand(CommandKind.REVERT_NO_EDIT, "a".repeat(12)))).isInstanceOf(IllegalArgumentException.class);
@@ -17,5 +24,7 @@ class RunnerCommandValidatorTest {
         assertThatThrownBy(() -> validator.validate(new GitCommand(CommandKind.SWITCH, "a".repeat(40), "feature/notification"))).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> validator.validate(new GitCommand(CommandKind.CHERRY_PICK, "a".repeat(40), "feature/notification"))).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> validator.validate(GitCommand.switchTo("feature/unknown"))).isInstanceOf(IllegalArgumentException.class);
+        assertThatCode(() -> validator.validate(GitCommand.switchTo("feature/search"))).doesNotThrowAnyException();
+        assertThatThrownBy(() -> validator.validate(new GitCommand(CommandKind.STASH_PUSH, "a".repeat(40)))).isInstanceOf(IllegalArgumentException.class);
     }
 }

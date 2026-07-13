@@ -14,6 +14,8 @@ import org.springframework.stereotype.Component;
 class StageRules {
     private static final Pattern OBJECT_ID = Pattern.compile("[0-9a-f]{12}([0-9a-f]{28})?");
     private static final Pattern LOG_ID = Pattern.compile("^([0-9a-f]{12})\\b.*");
+    private static final String STAGE_THREE_INITIAL_BLOB = "80b018f3f86a4e710347ea98c0b903a1c6fcd9e7";
+    private static final String STAGE_THREE_FINAL_BLOB = "0861e3929141f32f4e5c8bcd68fc03173a3e3c8e";
     private static final StageDefinition STAGE_ONE = new StageDefinition("STAGE-GIT-01", "第1現場 / リリース障害", "公開済み変更を取り消す",
             "公開済みの誤変更を、履歴を壊さずに戻す。", "新人のあなたは、先輩から緊急チケットを受け取った。公開済みの誤変更を、履歴を壊さずに戻そう。",
             "誤ったcommitがmainへ公開された。履歴を消さず、利用者へ安全な取り消しを届けること。", "誤commitを履歴に残したまま、正常な状態へ戻す。",
@@ -38,9 +40,22 @@ class StageRules {
                     "feature/notificationが通知機能を持つ新しいcommitを指し、feature/profileが元のC0へ戻り、作業ツリーがcleanであることを確認します。",
                     "「共有前に気づけたのは大きい。これで安心してレビューへ回せる」と先輩は息をついた。",
                     "主人公は、commitの内容だけでなく、どのbranchに置くべきかまで説明できるようになった。"));
-    private static final Map<String, StageDefinition> DEFINITIONS = Map.of(STAGE_ONE.key(), STAGE_ONE, STAGE_TWO.key(), STAGE_TWO);
+    private static final StageDefinition STAGE_THREE = new StageDefinition("STAGE-GIT-03", "第3現場 / 作業中のbranch移動", "未commitの作業を正しいbranchへ移す",
+            "mainで始めた検索機能の作業を失わずに、feature/searchへ移す。", "検索機能の作業をmainで始めてしまった。commitする前に、既存のfeature/searchへ安全に移そう。",
+            "検索機能の未commit変更がmainに残っている。作業を一時退避し、feature/searchで復元してmainをきれいに戻すこと。", "検索機能の変更をfeature/searchへ未commitのまま移し、stashを残さない。",
+            "観察 / 一時退避 / branch移動",
+            new StageOutcome("main上の未commitな検索機能の変更が、正しいfeature/searchではなく作業ツリーに残っていました。",
+                    "mainとfeature/searchのcommit位置を変えずに、検索機能の変更だけがfeature/searchの作業ツリーへ戻り、stashは空になりました。",
+                    "stashで作業中の変更を一時退避してからbranchを切り替えると、commitや共有branchを急いで書き換えずに作業を運べます。",
+                    "変更を残したままbranchを切り替えようとすると、別branchの変更と衝突したり、意図しない場所へ作業を持ち込んだりします。",
+                    "検索機能の作業を失わず正しいbranchへ移せたと判断するには、branch、作業ツリー、index、stashの何を確認すべきでしょうか？",
+                    "feature/search上で検索機能の変更だけが未commitで残り、indexは空、mainとfeature/searchのcommit位置は変わらず、stashも空であることを確認します。",
+                    "「作業を急いでcommitしなくても、整理して運べるんだ」と先輩は次のタスクを指さした。",
+                    "主人公は、作業中の変更を失わずに整理し、正しい場所で続ける段取りを身につけた。"),
+            StagePresentationPolicy.conceptOnlyOff("観察", "一時退避", "branch移動"));
+    private static final Map<String, StageDefinition> DEFINITIONS = Map.of(STAGE_ONE.key(), STAGE_ONE, STAGE_TWO.key(), STAGE_TWO, STAGE_THREE.key(), STAGE_THREE);
 
-    List<StageDefinition> definitions() { return List.of(STAGE_ONE, STAGE_TWO); }
+    List<StageDefinition> definitions() { return List.of(STAGE_ONE, STAGE_TWO, STAGE_THREE); }
     StageDefinition definition(String stageKey) {
         StageDefinition definition = DEFINITIONS.get(stageKey);
         if (definition == null) throw new IllegalArgumentException("unknown stage");
@@ -51,6 +66,7 @@ class StageRules {
         return switch (definition.key()) {
             case "STAGE-GIT-01" -> parseStageOne(raw);
             case "STAGE-GIT-02" -> parseStageTwo(raw);
+            case "STAGE-GIT-03" -> parseStageThree(raw);
             default -> throw new IllegalArgumentException("unknown stage");
         };
     }
@@ -58,6 +74,18 @@ class StageRules {
         if ("STAGE-GIT-01".equals(definition.key())) {
             if (snapshot.headParents().isEmpty()) throw new IllegalStateException("invalid stage fixture");
             return new StageTargets(snapshot.headObjectId(), null, snapshot.firstParentTreeId(), Set.copyOf(snapshot.ancestorObjectIds()));
+        }
+        if ("STAGE-GIT-03".equals(definition.key())) {
+            var state = snapshot.stageThree();
+            if (!"main".equals(snapshot.currentBranch()) || !snapshot.headObjectId().equals(state.mainTip())
+                    || state.mainTip().isBlank() || state.featureSearchTip().isBlank() || !state.mainTip().equals(state.featureSearchParent())
+                    || !STAGE_THREE_INITIAL_BLOB.equals(state.searchFileBlobId()) || snapshot.clean()
+                    || !state.workingTreePaths().equals(List.of("search.txt")) || !state.indexPaths().isEmpty()
+                    || !state.unmergedPaths().isEmpty() || !state.untrackedPaths().isEmpty() || !state.stashObjectIds().isEmpty()
+                    || snapshot.revertInProgress() || snapshot.cherryPickInProgress() || snapshot.mergeInProgress() || snapshot.rebaseInProgress()) {
+                throw new IllegalStateException("invalid stage fixture");
+            }
+            return new StageTargets(state.mainTip(), state.featureSearchTip(), state.searchFileBlobId(), Set.of());
         }
         String c1 = snapshot.headObjectId();
         String c0 = snapshot.featureNotificationTip();
@@ -102,6 +130,12 @@ class StageRules {
             if (hintLevel == 2) return List.of("公開済みのcommitは、履歴を消すより取り消しcommitを積む方法を考えよう。");
             return List.of("対象commitを確認し、git revert --no-edit <commit-id>を使う。");
         }
+        if ("STAGE-GIT-03".equals(definition.key())) {
+            if (hintLevel == 1) return List.of("まず作業ツリーとindexに、どの変更が残っているか観察しよう。");
+            if (hintLevel == 2) return List.of("branchを切り替える前に、未commit変更を一時退避する方法を考えよう。");
+            if (hintLevel == 3) return List.of("git stash push、git switch <branch>、git stash popの形を順に使う。");
+            return List.of("git stash pushで退避し、git switch feature/searchへ移動してから、git stash popで検索機能の変更を戻そう。");
+        }
         if (hintLevel == 1) return List.of("--all --decorateで、2つのbranchがどこを指すか比較しよう。");
         if (hintLevel == 2) return List.of("commitを移す操作と、未公開branchを元へ戻す操作を分けて考えよう。");
         if (hintLevel == 3) return List.of("feature/notificationへswitchし、C1をcherry-pickしてからprofileをC0へ戻す順序を考えよう。");
@@ -117,6 +151,17 @@ class StageRules {
                     && snapshot.headParents().size() == 1 && snapshot.headParents().getFirst().equals(targets.primaryObjectId());
             if (!cleared) return new StageGrade(false, 0, "復旧条件はまだ満たしていません。");
             return new StageGrade(true, stars(highestHint, playerResets), "公開済みの誤commitを履歴に残したまま、安全に取り消せました。");
+        }
+        if ("STAGE-GIT-03".equals(definition.key())) {
+            var state = snapshot.stageThree();
+            cleared = !snapshot.clean() && !snapshot.revertInProgress() && !snapshot.cherryPickInProgress()
+                    && !snapshot.mergeInProgress() && !snapshot.rebaseInProgress() && "feature/search".equals(snapshot.currentBranch())
+                    && targets.primaryObjectId().equals(state.mainTip()) && targets.secondaryObjectId().equals(state.featureSearchTip())
+                    && targets.secondaryObjectId().equals(snapshot.headObjectId()) && STAGE_THREE_FINAL_BLOB.equals(state.searchFileBlobId())
+                    && state.workingTreePaths().equals(List.of("search.txt")) && state.indexPaths().isEmpty()
+                    && state.unmergedPaths().isEmpty() && state.untrackedPaths().isEmpty() && state.stashObjectIds().isEmpty();
+            if (!cleared) return new StageGrade(false, 0, "branch、作業ツリー、index、stashの状態をもう一度確認しましょう。");
+            return new StageGrade(true, stars(highestHint, playerResets), "未commitの検索機能を正しいbranchへ移し、作業を整理できました。");
         }
         cleared = snapshot.clean() && !snapshot.revertInProgress() && !snapshot.cherryPickInProgress() && "feature/notification".equals(snapshot.currentBranch())
                 && targets.secondaryObjectId().equals(snapshot.featureProfileTip())
@@ -142,6 +187,17 @@ class StageRules {
         if (raw.matches("git switch feature/(profile|notification)")) return GitCommand.switchTo(raw.substring(11));
         if (raw.matches("git cherry-pick " + OBJECT_ID.pattern())) return new GitCommand(CommandKind.CHERRY_PICK, raw.substring(16));
         if (raw.matches("git reset --hard " + OBJECT_ID.pattern())) return new GitCommand(CommandKind.RESET_HARD, raw.substring(17));
+        throw new IllegalArgumentException("このステージで許可されたGitコマンドではありません。");
+    }
+    private GitCommand parseStageThree(String raw) {
+        if ("git status".equals(raw)) return new GitCommand(CommandKind.STATUS);
+        if ("git diff".equals(raw)) return new GitCommand(CommandKind.DIFF);
+        if ("git diff --staged".equals(raw)) return new GitCommand(CommandKind.DIFF_STAGED);
+        if ("git branch".equals(raw)) return new GitCommand(CommandKind.BRANCH);
+        if ("git stash push".equals(raw)) return new GitCommand(CommandKind.STASH_PUSH);
+        if ("git stash list".equals(raw)) return new GitCommand(CommandKind.STASH_LIST);
+        if ("git switch feature/search".equals(raw)) return GitCommand.switchTo("feature/search");
+        if ("git stash pop".equals(raw)) return new GitCommand(CommandKind.STASH_POP);
         throw new IllegalArgumentException("このステージで許可されたGitコマンドではありません。");
     }
     private void rejectUnsafeRaw(String raw) {
