@@ -2,7 +2,7 @@
 
 ## 文書情報
 
-- 状態: STAGE-GIT-05個別設計・バム／井上レビュー通過（STAGE-GIT-04まで承認済み、実装待ち）
+- 状態: STAGE-GIT-05実装・対象限定テスト完了（PR作成待ち）
 - 上位文書: [`requirements.md`](requirements.md)、[`game-design.md`](game-design.md)
 - 関連文書: [`threat-model.md`](threat-model.md)、[`architecture.md`](architecture.md)、[`test-strategy.md`](test-strategy.md)
 
@@ -301,7 +301,7 @@ Stage 1・2は正確な許可構文を常時表示する。Stage 3は概念カ�
 - 難易度: 実務
 - 主概念: `reflog`、branch復旧
 - 学習目標: branch名が消えても直ちにcommit objectが失われるとは限らないこと、通常のrefをたどる`log --all`と操作履歴を記録するreflogの役割が異なることを理解する。
-- 表示方針: `CONCEPT_ONLY + BASIC`。常時表示は「状態確認」「通常履歴」「操作履歴」「commit確認」「branch復旧」と、`main`が存在し復旧対象branchが存在しないことを示す最小状態要約に限定する。正確な構文はヒントレベル3以降で開示する。
+- 表示方針: `CONCEPT_ONLY + REDACTED_BRANCHES`。常時表示は「状態確認」「通常履歴」「操作履歴」「commit確認」「branch復旧」と、`main`が存在し復旧対象branchが存在しないことを示す最小状態要約に限定する。正確な構文はヒントレベル3以降で開示する。
 
 ### 初期状態
 

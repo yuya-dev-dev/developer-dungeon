@@ -2,7 +2,7 @@
 
 ## 文書情報
 
-- 状態: 承認済み（Phase 1〜STAGE-GIT-04反映済み）、STAGE-GIT-05個別設計・井上レビュー通過（実装待ち）
+- 状態: 承認済み（Phase 1〜STAGE-GIT-05実装・対象限定テスト完了、PR作成待ち）
 - 対象: Git編の1日縦切り版および安定版MVP
 - 上位文書: [`requirements.md`](requirements.md)、[`git-mvp-stages.md`](git-mvp-stages.md)、[`threat-model.md`](threat-model.md)
 - 関連文書: [`vertical-slice.md`](vertical-slice.md)、[`test-strategy.md`](test-strategy.md)
@@ -320,7 +320,7 @@ stageの文章、hint、許可command kind、fixture ID、clear policy IDをapp�
 表示上の案内量と読み取り専用状態要約は、stageの技術定義から分離したdeveloper管理の固定表示方針で扱う。初期MVPでは少なくとも次の2軸を独立させる。
 
 - `guidanceMode`: `FULL_SYNTAX` / `CONCEPT_ONLY`
-- `incidentBoardMode`: `OFF` / `BASIC`
+- `incidentBoardMode`: `OFF` / `BASIC` / `REDACTED_BRANCHES`
 
 表示方針はcommand allowlist、fixture、clear policy、Runner contractへ影響させず、player入力、DB、外部設定から変更できない。Controllerへ渡す案内用view modelと状態要約用view modelを分け、Thymeleafでも別sectionとして条件表示する。汎用feature flag、plugin、動的stage作成基盤は導入しない。
 
@@ -345,7 +345,7 @@ Phase 4の現時点では、`GET /`が固定のSTAGE-GIT-01／STAGE-GIT-02一覧
 
 安定版MVPはrepository snapshotによる自動クリアを維持し、プレイヤーの復旧報告を待つ`report` routeは追加しない。クリア後の自己確認は、固定の問いと解説を表示するだけの非採点・非永続UIとし、POST、DB、Runner、attempt状態を追加しない。
 
-Stage 1・2とStage 4は`FULL_SYNTAX + BASIC`で現行表示を維持する。Stage 3の最初の手動確認は`CONCEPT_ONLY + OFF`とし、状態把握不足が主要な詰まりと確認された場合だけ`CONCEPT_ONLY + BASIC`へ変更して再確認する。Stage 5は`CONCEPT_ONLY + BASIC`とし、状態要約は`main`の存在と復旧対象branchの欠落だけを示す。reflog entry、object ID、正解構文を状態要約へ含めず、案内量と状態要約の既存分離を維持する。
+Stage 1・2とStage 4は`FULL_SYNTAX + BASIC`で現行表示を維持する。Stage 3の最初の手動確認は`CONCEPT_ONLY + OFF`とし、状態把握不足が主要な詰まりと確認された場合だけ`CONCEPT_ONLY + BASIC`へ変更して再確認する。Stage 5は`CONCEPT_ONLY + REDACTED_BRANCHES`とし、状態要約は`main`の存在と復旧対象branchの欠落だけを示す。reflog entry、object ID、正解構文を状態要約へ含めず、案内量と状態要約の既存分離を維持する。
 
 ### 12.2 実装方式
 

@@ -154,7 +154,9 @@ class StageService {
             attempt.apply(saved); commandPending = false;
             attempt.lastOutput = sanitizer.sanitize(response.stdout() + (response.stderr().isBlank() ? "" : "\n" + response.stderr()) + (response.outputTruncated() ? "\n[output truncated]" : ""));
             attempt.lastExitCode = response.exitCode(); attempt.snapshot = response.snapshot();
-            if (displayedCommand != null) rules.recordDisplayedObjects(definition, displayedCommand, response.stdout(), attempt.targets, attempt.displayedShortIds);
+            if (displayedCommand != null && response.exitCode() == 0 && !response.outputTruncated()) {
+                rules.recordDisplayedObjects(definition, displayedCommand, response.stdout(), attempt.targets, attempt.displayedShortIds);
+            }
             attempt.grade = grade;
             if (grade.cleared()) {
                 attempt.cleanupRequestId = cleanupId.toString();

@@ -2,7 +2,7 @@
 
 ## 文書情報
 
-- 状態: STAGE-GIT-05個別設計・バム／井上レビュー通過（STAGE-GIT-04まで承認済み、実装待ち）
+- 状態: STAGE-GIT-05実装・対象限定テスト完了（PR作成待ち）
 - 上位文書: [`requirements.md`](requirements.md)
 - 関連文書: [`git-mvp-stages.md`](git-mvp-stages.md)、[`vertical-slice.md`](vertical-slice.md)
 
@@ -101,7 +101,7 @@ Developer Dungeonは、教材を順番に読むゲームではない。新人エ
 
 Stage 1・2は正確な許可構文を常時表示する。Stage 3では、最初の手動確認時に「観察」「一時退避」「branch移動」のような概念カテゴリだけを常時表示し、正確な構文をヒントレベル3、対象を含む具体手順をヒントレベル4で開示する。案内量と読み取り専用状態要約は別機能として扱い、Stage 3の初回確認では状態要約を無効にする。状態を見失うことが主要な詰まりと確認された場合だけ、最小状態要約を有効にして再確認する。
 
-Stage 5はシーズン1の最終判断として`CONCEPT_ONLY + BASIC`を使用する。常時表示は「状態確認」「通常履歴」「操作履歴」「commit確認」「branch復旧」の概念カテゴリに限定し、状態要約は`main`が存在し復旧対象branchが存在しないことだけを示す。reflog entry、object ID、正解commandは状態要約へ出さず、正確な構文をヒントレベル3、対象IDを含む具体手順をヒントレベル4で開示する。案内量と状態要約は既存の独立した表示方針を使い、新しいfeature flagや動的設定を追加しない。
+Stage 5はシーズン1の最終判断として`CONCEPT_ONLY + REDACTED_BRANCHES`を使用する。常時表示は「状態確認」「通常履歴」「操作履歴」「commit確認」「branch復旧」の概念カテゴリに限定し、状態要約は`main`が存在し復旧対象branchが存在しないことだけを示す。reflog entry、object ID、正解commandは状態要約へ出さず、正確な構文をヒントレベル3、対象IDを含む具体手順をヒントレベル4で開示する。案内量と状態要約は既存の独立した表示方針を使い、新しいfeature flagや動的設定を追加しない。
 
 ## 8. 3スター評価
 

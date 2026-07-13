@@ -10,11 +10,21 @@ record StagePresentationView(Guidance guidance, IncidentBoard incidentBoard) {
         if (stage.presentation().incidentBoardMode() == StagePresentationPolicy.IncidentBoardMode.OFF || snapshot == null) {
             return new StagePresentationView(guidance, null);
         }
+        if (stage.presentation().incidentBoardMode() == StagePresentationPolicy.IncidentBoardMode.REDACTED_BRANCHES) {
+            var branches = snapshot.stageFive().localBranches();
+            return new StagePresentationView(guidance, new IncidentBoard("", "", false, true,
+                    branches.contains("main"), branches.contains("feature/payment-retry")));
+        }
         return new StagePresentationView(guidance, new IncidentBoard(snapshot.currentBranch(), snapshot.headObjectId(), snapshot.clean()));
     }
 
     record Guidance(boolean fullSyntax, List<String> conceptCategories) {
         Guidance { conceptCategories = List.copyOf(conceptCategories); }
     }
-    record IncidentBoard(String currentBranch, String headObjectId, boolean clean) { }
+    record IncidentBoard(String currentBranch, String headObjectId, boolean clean, boolean redacted,
+                         boolean mainPresent, boolean paymentRetryPresent) {
+        IncidentBoard(String currentBranch, String headObjectId, boolean clean) {
+            this(currentBranch, headObjectId, clean, false, false, false);
+        }
+    }
 }
