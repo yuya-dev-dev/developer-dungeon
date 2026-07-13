@@ -6,7 +6,7 @@ Developer Dungeonは、新人エンジニアが複数の開発現場で技術的
 
 ## 現在の状態
 
-企画・要件定義・全体設計の文書一式はユーザー承認済みです。安全な縦切り版、Git Runner hardening、PostgreSQLによるMVP基盤を経て、STAGE-GIT-01（revert）とSTAGE-GIT-02（cherry-pick）を実装しmainへ反映しました。現在はSTAGE-GIT-03の前に、Stage 1・2の固定振り返り、物語結果、クリア後の非採点自己確認を補うゲームループ改善工程です。
+企画・要件定義・全体設計の文書一式はユーザー承認済みです。安全な縦切り版、Git Runner hardening、PostgreSQLによるMVP基盤を経て、STAGE-GIT-01（revert）、STAGE-GIT-02（cherry-pick）、Stage 1・2のゲームループ補完をmainへ反映しました。STAGE-GIT-03（stash）は、`main`上の未commit変更を既存の`feature/search`へ安全に移すステージとして実装を進めています。
 
 現在の1日縦切り版は、安全な使い捨てGit実行環境を含みます。player入力をhost上で直接実行せず、別processのGit Runnerとdisposable challenge containerを使用します。
 

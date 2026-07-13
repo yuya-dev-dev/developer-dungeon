@@ -16,16 +16,17 @@ import org.thymeleaf.templatemode.TemplateMode;
 import org.thymeleaf.templateresolver.ClassLoaderTemplateResolver;
 
 class StagesTemplateTest {
-    @Test void rendersBothFixedStageCardsAndProgress() {
-        String rendered = render(0, 3);
+    @Test void rendersAllFixedStageCardsAndProgress() {
+        String rendered = render(0, 3, 0);
 
-        assertThat(rendered).contains("STAGE-GIT-01", "STAGE-GIT-02", "未クリア", "クリア済み", "最高スター: 未記録", "最高スター: <strong><span>3</span> ★</strong>");
+        assertThat(rendered).contains("STAGE-GIT-01", "STAGE-GIT-02", "STAGE-GIT-03", "未クリア", "クリア済み", "最高スター: 未記録", "最高スター: <strong><span>3</span> ★</strong>");
     }
 
-    private String render(int stageOneStars, int stageTwoStars) {
+    private String render(int stageOneStars, int stageTwoStars, int stageThreeStars) {
         StageService stages = mock(StageService.class);
         when(stages.progresses()).thenReturn(List.of(new StageProgress("STAGE-GIT-01", "公開済み変更を取り消す", "summary", stageOneStars),
-                new StageProgress("STAGE-GIT-02", "間違ったbranchのcommitを移す", "summary", stageTwoStars)));
+                new StageProgress("STAGE-GIT-02", "間違ったbranchのcommitを移す", "summary", stageTwoStars),
+                new StageProgress("STAGE-GIT-03", "未commitの作業を正しいbranchへ移す", "summary", stageThreeStars)));
         MockMvc mvc = MockMvcBuilders.standaloneSetup(new StageController(stages)).setViewResolvers(viewResolver()).build();
         try { return mvc.perform(get("/")).andReturn().getResponse().getContentAsString(); }
         catch (Exception exception) { throw new AssertionError("stage list template did not render", exception); }

@@ -19,9 +19,10 @@ import org.thymeleaf.templatemode.TemplateMode;
 import org.thymeleaf.templateresolver.ClassLoaderTemplateResolver;
 
 class StageResultTemplateTest {
-    @Test void rendersDistinctStageOneAndStageTwoOutcomes() {
+    @Test void rendersDistinctStageOutcomes() {
         String stageOne = render("STAGE-GIT-01", true);
         String stageTwo = render("STAGE-GIT-02", true);
+        String stageThree = render("STAGE-GIT-03", true);
 
         assertThat(stageOne).contains("公開済みのmainに、必要な設定を削除する誤commitが含まれていました。",
                 "mainには誤commitが履歴として残り", "revertは公開済みの履歴を変えずに", "reset --hardで公開済みcommitを消すと",
@@ -33,6 +34,11 @@ class StageResultTemplateTest {
                 "通知機能を移す前にfeature/profileをresetすると", "通知機能を正しいbranchへ移し", "feature/profileが元のC0へ戻り",
                 "共有前に気づけたのは大きい", "commitの内容だけでなく", "復旧根拠を確認する", "根拠と解説を開く");
         assertThat(stageTwo).doesNotContain("公開済みのmainに、必要な設定を削除する誤commitが含まれていました。", "mainには誤commitが履歴として残り");
+        assertThat(stageThree).contains("main上の未commitな検索機能の変更が、正しいfeature/searchではなく作業ツリーに残っていました。",
+                "mainとfeature/searchのcommit位置を変えずに", "stashで作業中の変更を一時退避してからbranchを切り替えると",
+                "変更を残したままbranchを切り替えようとすると", "検索機能の作業を失わず正しいbranchへ移せたと判断するには",
+                "feature/search上で検索機能の変更だけが未commitで残り", "作業を急いでcommitしなくても", "作業中の変更を失わずに整理し");
+        assertThat(stageThree).doesNotContain("公開済みのmainに、必要な設定を削除する誤commitが含まれていました。", "未公開の通知機能commitがfeature/profileに置かれ");
     }
 
     @Test void selfCheckIsDisplayOnlyAndDoesNotRenderBeforeClear() {
