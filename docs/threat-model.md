@@ -2,7 +2,7 @@
 
 ## 文書情報
 
-- 状態: 承認済み（Phase 1実装・技術確認反映済み、再評価待ち）
+- 状態: 承認済み（Phase 1〜STAGE-GIT-04反映済み）、STAGE-GIT-05個別設計・井上レビュー通過（実装待ち）
 - 対象: Git編の1日縦切り版および安定版MVP
 - 上位文書: [`requirements.md`](requirements.md)、[`git-mvp-stages.md`](git-mvp-stages.md)
 - 関連文書: [`architecture.md`](architecture.md)、[`test-strategy.md`](test-strategy.md)
@@ -179,8 +179,13 @@ Runnerは継承環境を原則破棄し、必要な値だけを設定する。
 
 ### STAGE-GIT-05
 
-- `show`、`branch`のobject IDをfixture内objectへ限定する。
-- reflog出力は上限内に切り詰める。
+- `reflog`は引数なしのstage専用commandとし、RunnerがHEAD、format、12桁abbrev、最大8件を固定する。`--all`、任意ref、`HEAD@{n}`、`delete`、`expire`、`gc`を許可しない。
+- appは`show`とbranch作成のobject IDを、Runnerのinitial snapshotが返した`C0`／`C1`かつattempt内で表示済みのものへ限定する。未表示、短すぎる、曖昧prefix、未知40桁ID、revision式をGit実行前に拒否する。
+- Runnerは表示履歴を保持せず、受け取った完全IDの40桁形式、commit objectの存在とtype、固定fixture allowlistを再検証する。branch作成はstage専用commandとし、branch名を`feature/payment-retry`、targetをRunner側固定fixture定義の完全`C1`へ固定する。Browser由来branch名をRunnerへ渡さず、`C0`や別objectをtargetにできないようにする。
+- switch先も`feature/payment-retry`へ固定し、detached HEAD用checkoutや任意branch switchを許可しない。
+- fixture buildとworkspace生成時に`C1`のobject type、parent、tree、refからの到達不能、HEAD reflog内の期待entryを検証する。`C0`／`C1`の`rev-parse --short=12`がちょうど12桁で完全IDのprefixと一致し、相互に異なることを必須とする。13桁化、prefix衝突、reflog固定行形式不一致ではworkspaceを公開しない。reflogを改変・expire・gcするcommandを許可しないため、attempt中のobject保持をGitの期限任せにしない。
+- refから到達不能なC1の完全IDはplayer向けreflog stdoutから導出せず、検証済みchallenge imageとRunner側固定fixture定義からStage 5専用initial snapshotへ格納する。appとRunnerはこの信頼済みC1をhint、正規化、allowlist、clear判定へ使用する。
+- reflog、show、logの出力はuntrusted plain textとしてescapeし、固定件数に加えて既存の64 KiB出力上限とtimeoutを適用する。出力を採点へ使用しない。
 
 ## 10. Runner controllerの権限
 

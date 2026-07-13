@@ -2,8 +2,8 @@
 
 ## 文書情報
 
-- 状態: Phase 4進行中、STAGE-GIT-01〜03とゲームループ補完完了、STAGE-GIT-04実装・レビュー中
-- 現在地: STAGE-GIT-04（merge conflict）の固定fixture、version token付き限定エディタ、snapshot採点、対象限定テストを整備中。次はレビューとテスト完了後にPRへ進む
+- 状態: Phase 4進行中、STAGE-GIT-01〜04とゲームループ補完完了、STAGE-GIT-05個別設計・レビュー完了
+- 現在地: STAGE-GIT-04（merge conflict）はPR #8でmainへ反映済み。STAGE-GIT-05（reflog）はバムのシナリオレビューと井上の技術レビューをPASSし、実装開始指示待ち
 - 上位文書: [`docs/requirements.md`](docs/requirements.md)
 - 関連文書: [`docs/vertical-slice.md`](docs/vertical-slice.md)、[`docs/test-strategy.md`](docs/test-strategy.md)、[`docs/phase-2-hardening-plan.md`](docs/phase-2-hardening-plan.md)
 
@@ -28,7 +28,7 @@
 | 1 | 安全な1日縦切り版 | 完了・PR #1マージ済み |
 | 2 | Git Runner hardening | 完了・main反映済み |
 | 3 | 安定版MVP基盤 | 完了・main反映済み |
-| 4 | 5ステージ完成 | 進行中・STAGE-GIT-01／02完了 |
+| 4 | 5ステージ完成 | 進行中・STAGE-GIT-01〜04完了、STAGE-GIT-05設計完了・実装待ち |
 | 5 | MVP検証と改善 | 未着手 |
 | 6 | 高難度Gitステージ | 未着手 |
 | 7 | 将来編の再評価 | 未着手 |
@@ -154,8 +154,8 @@ Phase 1の次へ進む条件は満たした。安全境界を5stageへ拡張す�
 1. STAGE-GIT-02 cherry-pick（完了）
 2. Stage 1・2のゲームループ補完（完了）
 3. STAGE-GIT-03 stash（完了。案内量削減を先行確認し、読み取り専用状態要約はOFF）
-4. STAGE-GIT-04 merge conflict（実装・レビュー中）
-5. STAGE-GIT-05 reflog
+4. STAGE-GIT-04 merge conflict（完了・PR #8マージ済み）
+5. STAGE-GIT-05 reflog（個別設計・バム／井上レビュー完了、実装待ち）
 6. シーズン1全体の物語接続と振り返り整合
 
 ### 完成条件
@@ -223,12 +223,14 @@ Phase 1の次へ進む条件は満たした。安全境界を5stageへ拡張す�
 
 ## 12. 現在の次作業
 
-1. STAGE-GIT-01〜03、ゲームループ補完、MVP永続化、固定ルート、状態採点、対象限定テストは完了している。
-2. STAGE-GIT-04では、`main`と`feature/profile-message`の同一行競合を、双方の要件を残す固定内容へ限定編集して2親のmerge commitを完成させる。
-3. 限定エディタはStage 4の固定file keyだけをread/writeし、別request ID、version token、UTF-8／size制限、実path・symlink・hard link検証、原子的置換を必須とする。
-4. 採点はparent順、固定最終tree／blob、feature tip不変、clean、途中状態と変更pathの空をsnapshotで確認する。
-5. ライブworkspaceの完了を宣言する復旧報告、`POST /report`、report待機用状態機械、TTL、sweeperは採用せず、Phase 5で必要性を再評価する。
-6. このPRの後、STAGE-GIT-05（reflog）を個別設計する。
+1. STAGE-GIT-01〜04、ゲームループ補完、MVP永続化、固定ルート、状態採点、対象限定テストは完了している。
+2. STAGE-GIT-05は、削除済み`feature/payment-retry`の元commit `C1`をHEAD reflogから特定し、同名branchを`C1`へ復旧してswitchする最終ステージとする。
+3. `reflog`はHEAD・format・12桁ID・最大8件を固定したtyped commandとし、branch作成は固定branch名と表示済み完全`C1`だけをRunnerへ渡す。任意reflog selector、revision式、branch名、optionを許可しない。
+4. fixtureは`main=C0`、local branchは`main`だけ、`C1`はrefから到達不能だがHEAD reflogから観察可能な状態を固定し、reset後もobject IDとreflog順序を再現する。
+5. 採点はreflog出力を使わず、復旧branch tip、current branch、HEAD、parent、tree、main不変、local branch集合、clean、途中状態をsnapshotで確認する。
+6. 表示方針は`CONCEPT_ONLY + BASIC`とし、正確な構文はhint level 3、C1と具体手順はlevel 4で開示する。案内量と状態要約は既存の独立機能を使用する。
+7. ライブworkspaceの完了を宣言する復旧報告、`POST /report`、report待機用状態機械、TTL、sweeperは採用せず、Phase 5で必要性を再評価する。
+8. 個別設計はバムと井上のレビューをPASSした。ユーザーの実装開始指示を待ってStage 5専用branchを作成する。
 
 詳細は[`docs/requirements.md`](docs/requirements.md)、[`docs/game-design.md`](docs/game-design.md)、[`docs/git-mvp-stages.md`](docs/git-mvp-stages.md)、[`docs/architecture.md`](docs/architecture.md)、[`docs/test-strategy.md`](docs/test-strategy.md)を正本とする。
 

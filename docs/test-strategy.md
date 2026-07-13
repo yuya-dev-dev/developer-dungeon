@@ -2,7 +2,7 @@
 
 ## 文書情報
 
-- 状態: 承認済み（Phase 1実装・技術確認反映済み、再評価待ち）
+- 状態: 承認済み（Phase 1〜STAGE-GIT-04反映済み）、STAGE-GIT-05個別設計・井上レビュー通過（実装待ち）
 - 上位文書: [`requirements.md`](requirements.md)、[`git-mvp-stages.md`](git-mvp-stages.md)、[`threat-model.md`](threat-model.md)、[`architecture.md`](architecture.md)
 - 関連文書: [`vertical-slice.md`](vertical-slice.md)、[`../AGENTS.md`](../AGENTS.md)
 
@@ -69,7 +69,7 @@ stage固有観点：
 | TEST-STAGE-002 | STAGE-GIT-02で2つのbranch tipとtarget treeが一致する |
 | TEST-STAGE-003 | STAGE-GIT-03で意図したdirty状態、index、stash空を判定する |
 | TEST-STAGE-004 | STAGE-GIT-04でHEADのparent countと順序付き直接parent、期待file、cleanを判定する |
-| TEST-STAGE-005 | STAGE-GIT-05で復旧branchが元のC1を指すことを判定する |
+| TEST-STAGE-005 | STAGE-GIT-05で現在branchと復旧branch tipが元のC1、mainがC0、HEAD treeがC1 tree、local branch集合が期待どおり、cleanかつ途中状態なしであることを判定する |
 
 ### 4.3 star rating
 
@@ -132,6 +132,19 @@ Thymeleafの見た目そのものはunit testへ寄せすぎず、重要な要�
 8. `.gitattributes`、`.git/info/attributes`、`.gitmodules`、external diff、filter、custom merge driver、fsmonitor、credential helper、signing programを含むfixtureを拒否し、system attributesを無効化する。
 
 複数の正しい手順を許可するstageでは、少なくとも2経路を用意する。ただしMVPのcommand allowlistが実質的に1経路しか許可しない場合は、その理由をstage testへ記録する。
+
+STAGE-GIT-05の状態変更を伴う最小正解経路は、`reflog`で表示された`C1`へ固定名branchを作成してswitchする経路とする。`git show C1`は内容を裏付ける推奨の任意確認であり、command history上のclear必須操作にしない。安全境界を変えない範囲で、showあり／なしの両方が同じ正しいsnapshotへ到達することを確認する。任意ref、revision式、reflog selector、別branch名を許可する別経路は増やさない。最低限、次を対象限定で確認する。
+
+- 初期状態でlocal branchが`main`だけ、`main=C0`、`C1`は`log --all`に現れず、HEAD reflogの最大8件内に一意な12桁IDで現れる。
+- Runner側固定fixture定義の`C0`／`C1`／tree／reflog entryと実repositoryが一致し、initial snapshotがrefやstdoutではなく信頼済み`recoveryTargetId=C1`を返し、reset後もobject IDとreflog順序を再現する。
+- `REFLOG_HEAD`の固定出力で表示された`C1`だけを完全IDへ正規化し、`show`と`CREATE_PAYMENT_RETRY_BRANCH`に使用できる。
+- exit code 0かつ非truncatedの固定`log`／`reflog`出力だけが表示済みIDを増やし、error、truncated output、`show`本文、他commandのstdoutでは増えない。
+- appは表示済み集合とhint 4を管理し、Runnerは表示履歴を持たず、40桁形式、commit type、fixed allowlist、branch作成target=C1を検証する責務分離を確認する。
+- `rev-parse --short=12`が正確に12桁で完全IDのprefixと一致する正常fixtureを受理し、13桁化、C0/C1の先頭12桁衝突、malformed reflog行をworkspace生成時に拒否する。
+- `git show C1`を実行する経路と省略する経路の両方で、最終snapshotが同じならclearする。show実行履歴を採点へ使わない。
+- branch作成後に`main`へ留まる状態、誤object、同内容の別commit、main移動、dirty、余分なbranch、途中状態ではclearしない。
+- 未表示ID、`HEAD@{1}`、`C1^`、`C1~1`、任意reflog option、別branch名、別switch先をGit実行前に拒否する。
+- reflog、show、log出力のHTML、ANSI、制御文字をplain textとして扱い、件数、byte上限、timeoutを超えて表示しない。
 
 ## 7. Runner security integration test
 
@@ -241,6 +254,7 @@ PostgreSQL Testcontainersを使用し、次を確認する。
 10. 各stageのクリア後に、復旧完了の根拠を考えてから固定解説を開けることを確認する。
 11. Stage 3を最初に`CONCEPT_ONLY + OFF`で確認し、案内削減による詰まりを記録する。
 12. 状態把握不足が主要な詰まりの場合だけStage 3を`CONCEPT_ONLY + BASIC`で再確認し、ボード追加前後の行動差だけを記録する。
+13. Stage 5を`CONCEPT_ONLY + BASIC`で確認し、状態要約がbranch消失だけを伝えてreflog entry、object ID、正解構文を先に漏らさず、hint level 3・4で段階開示されることを確認する。
 
 ## 11. 要件traceability
 

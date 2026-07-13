@@ -2,7 +2,7 @@
 
 ## 文書情報
 
-- 状態: 承認済み（Phase 1実装・技術確認反映済み、再評価待ち）
+- 状態: 承認済み（Phase 1〜STAGE-GIT-04反映済み）、STAGE-GIT-05個別設計・井上レビュー通過（実装待ち）
 - 対象: Git編の1日縦切り版および安定版MVP
 - 上位文書: [`requirements.md`](requirements.md)、[`git-mvp-stages.md`](git-mvp-stages.md)、[`threat-model.md`](threat-model.md)
 - 関連文書: [`vertical-slice.md`](vertical-slice.md)、[`test-strategy.md`](test-strategy.md)
@@ -184,6 +184,12 @@ RunnerがDocker CLI processを起動するときは親環境をそのまま継�
 
 Browserから受け取ったraw textはappでparseし、contractには含めない。Runnerは観察commandでobject IDを原則12桁表示に固定し、appはそのattemptで表示済みの12桁IDまたは完全IDだけをfixture内許可objectの完全IDへ正規化する。Runnerは完全IDが現在workspace内に存在しstage policyの許可objectと一致することを再検証してからargvを構築する。未表示・短すぎる・曖昧prefix、未知object、revision式は拒否する。
 
+STAGE-GIT-05では、標準入力構文`git reflog`、`git branch feature/payment-retry <object>`、`git switch feature/payment-retry`を、それぞれstage専用の`REFLOG_HEAD`、`CREATE_PAYMENT_RETRY_BRANCH`、`SWITCH_PAYMENT_RETRY`へ変換する。`REFLOG_HEAD`と`SWITCH_PAYMENT_RETRY`は引数を持たず、`CREATE_PAYMENT_RETRY_BRANCH`はappが表示済みIDから正規化した完全`C1`だけを持つ。branch名、reflog selector、revision式、optionをBrowser入力からcontractへ渡さない。
+
+Runnerは`REFLOG_HEAD`を固定argv `git reflog show --format=%h%x09%gs --abbrev=12 --max-count=8 HEAD`、branch作成を固定名`feature/payment-retry`と完全`C1`、switchを固定名`feature/payment-retry`へ変換する。`show`は既存の安全な固定optionを使用する。appは許可済みの`log`または`reflog`がexit code 0かつ非truncatedで返した、`^[0-9a-f]{12}\t`または既存logの固定形式に一致する先頭12桁IDだけをattempt内の表示済み集合へ記録し、hint level 4で明示した`C1`も同じ集合へ追加する。error、truncated output、`show`本文、他commandのstdoutからIDを登録しない。appはこの表示済み集合を使って12／40桁入力を信頼済み完全IDへ正規化する。
+
+Runnerは表示済み集合を保持しない。Runnerの責務は、appから受け取ったobject IDの40桁形式、workspace内でのcommit objectの存在とtype、Runner側の固定fixture allowlistとの一致、`CREATE_PAYMENT_RETRY_BRANCH`では固定`C1`との一致を再検証することである。表示provenanceのidempotencyとreset時破棄は既存どおりappのattempt stateが担当する。
+
 ### 7.3 attemptの直列化とidempotency
 
 - appはattemptごとのlockまたはsingle-thread queueを持ち、command、snapshot、reset、destroyを直列化する。
@@ -260,6 +266,8 @@ Browserから受け取ったraw textはappでparseし、contractには含めな�
 
 Runnerがstage keyを固定fixture IDへmappingし、player入力をpathへ使用せず、read-only fixtureを新しい`/workspace`へ複製する。author、committer、timestampを固定したfixture manifestからexpected objectを検証する。workspace生成時にもlocal configのkeyと期待value、hook、symlink、`.gitattributes`、`.git/info/attributes`、`.gitmodules`、外部URLを再検査し、不一致ならGitを実行せず失敗させる。許可するlocal configは`core.repositoryformatversion=0`、`core.filemode=true`、`core.bare=false`、`core.logallrefupdates=true`を基本とし、追加は個別承認する。Runner所有のcommand-scope設定で`core.attributesFile=/dev/null`を含め、hooks、protocol、fsmonitor、external diff、textconv、credential、署名処理、system attributesを安全側へ固定する。
 
+現在のMVPでいうfixture manifestは独立した実体fileではなく、challenge image内の固定fixtureと、Runner側にcompileされたstage別の期待object ID／tree ID／ref集合を指す。Runnerは検証済みimage IDとbuild-input fingerprintを前提に固定値をworkspace生成時に照合する。appは認証済みRunnerのinitial snapshotからstage targetを取得し、同じ期待値fileを重複保持しない。
+
 ## 10. RepositorySnapshotと採点
 
 ### 10.1 snapshot
@@ -278,6 +286,7 @@ Runnerがstage keyを固定fixture IDへmappingし、player入力をpathへ使�
 - merge、rebase、cherry-pick、revert途中状態
 - 指定ファイルのhashとconflict marker有無
 - stage指定fileのexpected working tree diff／index hash
+- STAGE-GIT-05専用`StageFiveState`の`mainTip`、`recoveryTargetId`、`recoveryTargetParent`、`recoveryTargetTreeId`、nullableな`paymentRetryTip`、`localBranches`
 
 player向け`git log`出力をparseして採点しない。Runnerが固定された信頼済みGit commandでsnapshotを取得する。
 
@@ -292,7 +301,17 @@ clear policyは`RepositorySnapshot`を受け取り、次を返す純粋なJava�
 - 満たしていない条件のplayer向け抽象表示
 - internal reason code
 
-expected object IDとtree IDはfixture manifestからstage定義へ読み込む。Browser入力から変更できない。
+expected object IDとtree IDはRunner側の固定fixture定義で検証し、認証済みinitial snapshotからappのattempt内StageTargetsへ取り込む。appの固定stage定義やBrowser入力から期待IDを変更できない。
+
+### 10.3 STAGE-GIT-05のfixtureと採点境界
+
+Runner側の固定Stage 5 fixture定義は`C0`、失われた`C1`、両tree、初期ref集合、HEAD reflog内の期待`C1` entryを完全IDで持つ。新しいmanifest fileは導入しない。workspace生成時に、現在branchが`main`、local branchが`main`だけ、`main=C0`、working treeとindexがclean、`C1^1=C0`、`C1`がどのrefからも到達不能だがcommit objectとして存在し、固定したHEAD reflog表示から観察可能であることをRunnerが検証する。fixture作成に伴うbranch作成、switch、削除を含む全reflog更新のcommitter時刻とtimezoneを固定し、resetで同じ順序と表示を再現する。
+
+workspace生成時はさらに、内部固定commandで`C0`と`C1`の`rev-parse --short=12`を取得し、結果がそれぞれちょうど12桁、完全IDの先頭12桁と一致、相互に不一致であることを検証する。13桁以上への拡張、prefix衝突、期待reflog行の`^[0-9a-f]{12}\t`不一致ではworkspaceを公開しない。
+
+initial snapshotの`StageFiveState.recoveryTargetId`が、refから到達不能な`C1`の信頼済み完全IDをappへ供給する唯一の経路になる。appのStageTargetsは`mainTip=C0`と`recoveryTargetId=C1`を保持し、hint level 4、表示済み12／40桁正規化、clear判定に同じC1を使用する。Runnerも固定fixture定義の同じC1をallowlistとbranch作成targetに使用する。reflog stdout、`ancestorObjectIds`、Browser入力からC1の期待値を導出しない。`paymentRetryTip`は初期状態ではnull、branch作成後はC1とし、どちらの状態でもsnapshotを取得できる。
+
+clear policyはreflog stdoutやcommand historyを採点へ使わない。信頼済みsnapshotから、現在branchが`feature/payment-retry`、HEADと同branch tipが元の`C1`、`C1^1=C0`、HEAD treeが期待`C1` tree、`main=C0`、local branch集合が`main`と`feature/payment-retry`だけ、working treeとindexがclean、Git操作途中状態がないことをすべて確認する。branch作成後も`main`にいる状態、`main`を動かした状態、同内容の別commit、誤objectを指すbranchはclearしない。
 
 ## 11. stage定義
 
@@ -326,7 +345,7 @@ Phase 4の現時点では、`GET /`が固定のSTAGE-GIT-01／STAGE-GIT-02一覧
 
 安定版MVPはrepository snapshotによる自動クリアを維持し、プレイヤーの復旧報告を待つ`report` routeは追加しない。クリア後の自己確認は、固定の問いと解説を表示するだけの非採点・非永続UIとし、POST、DB、Runner、attempt状態を追加しない。
 
-Stage 1・2は`FULL_SYNTAX + BASIC`で現行表示を維持する。Stage 3の最初の手動確認は`CONCEPT_ONLY + OFF`とし、状態把握不足が主要な詰まりと確認された場合だけ`CONCEPT_ONLY + BASIC`へ変更して再確認する。
+Stage 1・2とStage 4は`FULL_SYNTAX + BASIC`で現行表示を維持する。Stage 3の最初の手動確認は`CONCEPT_ONLY + OFF`とし、状態把握不足が主要な詰まりと確認された場合だけ`CONCEPT_ONLY + BASIC`へ変更して再確認する。Stage 5は`CONCEPT_ONLY + BASIC`とし、状態要約は`main`の存在と復旧対象branchの欠落だけを示す。reflog entry、object ID、正解構文を状態要約へ含めず、案内量と状態要約の既存分離を維持する。
 
 ### 12.2 実装方式
 

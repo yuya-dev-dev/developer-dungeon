@@ -2,7 +2,7 @@
 
 ## 文書情報
 
-- 状態: 承認済み（STAGE-GIT-02完了、ゲームループ改善方針反映済み）
+- 状態: STAGE-GIT-05個別設計・バム／井上レビュー通過（STAGE-GIT-04まで承認済み、実装待ち）
 - 上位文書: [`requirements.md`](requirements.md)、[`game-design.md`](game-design.md)
 - 関連文書: [`threat-model.md`](threat-model.md)、[`architecture.md`](architecture.md)、[`test-strategy.md`](test-strategy.md)
 
@@ -272,50 +272,79 @@ Stage 1・2は正確な許可構文を常時表示する。Stage 3は概念カ�
 
 ### シナリオ
 
-作業branchを削除した直後、まだ必要な変更が含まれていたことが判明する。主人公はGitが保持する操作履歴からcommitを特定し、branchを復旧する。
+対応終了の連絡を受けた同期が、決済APIのretry設定を実装した`feature/payment-retry`をlocalで整理した。その直後に決済障害が再発し、運用担当からretry設定の再検証を求められる。しかし通常のbranch一覧から作業は消え、`main`では別の緊急対応が進んでいるため動かせない。
+
+先輩は主人公へ「消えたと決めつける前に、残っている証拠を見よう」とだけ伝える。主人公は元の作業が本当に失われたのかを調べ、`main`を変えずに同じ`feature/payment-retry`として取り戻し、運用担当が再検証できる状態へ戻す。
 
 ### 難易度と学習目標
 
 - 難易度: 実務
 - 主概念: `reflog`、branch復旧
-- 学習目標: branch名が消えても、直ちにcommit objectが失われるとは限らないことを理解する。
+- 学習目標: branch名が消えても直ちにcommit objectが失われるとは限らないこと、通常のrefをたどる`log --all`と操作履歴を記録するreflogの役割が異なることを理解する。
+- 表示方針: `CONCEPT_ONLY + BASIC`。常時表示は「状態確認」「通常履歴」「操作履歴」「commit確認」「branch復旧」と、`main`が存在し復旧対象branchが存在しないことを示す最小状態要約に限定する。正確な構文はヒントレベル3以降で開示する。
 
 ### 初期状態
 
-- `C0`: `main`の基点
-- `C1`: 削除された`feature/payment-retry`に存在していたcommit
-- fixture作成時に`feature/payment-retry`へ移動して`C1`を作成し、`main`へ戻った後にbranchを削除している。
+- `C0`: `main`の基点。決済retry設定は無効である。
+- `C1`: `C0`を直接parentとし、決済retry設定を有効にした、削除前の`feature/payment-retry`の唯一のcommitである。
+- fixture作成時に`main`の`C0`から`feature/payment-retry`を作成して`C1`をcommitし、`main`へ戻った後に`feature/payment-retry`を削除している。
 - 現在branchは`main`、working treeはcleanである。
-- HEAD reflogから`C1`を特定できる。
+- local branchは`main`だけで、`main`は`C0`を指す。`git log --oneline --all --decorate`では`C1`を確認できない。
+- `C1` objectは存在し、HEAD reflogの固定された8件以内に12桁短縮IDと`commit: C1: payment retry`の記録が1件だけ現れる。
+- fixture作成時はcommitだけでなくbranch作成、switch、branch削除のcommitter時刻とtimezoneも固定する。reset後も同じobject ID、reflog順序、表示内容を再現する。
+- Stage 5では新しいmanifest fileを導入せず、既存Stageと同じRunner側の固定fixture定義を正本にする。固定定義は`C0`、`C1`、両tree ID、初期ref集合、HEAD reflog内の期待`C1` entryを保持し、検証済みchallenge image ID／fingerprintと組み合わせて使用する。
+- workspace生成時に、固定定義の`C1`がcommit objectとして存在し、`C1^1=C0`で、どのrefからも到達不能だがHEAD reflogから表示可能であることを検証する。`C0`と`C1`の`rev-parse --short=12`がそれぞれちょうど12桁で完全IDの先頭12桁と一致し、互いに異なることも検証する。13桁以上への拡張、prefix衝突、reflog行形式不一致はfixture不正としてworkspaceを公開しない。
+- Runnerのinitial snapshotはStage 5専用stateとして`mainTip=C0`、`recoveryTargetId=C1`、`recoveryTargetParent=C0`、`recoveryTargetTreeId`、nullableな`paymentRetryTip`、`localBranches`を返す。refから到達不能な`C1`の完全IDはこの認証済みsnapshotだけからappへ渡し、reflog stdoutや`ancestorObjectIds`から導出しない。
 
 ### 許可するGit操作
 
 - `git status`
 - `git log --oneline --all --decorate`
 - `git reflog`
-- `git show <fixture内で表示済みの12桁IDまたは完全ID>`
-- `git branch feature/payment-retry <C1の表示済み12桁IDまたは完全ID>`
+- `git show <このattemptで表示済みの12桁IDまたは対応する完全ID>`
+- `git branch feature/payment-retry <C1の表示済み12桁IDまたは対応する完全ID>`
 - `git switch feature/payment-retry`
+
+入力上は上記の標準構文を使うが、Runner contractでは`git reflog`を引数なしの`REFLOG_HEAD`、branch作成を固定名と正規化済み完全`C1`だけを持つ`CREATE_PAYMENT_RETRY_BRANCH`、switchを引数なしの`SWITCH_PAYMENT_RETRY`として扱う。Browser由来のbranch名、reflog selector、revision式、任意optionをRunnerへ渡さない。
+
+`REFLOG_HEAD`はRunnerが固定argv `git reflog show --format=%h%x09%gs --abbrev=12 --max-count=8 HEAD`へ変換する。`--all`、`show HEAD@{n}`、`delete`、`expire`、`gc`は許可しない。reflogとlogのstdoutは採点へ使用せず、plain text escapeと既存の出力上限を適用する。
+
+`show`とbranch作成に使えるobject IDは、Runnerの初期snapshotが返した信頼済み`C0`／`C1`のうち、そのattemptの許可済み観察commandまたはヒントレベル4で実際に12桁IDを表示したものだけとする。appが表示済み集合を管理して一意な完全IDへ正規化する。Runnerは表示履歴を保持せず、受け取った完全IDの40桁形式、commit objectの存在とtype、固定fixture allowlist、command固有targetを再検証する。branch作成は`C1`だけを許可し、`C0`、未表示ID、短すぎる・曖昧なprefix、40桁の未知ID、`HEAD@{1}`、`C1^`、`C1~1`を拒否する。
 
 ### クリア条件
 
 - `feature/payment-retry`が`C1`を指す。
 - 現在branchが`feature/payment-retry`である。
+- HEADが`C1`そのもので、`C1`の直接parentが`C0`である。
 - HEADのtreeが`C1`のtreeと一致する。
-- indexとworking treeがcleanである。
+- `main`は初期`C0`から動いていない。
+- local branch集合が`main`と`feature/payment-retry`だけである。
+- indexとworking treeがcleanで、merge、rebase、cherry-pick、revertの途中状態ではない。
+
+採点はreflog出力や入力command列をparseせず、Runnerが固定Git commandで取得する`main` tip、復旧branch tip、current branch、HEAD、HEADの直接parent、tree ID、local branch集合、porcelain状態、途中状態だけを使う。clear条件成立時は既存の自動clearとworkspace破棄を行い、復旧報告待ちは追加しない。
 
 ### 近似不正解
 
 - `C1`の内容を新しいcommitとして作り直し、元のcommitを復旧していない。
 - branchを作ったが、誤ったreflog entryを指している。
+- `feature/payment-retry`を`C1`へ戻したが、`main`に留まっている。
+- `main`自体を`C1`へ動かした。
 - detached HEADで`C1`をcheckoutしただけで、branchを復旧していない。
 
 ### ヒント
 
 1. 通常の`log --all`にない操作履歴を確認する。
 2. branch名がなくても、以前HEADが指していたcommitを探せる。
-3. `reflog`でobject IDを探し、`branch <name> <object>`を使う形を示す。
-4. fixtureのreflog entryと具体的な復旧手順を示す。
+3. `git reflog`でobject IDを探し、`git show <object>`で内容を確認してから`git branch <name> <object>`を使う形を示す。
+4. `C1`の12桁IDを開示し、`git branch feature/payment-retry <C1>`、`git switch feature/payment-retry`の具体的な手順を示す。
+
+### クリア後の振り返り
+
+- 自己確認: 「削除されたbranchを元のcommitから復旧でき、`main`を動かしていないと判断するには、どのref、HEAD、tree、working treeを確認すべきか」。
+- 安全な理由: commit内容を作り直さず元のobjectへrefを戻すため、元の履歴とobject IDを保ったまま到達可能性を回復できる。
+- 危険な代替案: `main`を失われたcommitへ動かす、内容をコピーして別commitを作る、確認せず別のreflog entryへbranchを作る。
+- 成長beat: 主人公は、見えているbranch一覧だけで「消失」と判断せず、操作履歴とobjectの証拠から復旧案を説明できる担当者になる。
+- 固定clear scene: 主人公は、復旧したbranchが元の`C1`を指し、`main`が`C0`から動いていないことを運用担当へ説明する。運用担当がretry設定の再検証を始めると、同期は安堵する。先輩は「今回はコマンドだけでなく、根拠から復旧を説明できた。次のインシデント説明は君に任せる」と主人公へ告げる。
 
 ## 8. ステージ依存と解放順
 
@@ -332,6 +361,8 @@ MVPでは`STAGE-GIT-01`から順番に解放する。前ステージの1スタ�
 - stage開始時に信頼済みfixtureから新しいworkspaceを生成する。
 - expected tree、重要commit、branch tipをfixture manifestに記録する。
 - fixture manifestはプレイヤー入力から変更できない。
+
+本文書の「fixture manifest」は論理的なfixture期待値集合を指す。現在のMVP実装では独立fileを新設せず、image fingerprintで保護されたfixtureとRunner側の固定定数・固定検査を使用する。appは認証済みRunnerのinitial snapshotからstage targetを取得し、player向けstdoutを期待値の正本にしない。
 
 ## 10. MVP後の候補
 
