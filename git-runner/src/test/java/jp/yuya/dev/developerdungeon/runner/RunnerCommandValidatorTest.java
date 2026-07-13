@@ -18,6 +18,9 @@ class RunnerCommandValidatorTest {
         assertThatCode(() -> validator.validate(new GitCommand(CommandKind.MERGE_PROFILE_MESSAGE))).doesNotThrowAnyException();
         assertThatCode(() -> validator.validate(new GitCommand(CommandKind.ADD_PROFILE_MESSAGES))).doesNotThrowAnyException();
         assertThatCode(() -> validator.validate(new GitCommand(CommandKind.COMMIT_NO_EDIT))).doesNotThrowAnyException();
+        assertThatCode(() -> validator.validate(new GitCommand(CommandKind.REFLOG_HEAD))).doesNotThrowAnyException();
+        assertThatCode(() -> validator.validate(new GitCommand(CommandKind.SWITCH_PAYMENT_RETRY))).doesNotThrowAnyException();
+        assertThatCode(() -> validator.validate(new GitCommand(CommandKind.CREATE_PAYMENT_RETRY_BRANCH, "a".repeat(40)))).doesNotThrowAnyException();
     }
     @Test void rejectsRevisionSyntaxAndShortIds() {
         assertThatThrownBy(() -> validator.validate(new GitCommand(CommandKind.SHOW, "HEAD^"))).isInstanceOf(IllegalArgumentException.class);
@@ -30,5 +33,8 @@ class RunnerCommandValidatorTest {
         assertThatThrownBy(() -> validator.validate(GitCommand.switchTo("feature/unknown"))).isInstanceOf(IllegalArgumentException.class);
         assertThatCode(() -> validator.validate(GitCommand.switchTo("feature/search"))).doesNotThrowAnyException();
         assertThatThrownBy(() -> validator.validate(new GitCommand(CommandKind.STASH_PUSH, "a".repeat(40)))).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> validator.validate(new GitCommand(CommandKind.REFLOG_HEAD, "a".repeat(40)))).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> validator.validate(new GitCommand(CommandKind.SWITCH_PAYMENT_RETRY, null, "feature/payment-retry"))).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> validator.validate(new GitCommand(CommandKind.CREATE_PAYMENT_RETRY_BRANCH, "a".repeat(12)))).isInstanceOf(IllegalArgumentException.class);
     }
 }

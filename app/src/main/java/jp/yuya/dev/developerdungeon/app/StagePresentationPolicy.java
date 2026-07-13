@@ -16,6 +16,9 @@ public record StagePresentationPolicy(GuidanceMode guidanceMode, IncidentBoardMo
     public static StagePresentationPolicy conceptOnlyOff(String... categories) {
         return new StagePresentationPolicy(GuidanceMode.CONCEPT_ONLY, IncidentBoardMode.OFF, List.of(categories));
     }
+    public static StagePresentationPolicy conceptOnlyRedactedBranches(String... categories) {
+        return new StagePresentationPolicy(GuidanceMode.CONCEPT_ONLY, IncidentBoardMode.REDACTED_BRANCHES, List.of(categories));
+    }
     public enum GuidanceMode { FULL_SYNTAX, CONCEPT_ONLY }
-    public enum IncidentBoardMode { OFF, BASIC }
+    public enum IncidentBoardMode { OFF, BASIC, REDACTED_BRANCHES }
 }

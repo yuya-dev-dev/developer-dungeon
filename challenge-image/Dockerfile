@@ -3,7 +3,7 @@ FROM alpine:3.23.3@sha256:59855d3dceb3ae53991193bd03301e082b2a7faa56a514b03527ae
 RUN apk add --no-cache git=2.52.0-r0 \
  && addgroup -S -g 10001 challenge \
  && adduser -S -D -H -u 10001 -G challenge challenge \
- && mkdir -p /opt/fixtures/stage-git-01 /opt/fixtures/stage-git-02 /opt/fixtures/stage-git-03 /opt/fixtures/stage-git-04 /opt/empty-hooks \
+ && mkdir -p /opt/fixtures/stage-git-01 /opt/fixtures/stage-git-02 /opt/fixtures/stage-git-03 /opt/fixtures/stage-git-04 /opt/fixtures/stage-git-05 /opt/empty-hooks \
  && git init --initial-branch=main /opt/fixtures/stage-git-01 \
  && rm -rf /opt/fixtures/stage-git-01/.git/hooks \
  && mkdir -p /opt/fixtures/stage-git-01/.git/hooks \
@@ -49,6 +49,18 @@ RUN apk add --no-cache git=2.52.0-r0 \
  && printf 'profile.description=Manage security settings.\n' > /opt/fixtures/stage-git-04/src/main/resources/messages.properties \
  && git -C /opt/fixtures/stage-git-04 add src/main/resources/messages.properties \
  && GIT_AUTHOR_DATE='2026-01-04T00:01:00Z' GIT_COMMITTER_DATE='2026-01-04T00:01:00Z' git -C /opt/fixtures/stage-git-04 -c user.name='Developer Dungeon' -c user.email='fixture@example.invalid' commit -m "C1: security settings message" \
+ && git init --initial-branch=main /opt/fixtures/stage-git-05 \
+ && rm -rf /opt/fixtures/stage-git-05/.git/hooks \
+ && mkdir -p /opt/fixtures/stage-git-05/.git/hooks \
+ && printf 'retry.enabled=false\nretry.max-attempts=1\n' > /opt/fixtures/stage-git-05/payment-retry.properties \
+ && git -C /opt/fixtures/stage-git-05 add payment-retry.properties \
+ && GIT_AUTHOR_DATE='2026-01-05T00:00:00Z' GIT_COMMITTER_DATE='2026-01-05T00:00:00Z' git -C /opt/fixtures/stage-git-05 -c user.name='Developer Dungeon' -c user.email='fixture@example.invalid' commit -m "C0: payment retry disabled" \
+ && GIT_COMMITTER_DATE='2026-01-05T00:00:30Z' git -C /opt/fixtures/stage-git-05 switch -c feature/payment-retry \
+ && printf 'retry.enabled=true\nretry.max-attempts=3\n' > /opt/fixtures/stage-git-05/payment-retry.properties \
+ && git -C /opt/fixtures/stage-git-05 add payment-retry.properties \
+ && GIT_AUTHOR_DATE='2026-01-05T00:01:00Z' GIT_COMMITTER_DATE='2026-01-05T00:01:00Z' git -C /opt/fixtures/stage-git-05 -c user.name='Developer Dungeon' -c user.email='fixture@example.invalid' commit -m "C1: payment retry" \
+ && GIT_COMMITTER_DATE='2026-01-05T00:01:30Z' git -C /opt/fixtures/stage-git-05 switch main \
+ && GIT_COMMITTER_DATE='2026-01-05T00:02:00Z' git -C /opt/fixtures/stage-git-05 branch -D feature/payment-retry \
  && chown -R challenge:challenge /opt/fixtures /opt/empty-hooks \
  && chmod -R a-w /opt/fixtures /opt/empty-hooks
 

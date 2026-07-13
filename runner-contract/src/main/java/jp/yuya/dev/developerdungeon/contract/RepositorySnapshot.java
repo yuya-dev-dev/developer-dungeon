@@ -17,12 +17,14 @@ public record RepositorySnapshot(
         boolean mergeInProgress,
         boolean rebaseInProgress,
         StageThreeState stageThree,
-        StageFourState stageFour) {
+        StageFourState stageFour,
+        StageFiveState stageFive) {
     public RepositorySnapshot {
         headParents = List.copyOf(headParents);
         ancestorObjectIds = List.copyOf(ancestorObjectIds);
         stageThree = stageThree == null ? StageThreeState.empty() : stageThree;
         stageFour = stageFour == null ? StageFourState.empty() : stageFour;
+        stageFive = stageFive == null ? StageFiveState.empty() : stageFive;
     }
     public RepositorySnapshot(String headObjectId, String headTreeId, String firstParentTreeId,
                               List<String> headParents, boolean clean, boolean revertInProgress,
@@ -31,7 +33,16 @@ public record RepositorySnapshot(
                               boolean rebaseInProgress, StageThreeState stageThree) {
         this(headObjectId, headTreeId, firstParentTreeId, headParents, clean, revertInProgress, ancestorObjectIds,
                 currentBranch, featureProfileTip, featureNotificationTip, cherryPickInProgress, mergeInProgress,
-                rebaseInProgress, stageThree, StageFourState.empty());
+                rebaseInProgress, stageThree, StageFourState.empty(), StageFiveState.empty());
+    }
+    public RepositorySnapshot(String headObjectId, String headTreeId, String firstParentTreeId,
+                              List<String> headParents, boolean clean, boolean revertInProgress,
+                              List<String> ancestorObjectIds, String currentBranch, String featureProfileTip,
+                              String featureNotificationTip, boolean cherryPickInProgress, boolean mergeInProgress,
+                              boolean rebaseInProgress, StageThreeState stageThree, StageFourState stageFour) {
+        this(headObjectId, headTreeId, firstParentTreeId, headParents, clean, revertInProgress, ancestorObjectIds,
+                currentBranch, featureProfileTip, featureNotificationTip, cherryPickInProgress, mergeInProgress,
+                rebaseInProgress, stageThree, stageFour, StageFiveState.empty());
     }
     public RepositorySnapshot(String headObjectId, String headTreeId, String firstParentTreeId,
                               List<String> headParents, boolean clean, boolean revertInProgress,
@@ -75,6 +86,17 @@ public record RepositorySnapshot(
         public static StageFourState empty() {
             return new StageFourState("", "", "", "", "", "", "", List.of(), List.of(), List.of(), List.of());
         }
+        private static String value(String value) { return value == null ? "" : value; }
+    }
+
+    public record StageFiveState(String mainTip, String recoveryTargetId, String recoveryTargetParent,
+                                 String recoveryTargetTreeId, String paymentRetryTip, List<String> localBranches) {
+        public StageFiveState {
+            mainTip = value(mainTip); recoveryTargetId = value(recoveryTargetId);
+            recoveryTargetParent = value(recoveryTargetParent); recoveryTargetTreeId = value(recoveryTargetTreeId);
+            localBranches = List.copyOf(localBranches == null ? List.of() : localBranches);
+        }
+        public static StageFiveState empty() { return new StageFiveState("", "", "", "", null, List.of()); }
         private static String value(String value) { return value == null ? "" : value; }
     }
 }

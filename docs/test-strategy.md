@@ -2,7 +2,7 @@
 
 ## 文書情報
 
-- 状態: 承認済み（Phase 1〜STAGE-GIT-04反映済み）、STAGE-GIT-05個別設計・井上レビュー通過（実装待ち）
+- 状態: 承認済み（Phase 1〜STAGE-GIT-05実装・対象限定テスト完了、PR作成待ち）
 - 上位文書: [`requirements.md`](requirements.md)、[`git-mvp-stages.md`](git-mvp-stages.md)、[`threat-model.md`](threat-model.md)、[`architecture.md`](architecture.md)
 - 関連文書: [`vertical-slice.md`](vertical-slice.md)、[`../AGENTS.md`](../AGENTS.md)
 
@@ -254,7 +254,7 @@ PostgreSQL Testcontainersを使用し、次を確認する。
 10. 各stageのクリア後に、復旧完了の根拠を考えてから固定解説を開けることを確認する。
 11. Stage 3を最初に`CONCEPT_ONLY + OFF`で確認し、案内削減による詰まりを記録する。
 12. 状態把握不足が主要な詰まりの場合だけStage 3を`CONCEPT_ONLY + BASIC`で再確認し、ボード追加前後の行動差だけを記録する。
-13. Stage 5を`CONCEPT_ONLY + BASIC`で確認し、状態要約がbranch消失だけを伝えてreflog entry、object ID、正解構文を先に漏らさず、hint level 3・4で段階開示されることを確認する。
+13. Stage 5を`CONCEPT_ONLY + REDACTED_BRANCHES`で確認し、状態要約がbranch消失だけを伝えてreflog entry、object ID、正解構文を先に漏らさず、hint level 3・4で段階開示されることを確認する。
 
 ## 11. 要件traceability
 
@@ -296,6 +296,13 @@ PostgreSQL Testcontainersを使用し、次を確認する。
 - 井上の指摘修正
 - 中谷へ渡す対象testの特定
 
+メインと中谷は同じテストクラス、同じテストメソッド、または同一条件のコマンドを重複して実行しない。メインは実装直後のコンパイルと最小確認を担当し、中谷はメインが未実行の層・実行環境・異常系だけを対象限定で確認する。
+
+### メインエージェント
+
+* 変更に必要なテストを追加または更新し、実装直後の最小確認を実行する。
+* 実行済みのテストと未確認範囲を中谷へ明示する。
+
 ### 井上
 
 - CSS・HTMLだけの編集を除く非軽微な実装の事前方針レビュー
@@ -303,6 +310,9 @@ PostgreSQL Testcontainersを使用し、次を確認する。
 - テスト実行とファイル編集は行わない
 
 ### 中谷
+
+* メインが実行済みのテストを再実行せず、未確認の変更層だけを実行する。
+* 実行コマンド、結果、確認できた範囲だけを報告する。
 
 - 井上の実装後レビューとメインの修正後に対象限定testを実行
 - ファイル編集、実装修正、Git操作は行わない

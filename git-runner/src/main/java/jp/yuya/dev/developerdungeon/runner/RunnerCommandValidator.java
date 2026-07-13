@@ -15,7 +15,8 @@ class RunnerCommandValidator {
                 || command.kind() == CommandKind.DIFF || command.kind() == CommandKind.DIFF_STAGED
                 || command.kind() == CommandKind.STASH_PUSH || command.kind() == CommandKind.STASH_LIST || command.kind() == CommandKind.STASH_POP
                 || command.kind() == CommandKind.LOG_GRAPH_ALL || command.kind() == CommandKind.MERGE_PROFILE_MESSAGE
-                || command.kind() == CommandKind.ADD_PROFILE_MESSAGES || command.kind() == CommandKind.COMMIT_NO_EDIT) {
+                || command.kind() == CommandKind.ADD_PROFILE_MESSAGES || command.kind() == CommandKind.COMMIT_NO_EDIT
+                || command.kind() == CommandKind.REFLOG_HEAD || command.kind() == CommandKind.SWITCH_PAYMENT_RETRY) {
             if (objectId != null || branchName != null) throw new IllegalArgumentException("command target is not allowed");
             return;
         }
@@ -26,7 +27,8 @@ class RunnerCommandValidator {
             return;
         }
         if ((command.kind() != CommandKind.SHOW && command.kind() != CommandKind.REVERT_NO_EDIT
-                && command.kind() != CommandKind.CHERRY_PICK && command.kind() != CommandKind.RESET_HARD)
+                && command.kind() != CommandKind.CHERRY_PICK && command.kind() != CommandKind.RESET_HARD
+                && command.kind() != CommandKind.CREATE_PAYMENT_RETRY_BRANCH)
                 || branchName != null || objectId == null || !objectId.matches("[0-9a-f]{40}")) {
             throw new IllegalArgumentException("invalid Git command");
         }

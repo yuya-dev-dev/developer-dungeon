@@ -6,7 +6,7 @@ Developer Dungeonは、新人エンジニアが複数の開発現場で技術的
 
 ## 現在の状態
 
-企画・要件定義・全体設計の文書一式はユーザー承認済みです。安全な縦切り版、Git Runner hardening、PostgreSQLによるMVP基盤を経て、STAGE-GIT-01（revert）からSTAGE-GIT-04（merge conflict）までとゲームループ補完をmainへ反映しました。削除したbranchの元commitを操作履歴から見つけて復旧するSTAGE-GIT-05（reflog）は、個別設計とバム／井上レビューを完了し、実装開始指示を待っています。
+企画・要件定義・全体設計の文書一式はユーザー承認済みです。安全な縦切り版、Git Runner hardening、PostgreSQLによるMVP基盤を経て、STAGE-GIT-01（revert）からSTAGE-GIT-04（merge conflict）までとゲームループ補完をmainへ反映しました。削除したbranchの元commitを操作履歴から見つけて復旧するSTAGE-GIT-05（reflog）は、実装と対象限定テストを完了し、PR作成待ちです。
 
 現在の1日縦切り版は、安全な使い捨てGit実行環境を含みます。player入力をhost上で直接実行せず、別processのGit Runnerとdisposable challenge containerを使用します。
 

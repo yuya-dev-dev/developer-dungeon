@@ -13,7 +13,8 @@ import org.springframework.stereotype.Component;
 @Component
 class StageRules {
     private static final Pattern OBJECT_ID = Pattern.compile("[0-9a-f]{12}([0-9a-f]{28})?");
-    private static final Pattern LOG_ID = Pattern.compile("^([0-9a-f]{12})\\b.*");
+    private static final Pattern LOG_ID = Pattern.compile("^([0-9a-f]{12}) [^\\r\\n]*$");
+    private static final Pattern REFLOG_ID = Pattern.compile("^([0-9a-f]{12})\\t[^\\r\\n]*$");
     private static final String STAGE_THREE_INITIAL_BLOB = "80b018f3f86a4e710347ea98c0b903a1c6fcd9e7";
     private static final String STAGE_THREE_FINAL_BLOB = "0861e3929141f32f4e5c8bcd68fc03173a3e3c8e";
     private static final String STAGE_FOUR_PATH = "src/main/resources/messages.properties";
@@ -72,10 +73,24 @@ class StageRules {
                     "merge commitがmainとfeatureの両方を直接parentに持ち、期待する統合文言と一致し、競合状態・index・作業ツリーがcleanであることを確認します。",
                     "QA担当が双方の要件を満たすと確認すると、先輩は「二つのチームへの解消説明は君に任せる」と主人公に告げた。",
                     "主人公は、コンフリクトを他者の意図を統合する作業として扱い、その判断を両チームへ説明する役割を任された。"));
+    private static final StageDefinition STAGE_FIVE = new StageDefinition("STAGE-GIT-05", "第5現場 / 消えたretry設定", "reflogから失われたcommitを復旧する",
+            "削除されたbranchの元commitを、操作履歴から見つけて復旧する。", "対応終了の連絡を受けた同期が、決済APIのretry設定を持つfeature/payment-retryを削除してしまった。通常の履歴には見えないが、復旧の手掛かりは操作履歴に残っている。主人公はmainを動かさず、再検証できるbranchを戻すよう依頼される。",
+            "feature/payment-retryは削除され、mainはC0に留まっている。HEAD reflogから元のC1を特定し、mainを変えずにbranchを復旧してそのbranchへ移動すること。", "feature/payment-retryを元のC1で復旧し、mainをC0のまま保ってそのbranchへ移動する。",
+            "状態確認 / 通常履歴 / 操作履歴 / commit確認 / branch復旧",
+            new StageOutcome("決済APIのretry設定を含むfeature/payment-retryが削除され、通常のrefから元commitへ到達できなくなっていました。",
+                    "feature/payment-retryが元のC1を指し、mainはC0のまま保たれた状態で、主人公は復旧したbranchへ移動しました。",
+                    "reflogで操作履歴に残るcommitを確認してからbranchを復元すると、mainや共有履歴を動かさずに必要な作業地点を戻せます。",
+                    "mainをC1へ動かすと共有branchの役割を壊します。根拠を確認せず似たIDへbranchを作ると、誤った設定を再検証してしまいます。",
+                    "復旧したbranchが元のC1を指し、mainがC0から動いていないことを、どの状態から説明できるでしょうか？",
+                    "feature/payment-retryがreflogで確認したC1を指し、mainがC0のまま、作業ツリーがcleanであることを確認します。",
+                    "主人公が復旧根拠を運用担当へ説明すると、同期は安堵する。先輩は「今回はコマンドだけでなく、根拠から復旧を説明できた。次のインシデント説明は君に任せる」と告げた。",
+                    "主人公は、復旧操作だけでなく、その根拠を運用担当へ伝える役割を任された。"),
+            StagePresentationPolicy.conceptOnlyRedactedBranches("状態確認", "通常履歴", "操作履歴", "commit確認", "branch復旧"));
     private static final Map<String, StageDefinition> DEFINITIONS = Map.of(
-            STAGE_ONE.key(), STAGE_ONE, STAGE_TWO.key(), STAGE_TWO, STAGE_THREE.key(), STAGE_THREE, STAGE_FOUR.key(), STAGE_FOUR);
+            STAGE_ONE.key(), STAGE_ONE, STAGE_TWO.key(), STAGE_TWO, STAGE_THREE.key(), STAGE_THREE, STAGE_FOUR.key(), STAGE_FOUR,
+            STAGE_FIVE.key(), STAGE_FIVE);
 
-    List<StageDefinition> definitions() { return List.of(STAGE_ONE, STAGE_TWO, STAGE_THREE, STAGE_FOUR); }
+    List<StageDefinition> definitions() { return List.of(STAGE_ONE, STAGE_TWO, STAGE_THREE, STAGE_FOUR, STAGE_FIVE); }
     StageDefinition definition(String stageKey) {
         StageDefinition definition = DEFINITIONS.get(stageKey);
         if (definition == null) throw new IllegalArgumentException("unknown stage");
@@ -88,6 +103,7 @@ class StageRules {
             case "STAGE-GIT-02" -> parseStageTwo(raw);
             case "STAGE-GIT-03" -> parseStageThree(raw);
             case "STAGE-GIT-04" -> parseStageFour(raw);
+            case "STAGE-GIT-05" -> parseStageFive(raw);
             default -> throw new IllegalArgumentException("unknown stage");
         };
     }
@@ -125,6 +141,18 @@ class StageRules {
             }
             return new StageTargets(state.mainTip(), state.featureProfileMessageTip(), STAGE_FOUR_FINAL_TREE, Set.of());
         }
+        if ("STAGE-GIT-05".equals(definition.key())) {
+            var state = snapshot.stageFive();
+            if (!"main".equals(snapshot.currentBranch()) || !snapshot.headObjectId().equals(state.mainTip())
+                    || state.mainTip().isBlank() || state.recoveryTargetId().isBlank() || state.recoveryTargetParent().isBlank()
+                    || state.recoveryTargetTreeId().isBlank() || state.paymentRetryTip() != null || !state.localBranches().equals(List.of("main"))
+                    || !snapshot.clean() || snapshot.revertInProgress() || snapshot.cherryPickInProgress()
+                    || snapshot.mergeInProgress() || snapshot.rebaseInProgress()) {
+                throw new IllegalStateException("invalid stage fixture");
+            }
+            return new StageTargets(state.recoveryTargetId(), state.mainTip(), state.recoveryTargetTreeId(),
+                    Set.of(state.recoveryTargetId(), state.mainTip()));
+        }
         String c1 = snapshot.headObjectId();
         String c0 = snapshot.featureNotificationTip();
         if (!"feature/profile".equals(snapshot.currentBranch()) || !c1.equals(snapshot.featureProfileTip())
@@ -148,11 +176,18 @@ class StageRules {
                 throw new IllegalArgumentException("profileは元のC0へだけ戻してください。");
             }
         }
+        if ("STAGE-GIT-05".equals(definition.key()) && command.kind() == CommandKind.CREATE_PAYMENT_RETRY_BRANCH
+                && !normalized.equals(targets.primaryObjectId())) {
+            throw new IllegalArgumentException("reflogで確認した復旧対象のcommitだけを指定してください。");
+        }
         return new GitCommand(command.kind(), normalized, null);
     }
     void recordDisplayedObjects(StageDefinition definition, GitCommand command, String output, StageTargets targets, Set<String> displayed) {
-        if (command.kind() != CommandKind.LOG_ONELINE && command.kind() != CommandKind.LOG_ONELINE_ALL_DECORATE) return;
-        output.lines().map(LOG_ID::matcher).filter(java.util.regex.Matcher::matches).map(matcher -> matcher.group(1))
+        if ("STAGE-GIT-05".equals(definition.key()) && command.kind() != CommandKind.REFLOG_HEAD) return;
+        Pattern format = command.kind() == CommandKind.REFLOG_HEAD ? REFLOG_ID
+                : (command.kind() == CommandKind.LOG_ONELINE || command.kind() == CommandKind.LOG_ONELINE_ALL_DECORATE ? LOG_ID : null);
+        if (format == null) return;
+        output.lines().map(format::matcher).filter(java.util.regex.Matcher::matches).map(matcher -> matcher.group(1))
                 .filter(prefix -> targets.allowedObjects().stream().anyMatch(id -> id.startsWith(prefix))).forEach(displayed::add);
     }
     void revealHintTargets(StageDefinition definition, int hintLevel, StageTargets targets, Set<String> displayed) {
@@ -160,6 +195,7 @@ class StageRules {
             displayed.add(targets.primaryObjectId().substring(0, 12));
             displayed.add(targets.secondaryObjectId().substring(0, 12));
         }
+        if ("STAGE-GIT-05".equals(definition.key()) && hintLevel >= 4) displayed.add(targets.primaryObjectId().substring(0, 12));
     }
     List<String> hints(StageDefinition definition, int hintLevel, StageTargets targets) {
         if (hintLevel == 0) return List.of();
@@ -180,6 +216,13 @@ class StageRules {
             if (hintLevel == 3) return List.of("限定エディタで解消した後、git addで解消済みにし、git commit --no-editでmerge commitを完成させる。");
             return List.of("限定エディタへ `profile.description=Manage security settings and edit your public profile.` と入力し、git add "
                     + STAGE_FOUR_PATH + "、git commit --no-editの順に実行しよう。");
+        }
+        if ("STAGE-GIT-05".equals(definition.key())) {
+            if (hintLevel == 1) return List.of("通常のlog --allにない操作履歴を確認する方法を考えよう。");
+            if (hintLevel == 2) return List.of("branch名がなくても、以前HEADが指したcommitは操作履歴に残ることがあります。");
+            if (hintLevel == 3) return List.of("git reflogでC1を確認し、mainを動かさずそのIDからfeature/payment-retryを復旧しよう。");
+            return List.of("C1は " + targets.primaryObjectId().substring(0, 12)
+                    + "。git branch feature/payment-retry <C1> の後に、git switch feature/payment-retryを実行しよう。");
         }
         if (hintLevel == 1) return List.of("--all --decorateで、2つのbranchがどこを指すか比較しよう。");
         if (hintLevel == 2) return List.of("commitを移す操作と、未公開branchを元へ戻す操作を分けて考えよう。");
@@ -223,6 +266,17 @@ class StageRules {
                     && state.unmergedPaths().isEmpty() && state.untrackedPaths().isEmpty();
             if (!cleared) return new StageGrade(false, 0, "merge commit、双方を残した文言、競合と作業ツリーの状態を確認しましょう。");
             return new StageGrade(true, stars(highestHint, playerResets), "双方の要件を残してコンフリクトを解消し、mainへ統合できました。");
+        }
+        if ("STAGE-GIT-05".equals(definition.key())) {
+            var state = snapshot.stageFive();
+            cleared = snapshot.clean() && !snapshot.revertInProgress() && !snapshot.cherryPickInProgress()
+                    && !snapshot.mergeInProgress() && !snapshot.rebaseInProgress() && "feature/payment-retry".equals(snapshot.currentBranch())
+                    && targets.primaryObjectId().equals(snapshot.headObjectId()) && targets.primaryObjectId().equals(state.paymentRetryTip())
+                    && targets.secondaryObjectId().equals(state.mainTip()) && targets.primaryObjectId().equals(state.recoveryTargetId())
+                    && targets.secondaryObjectId().equals(state.recoveryTargetParent()) && targets.expectedTreeId().equals(state.recoveryTargetTreeId())
+                    && targets.expectedTreeId().equals(snapshot.headTreeId()) && state.localBranches().equals(List.of("feature/payment-retry", "main"));
+            if (!cleared) return new StageGrade(false, 0, "復旧branch、main、作業ツリーの状態をもう一度確認しましょう。");
+            return new StageGrade(true, stars(highestHint, playerResets), "操作履歴から根拠を確認し、mainを動かさずに消えたbranchを復旧できました。");
         }
         cleared = snapshot.clean() && !snapshot.revertInProgress() && !snapshot.cherryPickInProgress() && "feature/notification".equals(snapshot.currentBranch())
                 && targets.secondaryObjectId().equals(snapshot.featureProfileTip())
@@ -269,6 +323,17 @@ class StageRules {
         if ("git merge feature/profile-message".equals(raw)) return new GitCommand(CommandKind.MERGE_PROFILE_MESSAGE);
         if (("git add " + STAGE_FOUR_PATH).equals(raw)) return new GitCommand(CommandKind.ADD_PROFILE_MESSAGES);
         if ("git commit --no-edit".equals(raw)) return new GitCommand(CommandKind.COMMIT_NO_EDIT);
+        throw new IllegalArgumentException("このステージで許可されたGitコマンドではありません。");
+    }
+    private GitCommand parseStageFive(String raw) {
+        if ("git status".equals(raw)) return new GitCommand(CommandKind.STATUS);
+        if ("git log --oneline --all --decorate".equals(raw)) return new GitCommand(CommandKind.LOG_ONELINE_ALL_DECORATE);
+        if ("git reflog".equals(raw)) return new GitCommand(CommandKind.REFLOG_HEAD);
+        if (raw.matches("git show " + OBJECT_ID.pattern())) return new GitCommand(CommandKind.SHOW, raw.substring(9));
+        if (raw.matches("git branch feature/payment-retry " + OBJECT_ID.pattern())) {
+            return new GitCommand(CommandKind.CREATE_PAYMENT_RETRY_BRANCH, raw.substring("git branch feature/payment-retry ".length()));
+        }
+        if ("git switch feature/payment-retry".equals(raw)) return new GitCommand(CommandKind.SWITCH_PAYMENT_RETRY);
         throw new IllegalArgumentException("このステージで許可されたGitコマンドではありません。");
     }
     private void rejectUnsafeRaw(String raw) {
