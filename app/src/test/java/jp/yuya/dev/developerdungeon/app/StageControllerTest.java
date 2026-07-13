@@ -25,7 +25,7 @@ class StageControllerTest {
     }
     @Test void fixedStageRouteOpensOnlyItsOwnPlayScreen() throws Exception {
         StageService stages = mock(StageService.class);
-        var definition = new StageDefinition("STAGE-GIT-02", "chapter", "title", "summary", "intro", "ticket", "objective", "commands");
+        var definition = new StageDefinition("STAGE-GIT-02", "chapter", "title", "summary", "intro", "ticket", "objective", "commands", outcome());
         var view = new StageView("request", "output", null, null, 0, 0, 0, 0, false, 0, "未復旧", List.of());
         when(stages.open("STAGE-GIT-02")).thenReturn(view);
         when(stages.definition("STAGE-GIT-02")).thenReturn(definition);
@@ -48,7 +48,7 @@ class StageControllerTest {
     }
     @Test void stageTwoPostUsesOnlyTheFixedStageTwoKey() throws Exception {
         StageService stages = mock(StageService.class);
-        var definition = new StageDefinition("STAGE-GIT-02", "chapter", "title", "summary", "intro", "ticket", "objective", "commands");
+        var definition = new StageDefinition("STAGE-GIT-02", "chapter", "title", "summary", "intro", "ticket", "objective", "commands", outcome());
         var page = new StageView("request", "output", null, null, 0, 0, 0, 0, false, 0, "未復旧", List.of());
         when(stages.execute("STAGE-GIT-02", "git status", "11111111-1111-1111-1111-111111111111")).thenReturn(page);
         when(stages.definition("STAGE-GIT-02")).thenReturn(definition);
@@ -60,5 +60,9 @@ class StageControllerTest {
         verify(stages).execute("STAGE-GIT-02", "git status", "11111111-1111-1111-1111-111111111111");
         verify(stages).definition("STAGE-GIT-02");
         verifyNoMoreInteractions(stages);
+    }
+
+    private static StageOutcome outcome() {
+        return new StageOutcome("incident", "repaired", "safe", "unsafe", "prompt", "explanation", "scene", "growth");
     }
 }
