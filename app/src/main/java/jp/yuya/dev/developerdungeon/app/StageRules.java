@@ -17,11 +17,27 @@ class StageRules {
     private static final StageDefinition STAGE_ONE = new StageDefinition("STAGE-GIT-01", "第1現場 / リリース障害", "公開済み変更を取り消す",
             "公開済みの誤変更を、履歴を壊さずに戻す。", "新人のあなたは、先輩から緊急チケットを受け取った。公開済みの誤変更を、履歴を壊さずに戻そう。",
             "誤ったcommitがmainへ公開された。履歴を消さず、利用者へ安全な取り消しを届けること。", "誤commitを履歴に残したまま、正常な状態へ戻す。",
-            "git status / git log --oneline / git show <12または40桁ID> / git revert --no-edit <12または40桁ID>");
+            "git status / git log --oneline / git show <12または40桁ID> / git revert --no-edit <12または40桁ID>",
+            new StageOutcome("公開済みのmainに、必要な設定を削除する誤commitが含まれていました。",
+                    "mainには誤commitが履歴として残り、その変更を打ち消す新しいcommitによって必要な設定が戻りました。",
+                    "revertは公開済みの履歴を変えずに、誤変更だけを打ち消せます。",
+                    "reset --hardで公開済みcommitを消すと、他メンバーが参照する履歴を書き換え、共有branchを混乱させるおそれがあります。",
+                    "公開済み履歴を壊さずに復旧できたと判断するには、履歴と作業ツリーのどの状態を確認すべきでしょうか？",
+                    "誤commitが履歴に残り、その変更を打ち消す新しいcommitによって作業ツリーが正常な状態へ戻っていることを確認します。",
+                    "「公開済みの履歴を消さずに戻せたね」と運用担当は、静かにうなずいた。",
+                    "主人公は、最短に見える操作ではなく、共有中の履歴を守る判断を初めて任された。"));
     private static final StageDefinition STAGE_TWO = new StageDefinition("STAGE-GIT-02", "第2現場 / branchの取り違え", "間違ったbranchのcommitを移す",
             "未公開の通知機能commitを、正しいbranchへ安全に移し直す。", "通知機能の変更が、誤って別の作業branchへcommitされている。先輩は、共有前に正しいbranchへ戻すよう依頼した。",
             "通知機能のcommitはfeature/profileにある。未公開のうちにfeature/notificationへ移し、profileを元の位置へ戻すこと。", "C1をnotificationへ移し、profileをC0へ戻してnotificationにいる。",
-            "git status / git log --oneline --all --decorate / git branch / git show <12または40桁ID> / git switch <feature/profile|feature/notification> / git cherry-pick <12または40桁ID> / git reset --hard <12または40桁ID>");
+            "git status / git log --oneline --all --decorate / git branch / git show <12または40桁ID> / git switch <feature/profile|feature/notification> / git cherry-pick <12または40桁ID> / git reset --hard <12または40桁ID>",
+            new StageOutcome("未公開の通知機能commitがfeature/profileに置かれ、正しいfeature/notificationにはまだありませんでした。",
+                    "feature/notificationが通知機能を持つ新しいcommitを指し、feature/profileは元のC0へ戻り、作業ツリーもcleanになりました。",
+                    "通知機能を先にcherry-pickしてからprofileを戻すことで、必要な変更を失わずにbranchの役割を戻せます。",
+                    "通知機能を移す前にfeature/profileをresetすると、必要なcommitを参照しにくくなります。誤ったbranchへ残したまま共有するのも、後の統合を複雑にします。",
+                    "通知機能を正しいbranchへ移し、誤ったbranchを元へ戻せたと判断するには、二つのbranchの位置と作業ツリーのどこを確認すべきでしょうか？",
+                    "feature/notificationが通知機能を持つ新しいcommitを指し、feature/profileが元のC0へ戻り、作業ツリーがcleanであることを確認します。",
+                    "「共有前に気づけたのは大きい。これで安心してレビューへ回せる」と先輩は息をついた。",
+                    "主人公は、commitの内容だけでなく、どのbranchに置くべきかまで説明できるようになった。"));
     private static final Map<String, StageDefinition> DEFINITIONS = Map.of(STAGE_ONE.key(), STAGE_ONE, STAGE_TWO.key(), STAGE_TWO);
 
     List<StageDefinition> definitions() { return List.of(STAGE_ONE, STAGE_TWO); }

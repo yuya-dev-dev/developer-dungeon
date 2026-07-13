@@ -22,7 +22,17 @@
   <section class="actions"><form method="post" th:action="${actions.hintPath}"><input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"><button type="submit">ヒントを開く（<span th:text="${view.hintLevel}">0</span>/4）</button></form>
     <form method="post" th:action="${actions.resetPath}"><input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"><button class="secondary" type="submit">最初からやり直す</button></form></section>
   <section th:if="${view.hintLevel > 0}" class="hint"><h2>ヒント</h2><p th:each="hint : ${view.hints}" th:text="${hint}">ヒント</p></section>
-  <section class="result" th:if="${view.cleared}"><h2>復旧完了: <span th:text="${view.stars}">3</span> ★</h2><p th:text="${view.gradeMessage}"></p><p>「履歴を消さずに復旧できたね」と先輩はうなずいた。</p></section>
+  <section class="result" th:if="${view.cleared}"><h2>復旧完了: <span th:text="${view.stars}">3</span> ★</h2><p th:text="${view.gradeMessage}"></p>
+    <p class="clear-scene" th:text="${stage.outcome.clearScene}">「公開済みの履歴を消さずに戻せたね」と運用担当は、静かにうなずいた。</p>
+    <section class="self-check"><h3>復旧根拠を確認する</h3><p th:text="${stage.outcome.selfCheckPrompt}">何を確認できたから復旧完了と言えるでしょうか？</p>
+      <details><summary>根拠と解説を開く</summary><p th:text="${stage.outcome.selfCheckExplanation}">解説</p></details></section>
+    <section class="reflection"><h3>振り返り</h3><dl>
+      <dt>何が壊れていたか</dt><dd th:text="${stage.outcome.incident}">事故の内容</dd>
+      <dt>修復後どうなったか</dt><dd th:text="${stage.outcome.repairedState}">修復後の状態</dd>
+      <dt>なぜこの方法が安全か</dt><dd th:text="${stage.outcome.safeReason}">安全な理由</dd>
+      <dt>避けるべき選択</dt><dd th:text="${stage.outcome.unsafeAlternative}">危険な代替案</dd>
+    </dl><p class="growth-beat" th:text="${stage.outcome.growthBeat}">主人公の成長</p></section>
+  </section>
 </main>
 </body>
 </html>
