@@ -15,6 +15,7 @@ import jp.yuya.dev.developerdungeon.contract.CommandKind;
 import jp.yuya.dev.developerdungeon.contract.CommandResponse;
 import jp.yuya.dev.developerdungeon.contract.DestroyRequest;
 import jp.yuya.dev.developerdungeon.contract.ExecuteRequest;
+import jp.yuya.dev.developerdungeon.contract.GitCommand;
 import jp.yuya.dev.developerdungeon.contract.RepositorySnapshot;
 import jp.yuya.dev.developerdungeon.contract.WorkspaceRequest;
 import jp.yuya.dev.developerdungeon.contract.WorkspaceResponse;
@@ -34,7 +35,7 @@ class RunnerWorkspaceService {
     private static final String CONTAINER_ID_PATTERN = "[0-9a-f]{12,64}";
     private final ConcurrentHashMap<String, Workspace> workspaces = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Set<String>> allowedObjects = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<String, String> revertTargets = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, StageTargets> stageTargets = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, WorkspaceResponse> createdRequests = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, CommandResponse> executedRequests = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Workspace> destroyedWorkspaces = new ConcurrentHashMap<>();
@@ -83,7 +84,7 @@ class RunnerWorkspaceService {
         });
         workspaces.clear();
         allowedObjects.clear();
-        revertTargets.clear();
+        stageTargets.clear();
         createdRequests.clear();
         executedRequests.clear();
         destroyedWorkspaces.clear();
@@ -122,17 +123,18 @@ class RunnerWorkspaceService {
             containerId = result.stdout().trim();
             if (!containerId.matches(CONTAINER_ID_PATTERN)) throw new IllegalStateException("container create returned invalid identity");
             ledger.attachContainer(workspaceId, containerId);
-            workspace = new Workspace(workspaceId, request.attemptId(), request.generation(), containerId, clock.instant(), clock.instant());
+            workspace = new Workspace(workspaceId, request.attemptId(), request.generation(), request.stageKey(), containerId, clock.instant(), clock.instant());
             workspaces.put(workspaceId, workspace);
-            var copy = docker.run(List.of("exec", containerId, "/bin/cp", "-a", "/opt/fixtures/stage-git-01/.", "/workspace"), COMMAND_TIMEOUT);
+            var copy = docker.run(List.of("exec", containerId, "/bin/cp", "-a", fixturePath(request.stageKey()) + "/.", "/workspace"), COMMAND_TIMEOUT);
             if (copy.exitCode() != 0) throw new IllegalStateException("fixture copy failed");
             var writable = docker.run(List.of("exec", containerId, "/bin/chmod", "-R", "u+rwX", "/workspace"), COMMAND_TIMEOUT);
             if (writable.exitCode() != 0) throw new IllegalStateException("workspace permission setup failed");
             verifyCreatedContainer(workspace, imageId);
             validateWorkspace(workspace);
             RepositorySnapshot initial = snapshot(workspace);
-            allowedObjects.put(workspaceId, Set.copyOf(initial.ancestorObjectIds()));
-            revertTargets.put(workspaceId, initial.headObjectId());
+            StageTargets targets = captureStageTargets(request.stageKey(), initial);
+            allowedObjects.put(workspaceId, targets.allowedObjects());
+            stageTargets.put(workspaceId, targets);
             WorkspaceResponse response = new WorkspaceResponse(workspaceId, request.generation(), initial);
             createdRequests.put(idempotencyKey, response);
             ledger.pruneDeletedBeforeGeneration(request.attemptId(), request.generation());
@@ -162,9 +164,10 @@ class RunnerWorkspaceService {
         CommandResponse existing = executedRequests.get(idempotencyKey);
         if (existing != null) { touch(workspace); return existing; }
         validateAllowedObject(request.command(), workspace);
+        validateStageCommand(workspace, request.command());
         long started = System.nanoTime();
         try {
-            var result = docker.run(gitArguments(workspace.containerId(), request.command().kind(), request.command().objectIds()), COMMAND_TIMEOUT);
+            var result = docker.run(gitArguments(workspace.containerId(), request.command()), COMMAND_TIMEOUT);
             CommandResponse response = new CommandResponse(result.exitCode(), result.stdout(), result.stderr(), result.outputTruncated(),
                     Duration.ofNanos(System.nanoTime() - started).toMillis(), snapshot(workspace));
             executedRequests.put(idempotencyKey, response);
@@ -215,8 +218,17 @@ class RunnerWorkspaceService {
         String status = gitOutput(workspace.containerId(), List.of("status", "--porcelain=v1")).trim();
         var parentList = parents.isBlank() ? List.<String>of() : List.of(parents.split(" "));
         var ancestorList = ancestors.isBlank() ? List.<String>of() : List.of(ancestors.split("\\R"));
-        boolean reverting = docker.run(List.of("exec", workspace.containerId(), "/usr/bin/test", "-e", "/workspace/.git/REVERT_HEAD"), COMMAND_TIMEOUT).exitCode() == 0;
-        return new RepositorySnapshot(head, tree, firstParentTree, parentList, status.isEmpty(), reverting, ancestorList);
+        boolean reverting = stateFileExists(workspace, "REVERT_HEAD");
+        boolean cherryPicking = stateFileExists(workspace, "CHERRY_PICK_HEAD");
+        String currentBranch = gitOutput(workspace.containerId(), List.of("branch", "--show-current")).trim();
+        String profileTip = "";
+        String notificationTip = "";
+        if ("STAGE-GIT-02".equals(workspace.stageKey())) {
+            profileTip = gitOutput(workspace.containerId(), List.of("rev-parse", "refs/heads/feature/profile")).trim();
+            notificationTip = gitOutput(workspace.containerId(), List.of("rev-parse", "refs/heads/feature/notification")).trim();
+        }
+        return new RepositorySnapshot(head, tree, firstParentTree, parentList, status.isEmpty(), reverting, ancestorList,
+                currentBranch, profileTip, notificationTip, cherryPicking);
     }
 
     private String gitOutput(String containerId, List<String> gitArguments) {
@@ -235,18 +247,30 @@ class RunnerWorkspaceService {
         if (result.exitCode() != 0) throw new IllegalStateException("snapshot failed: " + result.stderr());
         return result.stdout();
     }
+    private boolean stateFileExists(Workspace workspace, String name) {
+        var result = docker.run(List.of("exec", workspace.containerId(), "/usr/bin/test", "-e", "/workspace/.git/" + name), COMMAND_TIMEOUT);
+        if (result.outputTruncated() || (result.exitCode() != 0 && result.exitCode() != 1)) {
+            throw new IllegalStateException("Git state file check failed");
+        }
+        return result.exitCode() == 0;
+    }
 
-    private List<String> gitArguments(String containerId, CommandKind kind, List<String> ids) {
+    private List<String> gitArguments(String containerId, GitCommand command) {
         var arguments = gitPrefix(containerId);
         arguments.add("-C"); arguments.add("/workspace");
         arguments.add("-c"); arguments.add("core.hooksPath=/opt/empty-hooks"); arguments.add("-c"); arguments.add("core.attributesFile=/dev/null");
         arguments.add("-c"); arguments.add("credential.helper="); arguments.add("-c"); arguments.add("core.pager=cat"); arguments.add("-c"); arguments.add("core.editor=:"); arguments.add("-c"); arguments.add("protocol.file.allow=never");
         arguments.add("-c"); arguments.add("user.name=Developer Dungeon Player"); arguments.add("-c"); arguments.add("user.email=player@developer-dungeon.invalid");
-        switch (kind) {
+        switch (command.kind()) {
             case STATUS -> arguments.addAll(List.of("status", "--short"));
             case LOG_ONELINE -> arguments.addAll(List.of("log", "--oneline", "--no-decorate", "--abbrev=12"));
-            case SHOW -> { arguments.addAll(List.of("show", "--no-ext-diff", "--no-textconv")); arguments.add(ids.getFirst()); }
-            case REVERT_NO_EDIT -> { arguments.addAll(List.of("revert", "--no-edit")); arguments.add(ids.getFirst()); }
+            case LOG_ONELINE_ALL_DECORATE -> arguments.addAll(List.of("log", "--oneline", "--all", "--decorate", "--abbrev=12"));
+            case BRANCH -> arguments.add("branch");
+            case SHOW -> { arguments.addAll(List.of("show", "--no-ext-diff", "--no-textconv")); arguments.add(command.objectId()); }
+            case SWITCH -> { arguments.add("switch"); arguments.add(command.branchName()); }
+            case CHERRY_PICK -> { arguments.add("cherry-pick"); arguments.add(command.objectId()); }
+            case RESET_HARD -> { arguments.addAll(List.of("reset", "--hard")); arguments.add(command.objectId()); }
+            case REVERT_NO_EDIT -> { arguments.addAll(List.of("revert", "--no-edit")); arguments.add(command.objectId()); }
         }
         return arguments;
     }
@@ -271,7 +295,16 @@ class RunnerWorkspaceService {
         }
     }
     private String requestKey(String scope, String requestId) { return scope + ":" + requestId; }
-    private void requireStage(String stageKey) { if (!"STAGE-GIT-01".equals(stageKey)) throw new IllegalArgumentException("unknown stage"); }
+    private void requireStage(String stageKey) {
+        if (!"STAGE-GIT-01".equals(stageKey) && !"STAGE-GIT-02".equals(stageKey)) throw new IllegalArgumentException("unknown stage");
+    }
+    private String fixturePath(String stageKey) {
+        return switch (stageKey) {
+            case "STAGE-GIT-01" -> "/opt/fixtures/stage-git-01";
+            case "STAGE-GIT-02" -> "/opt/fixtures/stage-git-02";
+            default -> throw new IllegalArgumentException("unknown stage");
+        };
+    }
     private String requiredImageId() {
         if (properties.imageId() == null || !properties.imageId().matches("sha256:[0-9a-f]{64}")) throw new IllegalStateException("challenge image ID is not configured");
         return properties.imageId();
@@ -303,14 +336,50 @@ class RunnerWorkspaceService {
             throw new IllegalStateException("created challenge container verification failed");
         }
     }
-    private void validateAllowedObject(jp.yuya.dev.developerdungeon.contract.GitCommand command, Workspace workspace) {
-        if (command.objectIds().isEmpty()) return;
-        if (!allowedObjects.getOrDefault(workspace.workspaceId(), Set.of()).contains(command.objectIds().getFirst())) {
+    private void validateAllowedObject(GitCommand command, Workspace workspace) {
+        if (command.objectId() == null) return;
+        if (!allowedObjects.getOrDefault(workspace.workspaceId(), Set.of()).contains(command.objectId())) {
             throw new IllegalArgumentException("object is not allowed for this stage");
         }
-        if (command.kind() == CommandKind.REVERT_NO_EDIT && !command.objectIds().getFirst().equals(revertTargets.get(workspace.workspaceId()))) {
+        StageTargets targets = stageTargets.get(workspace.workspaceId());
+        if (command.kind() == CommandKind.REVERT_NO_EDIT && !command.objectId().equals(targets.revertTarget())) {
             throw new IllegalArgumentException("only the stage's accidental commit can be reverted");
         }
+    }
+    private void validateStageCommand(Workspace workspace, GitCommand command) {
+        StageTargets targets = stageTargets.get(workspace.workspaceId());
+        if ("STAGE-GIT-01".equals(workspace.stageKey())) {
+            if (command.kind() != CommandKind.STATUS && command.kind() != CommandKind.LOG_ONELINE
+                    && command.kind() != CommandKind.SHOW && command.kind() != CommandKind.REVERT_NO_EDIT) {
+                throw new IllegalArgumentException("command is not allowed for this stage");
+            }
+            return;
+        }
+        if (command.kind() != CommandKind.STATUS && command.kind() != CommandKind.LOG_ONELINE_ALL_DECORATE
+                && command.kind() != CommandKind.BRANCH && command.kind() != CommandKind.SHOW
+                && command.kind() != CommandKind.SWITCH && command.kind() != CommandKind.CHERRY_PICK
+                && command.kind() != CommandKind.RESET_HARD) {
+            throw new IllegalArgumentException("command is not allowed for this stage");
+        }
+        if (command.kind() == CommandKind.CHERRY_PICK && !command.objectId().equals(targets.cherryPickTarget())) {
+            throw new IllegalArgumentException("only the stage's notification commit can be cherry-picked");
+        }
+        if (command.kind() == CommandKind.RESET_HARD && !command.objectId().equals(targets.resetTarget())) {
+            throw new IllegalArgumentException("only the stage's original branch tip can be reset");
+        }
+    }
+    private StageTargets captureStageTargets(String stageKey, RepositorySnapshot initial) {
+        if ("STAGE-GIT-01".equals(stageKey)) {
+            return new StageTargets(initial.headObjectId(), null, null, Set.copyOf(initial.ancestorObjectIds()));
+        }
+        String c1 = initial.headObjectId();
+        String c0 = initial.featureNotificationTip();
+        if (!"feature/profile".equals(initial.currentBranch()) || !c1.equals(initial.featureProfileTip())
+                || c0.isBlank() || initial.headParents().size() != 1 || !c0.equals(initial.headParents().getFirst())
+                || !initial.clean() || initial.cherryPickInProgress()) {
+            throw new IllegalStateException("stage fixture is invalid");
+        }
+        return new StageTargets(null, c0, c1, Set.of(c0, c1));
     }
     private void validateWorkspace(Workspace workspace) {
         var configArguments = gitPrefix(workspace.containerId());
@@ -340,7 +409,7 @@ class RunnerWorkspaceService {
         ledger.markDeleted(workspace.workspaceId(), cleanupRequestId);
         workspaces.remove(workspace.workspaceId(), workspace);
         allowedObjects.remove(workspace.workspaceId());
-        revertTargets.remove(workspace.workspaceId());
+        stageTargets.remove(workspace.workspaceId());
         expiredWorkspaces.remove(workspace.workspaceId());
         cleanupPending.remove(workspace.workspaceId());
         cleanupAttempts.remove(workspace.workspaceId());
@@ -350,11 +419,11 @@ class RunnerWorkspaceService {
     }
     private void removeFailedCreate(Workspace workspace) {
         removeContainer(workspace.containerId()); ledger.remove(workspace.workspaceId()); workspaces.remove(workspace.workspaceId(), workspace);
-        allowedObjects.remove(workspace.workspaceId()); revertTargets.remove(workspace.workspaceId()); cleanupPending.remove(workspace.workspaceId()); cleanupAttempts.remove(workspace.workspaceId());
+        allowedObjects.remove(workspace.workspaceId()); stageTargets.remove(workspace.workspaceId()); cleanupPending.remove(workspace.workspaceId()); cleanupAttempts.remove(workspace.workspaceId());
     }
     private void touch(Workspace workspace) {
         workspaces.replace(workspace.workspaceId(), workspace,
-                new Workspace(workspace.workspaceId(), workspace.attemptId(), workspace.generation(), workspace.containerId(), workspace.createdAt(), clock.instant()));
+                new Workspace(workspace.workspaceId(), workspace.attemptId(), workspace.generation(), workspace.stageKey(), workspace.containerId(), workspace.createdAt(), clock.instant()));
     }
     synchronized void beginShutdown() {
         shuttingDown.set(true);
@@ -444,5 +513,6 @@ class RunnerWorkspaceService {
         cleanupPending.add(workspace.workspaceId());
         log.warn("Challenge container cleanup failed: workspaceId={}, reason={}, attempts={}", workspace.workspaceId(), reason, attempts);
     }
-    private record Workspace(String workspaceId, String attemptId, long generation, String containerId, Instant createdAt, Instant lastActivityAt) { }
+    private record StageTargets(String revertTarget, String resetTarget, String cherryPickTarget, Set<String> allowedObjects) { }
+    private record Workspace(String workspaceId, String attemptId, long generation, String stageKey, String containerId, Instant createdAt, Instant lastActivityAt) { }
 }

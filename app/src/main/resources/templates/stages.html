@@ -11,12 +11,12 @@
   <header><p class="eyebrow">Developer Dungeon / Season 1</p><h1>現場一覧</h1>
     <p>新人エンジニアとして、現場の障害を一つずつ解決しよう。</p></header>
   <section class="stage-list" aria-labelledby="stage-list-title"><h2 id="stage-list-title">配属中の現場</h2>
-    <article class="stage-card"><p class="eyebrow" th:text="${stage.stageKey}">STAGE-GIT-01</p><h3 th:text="${stage.title}">公開済み変更を取り消す</h3>
+    <article class="stage-card" th:each="stage : ${stages}"><p class="eyebrow" th:text="${stage.stageKey}">STAGE-GIT-01</p><h3 th:text="${stage.title}">公開済み変更を取り消す</h3>
       <p th:text="${stage.summary}">公開済みの誤変更を、履歴を壊さずに戻す。</p>
       <p class="stage-status" th:text="${stage.cleared ? 'クリア済み' : '未クリア'}">未クリア</p>
       <p th:if="${stage.cleared}">最高スター: <strong><span th:text="${stage.highestStars}">3</span> ★</strong></p>
       <p th:unless="${stage.cleared}">最高スター: 未記録</p>
-      <a class="stage-link" th:href="@{/stages/STAGE-GIT-01}">この現場へ向かう</a>
+      <a class="stage-link" th:href="@{|/stages/${stage.stageKey}|}">この現場へ向かう</a>
     </article>
   </section>
 </main>
