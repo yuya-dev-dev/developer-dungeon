@@ -1,0 +1,48 @@
+#!/bin/sh
+set -eu
+
+workspace=/workspace
+source_dir=/workspace/src
+main_dir=/workspace/src/main
+resources_dir=/workspace/src/main/resources
+target=/workspace/src/main/resources/messages.properties
+
+check_directory() {
+  [ -d "$1" ]
+  [ ! -L "$1" ]
+}
+
+check_target() {
+  check_directory "$workspace"
+  check_directory "$source_dir"
+  check_directory "$main_dir"
+  check_directory "$resources_dir"
+  [ -f "$target" ]
+  [ ! -L "$target" ]
+  [ "$(readlink -f "$target")" = "$target" ]
+  [ "$(stat -c %h "$target")" = "1" ]
+}
+
+case "${1-}" in
+  read)
+    check_target
+    cat "$target"
+    ;;
+  write)
+    check_target
+    temporary=$(mktemp "$resources_dir/.messages.properties.edit.XXXXXX")
+    trap 'rm -f "$temporary"' EXIT HUP INT TERM
+    chmod 0600 "$temporary"
+    cat > "$temporary"
+    [ -f "$temporary" ]
+    [ ! -L "$temporary" ]
+    [ "$(stat -c %h "$temporary")" = "1" ]
+    [ "$(wc -c < "$temporary")" -le 2048 ]
+    mv -f "$temporary" "$target"
+    trap - EXIT HUP INT TERM
+    check_target
+    ;;
+  *)
+    exit 64
+    ;;
+esac

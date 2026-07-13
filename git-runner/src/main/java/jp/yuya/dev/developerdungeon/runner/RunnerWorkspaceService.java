@@ -3,6 +3,13 @@ package jp.yuya.dev.developerdungeon.runner;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.Clock;
+import java.nio.charset.StandardCharsets;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.CodingErrorAction;
+import java.nio.CharBuffer;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -16,9 +23,14 @@ import jp.yuya.dev.developerdungeon.contract.CommandResponse;
 import jp.yuya.dev.developerdungeon.contract.DestroyRequest;
 import jp.yuya.dev.developerdungeon.contract.ExecuteRequest;
 import jp.yuya.dev.developerdungeon.contract.GitCommand;
+import jp.yuya.dev.developerdungeon.contract.FileContentResponse;
+import jp.yuya.dev.developerdungeon.contract.ReadFileRequest;
 import jp.yuya.dev.developerdungeon.contract.RepositorySnapshot;
+import jp.yuya.dev.developerdungeon.contract.StageFileKey;
 import jp.yuya.dev.developerdungeon.contract.WorkspaceRequest;
 import jp.yuya.dev.developerdungeon.contract.WorkspaceResponse;
+import jp.yuya.dev.developerdungeon.contract.WriteFileRequest;
+import jp.yuya.dev.developerdungeon.contract.WriteFileResponse;
 import org.springframework.stereotype.Service;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,11 +45,17 @@ class RunnerWorkspaceService {
     private static final int MAX_CLEANUP_ATTEMPTS = 3;
     private static final String UUID_PATTERN = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
     private static final String CONTAINER_ID_PATTERN = "[0-9a-f]{12,64}";
+    private static final String STAGE_FOUR_PATH = "src/main/resources/messages.properties";
+    private static final String STAGE_FOUR_MAIN_BLOB = "a6306bacd230ac74aaf017cde7717bc3eb83684c";
+    private static final String STAGE_FOUR_MAIN_TREE = "63ec3ef493c5b54618798e50fe8d2e58bc40a4a9";
+    private static final String STAGE_FOUR_FEATURE_TREE = "e4d8a76dfb74d699e48a7437d60811202ba7face";
     private final ConcurrentHashMap<String, Workspace> workspaces = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Set<String>> allowedObjects = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, StageTargets> stageTargets = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, WorkspaceResponse> createdRequests = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, CommandResponse> executedRequests = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, FileContentResponse> readFileRequests = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, WriteFileResponse> writeFileRequests = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Workspace> destroyedWorkspaces = new ConcurrentHashMap<>();
     private final Set<String> expiredWorkspaces = ConcurrentHashMap.newKeySet();
     private final Set<String> cleanupPending = ConcurrentHashMap.newKeySet();
@@ -87,6 +105,8 @@ class RunnerWorkspaceService {
         stageTargets.clear();
         createdRequests.clear();
         executedRequests.clear();
+        readFileRequests.clear();
+        writeFileRequests.clear();
         destroyedWorkspaces.clear();
         expiredWorkspaces.clear();
         cleanupPending.clear();
@@ -181,6 +201,81 @@ class RunnerWorkspaceService {
         }
     }
 
+    synchronized FileContentResponse readFile(ReadFileRequest request) {
+        requireOperational();
+        cleanupExpiredWorkspaces();
+        requireRequest(request.attemptId(), request.requestId(), request.generation());
+        Workspace workspace = workspace(request.workspaceId(), request.attemptId(), request.generation());
+        requireStageFourFile(workspace, request.fileKey());
+        String idempotencyKey = requestKey("read:" + workspace.workspaceId(), request.requestId());
+        FileContentResponse existing = readFileRequests.get(idempotencyKey);
+        if (existing != null) { touch(workspace); return existing; }
+        try {
+            String content = readStageFourFile(workspace);
+            FileContentResponse response = new FileContentResponse(content, versionToken(validatedEditorBytes(content, false)));
+            readFileRequests.put(idempotencyKey, response);
+            touch(workspace);
+            return response;
+        } catch (RuntimeException exception) {
+            invalidateWorkspaceAfterFileFailure(workspace, request.requestId(), exception);
+            throw exception;
+        }
+    }
+
+    synchronized WriteFileResponse writeFile(WriteFileRequest request) {
+        requireOperational();
+        cleanupExpiredWorkspaces();
+        requireRequest(request.attemptId(), request.requestId(), request.generation());
+        Workspace workspace = workspace(request.workspaceId(), request.attemptId(), request.generation());
+        requireStageFourFile(workspace, request.fileKey());
+        if (request.versionToken() == null || !request.versionToken().matches("[0-9a-f]{64}")) {
+            throw new IllegalArgumentException("file version is invalid");
+        }
+        NormalizedEditorContent normalized = normalizeEditorContent(request.content());
+        String idempotencyKey = requestKey("write:" + workspace.workspaceId(), request.requestId());
+        WriteFileResponse existing = writeFileRequests.get(idempotencyKey);
+        if (existing != null) { touch(workspace); return existing; }
+
+        RepositorySnapshot before;
+        try { before = snapshot(workspace); }
+        catch (RuntimeException exception) {
+            invalidateWorkspaceAfterFileFailure(workspace, request.requestId(), exception);
+            throw exception;
+        }
+        String current;
+        try {
+            validateStageFourEditState(before);
+            current = readStageFourFile(workspace);
+        }
+        catch (RuntimeException exception) {
+            invalidateWorkspaceAfterFileFailure(workspace, request.requestId(), exception);
+            throw exception;
+        }
+        String currentToken = versionToken(validatedEditorBytes(current, false));
+        if (!MessageDigest.isEqual(currentToken.getBytes(StandardCharsets.US_ASCII), request.versionToken().getBytes(StandardCharsets.US_ASCII))) {
+            WriteFileResponse response = new WriteFileResponse(false, currentToken, before);
+            writeFileRequests.put(idempotencyKey, response);
+            touch(workspace);
+            return response;
+        }
+
+        try {
+            var result = docker.run(List.of("exec", "-i", workspace.containerId(), "/opt/image-rootfs/stage-four-file", "write"),
+                    COMMAND_TIMEOUT, normalized.bytes());
+            if (result.exitCode() != 0 || result.outputTruncated()) throw new IllegalStateException("stage file write failed");
+            String written = readStageFourFile(workspace);
+            byte[] writtenBytes = validatedEditorBytes(written, false);
+            if (!MessageDigest.isEqual(writtenBytes, normalized.bytes())) throw new IllegalStateException("stage file write verification failed");
+            WriteFileResponse response = new WriteFileResponse(true, versionToken(writtenBytes), snapshot(workspace));
+            writeFileRequests.put(idempotencyKey, response);
+            touch(workspace);
+            return response;
+        } catch (RuntimeException exception) {
+            invalidateWorkspaceAfterFileFailure(workspace, request.requestId(), exception);
+            throw exception;
+        }
+    }
+
     synchronized void destroy(DestroyRequest request) {
         cleanupExpiredWorkspaces();
         requireRequest(request.attemptId(), request.requestId(), request.generation());
@@ -226,6 +321,7 @@ class RunnerWorkspaceService {
         String profileTip = "";
         String notificationTip = "";
         RepositorySnapshot.StageThreeState stageThree = RepositorySnapshot.StageThreeState.empty();
+        RepositorySnapshot.StageFourState stageFour = RepositorySnapshot.StageFourState.empty();
         if ("STAGE-GIT-02".equals(workspace.stageKey())) {
             profileTip = gitOutput(workspace.containerId(), List.of("rev-parse", "refs/heads/feature/profile")).trim();
             notificationTip = gitOutput(workspace.containerId(), List.of("rev-parse", "refs/heads/feature/notification")).trim();
@@ -241,8 +337,22 @@ class RunnerWorkspaceService {
                     unmergedPaths(workspace), gitLines(workspace.containerId(), List.of("ls-files", "--others", "--exclude-standard")),
                     readStashObjectIds(workspace));
         }
+        if ("STAGE-GIT-04".equals(workspace.stageKey())) {
+            String mainTip = gitOutput(workspace.containerId(), List.of("rev-parse", "refs/heads/main")).trim();
+            String mainParent = gitOutput(workspace.containerId(), List.of("rev-parse", "refs/heads/main^1")).trim();
+            String featureTip = gitOutput(workspace.containerId(), List.of("rev-parse", "refs/heads/feature/profile-message")).trim();
+            String featureParent = gitOutput(workspace.containerId(), List.of("rev-parse", "refs/heads/feature/profile-message^1")).trim();
+            String mainTree = gitOutput(workspace.containerId(), List.of("rev-parse", "refs/heads/main^{tree}")).trim();
+            String featureTree = gitOutput(workspace.containerId(), List.of("rev-parse", "refs/heads/feature/profile-message^{tree}")).trim();
+            String messagesBlob = gitOutput(workspace.containerId(), List.of("hash-object", "--", STAGE_FOUR_PATH)).trim();
+            stageFour = new RepositorySnapshot.StageFourState(mainTip, mainParent, featureTip, featureParent,
+                    mainTree, featureTree, messagesBlob,
+                    gitLines(workspace.containerId(), List.of("diff", "--name-only", "--no-ext-diff", "--")),
+                    gitLines(workspace.containerId(), List.of("diff", "--cached", "--name-only", "--no-ext-diff", "--")),
+                    unmergedPaths(workspace), gitLines(workspace.containerId(), List.of("ls-files", "--others", "--exclude-standard")));
+        }
         return new RepositorySnapshot(head, tree, firstParentTree, parentList, status.isEmpty(), reverting, ancestorList,
-                currentBranch, profileTip, notificationTip, cherryPicking, merging, rebasing, stageThree);
+                currentBranch, profileTip, notificationTip, cherryPicking, merging, rebasing, stageThree, stageFour);
     }
 
     private String gitOutput(String containerId, List<String> gitArguments) {
@@ -319,6 +429,10 @@ class RunnerWorkspaceService {
             case STASH_PUSH -> arguments.addAll(List.of("stash", "push"));
             case STASH_LIST -> arguments.addAll(List.of("stash", "list"));
             case STASH_POP -> arguments.addAll(List.of("stash", "pop"));
+            case LOG_GRAPH_ALL -> arguments.addAll(List.of("log", "--oneline", "--all", "--decorate", "--graph", "--abbrev=12"));
+            case MERGE_PROFILE_MESSAGE -> arguments.addAll(List.of("merge", "--no-edit", "feature/profile-message"));
+            case ADD_PROFILE_MESSAGES -> arguments.addAll(List.of("add", "--", STAGE_FOUR_PATH));
+            case COMMIT_NO_EDIT -> arguments.addAll(List.of("commit", "--no-edit"));
         }
         return arguments;
     }
@@ -344,13 +458,15 @@ class RunnerWorkspaceService {
     }
     private String requestKey(String scope, String requestId) { return scope + ":" + requestId; }
     private void requireStage(String stageKey) {
-        if (!"STAGE-GIT-01".equals(stageKey) && !"STAGE-GIT-02".equals(stageKey) && !"STAGE-GIT-03".equals(stageKey)) throw new IllegalArgumentException("unknown stage");
+        if (!"STAGE-GIT-01".equals(stageKey) && !"STAGE-GIT-02".equals(stageKey) && !"STAGE-GIT-03".equals(stageKey)
+                && !"STAGE-GIT-04".equals(stageKey)) throw new IllegalArgumentException("unknown stage");
     }
     private String fixturePath(String stageKey) {
         return switch (stageKey) {
             case "STAGE-GIT-01" -> "/opt/fixtures/stage-git-01";
             case "STAGE-GIT-02" -> "/opt/fixtures/stage-git-02";
             case "STAGE-GIT-03" -> "/opt/fixtures/stage-git-03";
+            case "STAGE-GIT-04" -> "/opt/fixtures/stage-git-04";
             default -> throw new IllegalArgumentException("unknown stage");
         };
     }
@@ -404,6 +520,15 @@ class RunnerWorkspaceService {
             }
             return;
         }
+        if ("STAGE-GIT-04".equals(workspace.stageKey())) {
+            if (command.kind() != CommandKind.STATUS && command.kind() != CommandKind.LOG_GRAPH_ALL
+                    && command.kind() != CommandKind.DIFF && command.kind() != CommandKind.BRANCH
+                    && command.kind() != CommandKind.MERGE_PROFILE_MESSAGE && command.kind() != CommandKind.ADD_PROFILE_MESSAGES
+                    && command.kind() != CommandKind.COMMIT_NO_EDIT) {
+                throw new IllegalArgumentException("command is not allowed for this stage");
+            }
+            return;
+        }
         if ("STAGE-GIT-03".equals(workspace.stageKey())) {
             if (command.kind() != CommandKind.STATUS && command.kind() != CommandKind.DIFF && command.kind() != CommandKind.DIFF_STAGED
                     && command.kind() != CommandKind.BRANCH && command.kind() != CommandKind.STASH_PUSH && command.kind() != CommandKind.STASH_LIST
@@ -446,6 +571,21 @@ class RunnerWorkspaceService {
             }
             return new StageTargets(null, null, null, Set.of());
         }
+        if ("STAGE-GIT-04".equals(stageKey)) {
+            var state = initial.stageFour();
+            if (!"main".equals(initial.currentBranch()) || !initial.headObjectId().equals(state.mainTip())
+                    || state.mainTip().isBlank() || state.mainParent().isBlank() || state.featureProfileMessageTip().isBlank()
+                    || !state.mainParent().equals(state.featureProfileMessageParent())
+                    || !STAGE_FOUR_MAIN_BLOB.equals(state.messagesBlobId())
+                    || !STAGE_FOUR_MAIN_TREE.equals(state.mainTreeId()) || !STAGE_FOUR_FEATURE_TREE.equals(state.featureTreeId())
+                    || !initial.clean()
+                    || !state.workingTreePaths().isEmpty() || !state.indexPaths().isEmpty() || !state.unmergedPaths().isEmpty()
+                    || !state.untrackedPaths().isEmpty() || initial.revertInProgress() || initial.cherryPickInProgress()
+                    || initial.mergeInProgress() || initial.rebaseInProgress()) {
+                throw new IllegalStateException("stage fixture is invalid");
+            }
+            return new StageTargets(null, null, null, Set.of());
+        }
         String c1 = initial.headObjectId();
         String c0 = initial.featureNotificationTip();
         if (!"feature/profile".equals(initial.currentBranch()) || !c1.equals(initial.featureProfileTip())
@@ -473,6 +613,78 @@ class RunnerWorkspaceService {
         if (links.exitCode() != 0 || !links.stdout().isBlank()) throw new IllegalStateException("fixture contains symlink");
         var hooks = docker.run(List.of("exec", workspace.containerId(), "/usr/bin/find", "/workspace/.git/hooks", "-type", "f", "-print", "-quit"), COMMAND_TIMEOUT);
         if (hooks.exitCode() != 0 || !hooks.stdout().isBlank()) throw new IllegalStateException("fixture contains hook");
+        if ("STAGE-GIT-04".equals(workspace.stageKey())) validateStageFourFixturePaths(workspace);
+    }
+
+    private void validateStageFourFixturePaths(Workspace workspace) {
+        for (String ref : List.of("refs/heads/main", "refs/heads/feature/profile-message")) {
+            String entry = gitOutput(workspace.containerId(), List.of("ls-tree", ref, "--", STAGE_FOUR_PATH)).trim();
+            if (!entry.matches("100644 blob [0-9a-f]{40}\\t" + java.util.regex.Pattern.quote(STAGE_FOUR_PATH))) {
+                throw new IllegalStateException("stage fixture file mode is invalid");
+            }
+            List<String> changed = gitLines(workspace.containerId(), List.of("diff", "--name-only", ref + "^1", ref, "--"));
+            if (!changed.equals(List.of(STAGE_FOUR_PATH))) throw new IllegalStateException("stage fixture changes are invalid");
+        }
+    }
+
+    private void requireStageFourFile(Workspace workspace, StageFileKey fileKey) {
+        if (!"STAGE-GIT-04".equals(workspace.stageKey()) || fileKey != StageFileKey.PROFILE_MESSAGES) {
+            throw new IllegalArgumentException("file is not allowed for this stage");
+        }
+    }
+
+    private String readStageFourFile(Workspace workspace) {
+        var result = docker.run(List.of("exec", workspace.containerId(), "/opt/image-rootfs/stage-four-file", "read"), COMMAND_TIMEOUT);
+        if (result.exitCode() != 0 || result.outputTruncated()) throw new IllegalStateException("stage file read failed");
+        validatedEditorBytes(result.stdout(), false);
+        return result.stdout();
+    }
+
+    private void validateStageFourEditState(RepositorySnapshot snapshot) {
+        var state = snapshot.stageFour();
+        if (!"main".equals(snapshot.currentBranch()) || !snapshot.mergeInProgress() || snapshot.revertInProgress()
+                || snapshot.cherryPickInProgress() || snapshot.rebaseInProgress()
+                || !onlyStageFourPath(state.workingTreePaths()) || !onlyStageFourPath(state.indexPaths())
+                || !onlyStageFourPath(state.unmergedPaths()) || !onlyStageFourPath(state.untrackedPaths())) {
+            throw new IllegalArgumentException("stage file cannot be edited in the current repository state");
+        }
+    }
+
+    private boolean onlyStageFourPath(List<String> paths) {
+        return paths.stream().allMatch(STAGE_FOUR_PATH::equals);
+    }
+
+    private NormalizedEditorContent normalizeEditorContent(String content) {
+        if (content == null) throw new IllegalArgumentException("file content is required");
+        String normalized = content.replace("\r\n", "\n");
+        return new NormalizedEditorContent(normalized, validatedEditorBytes(normalized, true));
+    }
+
+    private byte[] validatedEditorBytes(String content, boolean playerInput) {
+        if (content == null || content.indexOf('\r') >= 0 || content.codePoints().anyMatch(code ->
+                Character.isISOControl(code) && code != '\n' && code != '\t')) {
+            throw new IllegalArgumentException(playerInput ? "file content contains an invalid control character" : "stage file content is invalid");
+        }
+        try {
+            var encoded = StandardCharsets.UTF_8.newEncoder().onMalformedInput(CodingErrorAction.REPORT)
+                    .onUnmappableCharacter(CodingErrorAction.REPORT).encode(CharBuffer.wrap(content));
+            byte[] bytes = new byte[encoded.remaining()]; encoded.get(bytes);
+            if (bytes.length > 2048) throw new IllegalArgumentException("file content is too large");
+            return bytes;
+        } catch (CharacterCodingException exception) {
+            throw new IllegalArgumentException("file content is not valid UTF-8", exception);
+        }
+    }
+
+    private String versionToken(byte[] content) {
+        try { return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(content)); }
+        catch (NoSuchAlgorithmException exception) { throw new IllegalStateException("SHA-256 is unavailable", exception); }
+    }
+
+    private void invalidateWorkspaceAfterFileFailure(Workspace workspace, String requestId, RuntimeException exception) {
+        cleanupPending.add(workspace.workspaceId());
+        try { removeWorkspace(workspace, requestId); }
+        catch (RuntimeException cleanupFailure) { recordCleanupFailure(workspace, "file-operation"); exception.addSuppressed(cleanupFailure); }
     }
     private void removeContainer(String containerId) {
         var result = docker.run(List.of("rm", "-f", containerId), COMMAND_TIMEOUT);
@@ -488,6 +700,8 @@ class RunnerWorkspaceService {
         cleanupPending.remove(workspace.workspaceId());
         cleanupAttempts.remove(workspace.workspaceId());
         executedRequests.keySet().removeIf(key -> key.startsWith(workspace.workspaceId() + ":"));
+        readFileRequests.keySet().removeIf(key -> key.startsWith("read:" + workspace.workspaceId() + ":"));
+        writeFileRequests.keySet().removeIf(key -> key.startsWith("write:" + workspace.workspaceId() + ":"));
         createdRequests.entrySet().removeIf(entry -> entry.getValue().workspaceId().equals(workspace.workspaceId()));
         destroyedWorkspaces.entrySet().removeIf(entry -> entry.getValue().workspaceId().equals(workspace.workspaceId()));
     }
@@ -586,6 +800,10 @@ class RunnerWorkspaceService {
         int attempts = cleanupAttempts.merge(workspace.workspaceId(), 1, Integer::sum);
         cleanupPending.add(workspace.workspaceId());
         log.warn("Challenge container cleanup failed: workspaceId={}, reason={}, attempts={}", workspace.workspaceId(), reason, attempts);
+    }
+    private record NormalizedEditorContent(String content, byte[] bytes) {
+        NormalizedEditorContent { bytes = bytes.clone(); }
+        @Override public byte[] bytes() { return bytes.clone(); }
     }
     private record StageTargets(String revertTarget, String resetTarget, String cherryPickTarget, Set<String> allowedObjects) { }
     private record Workspace(String workspaceId, String attemptId, long generation, String stageKey, String containerId, Instant createdAt, Instant lastActivityAt) { }

@@ -2,8 +2,8 @@
 
 ## 文書情報
 
-- 状態: Phase 4進行中、STAGE-GIT-01／02とゲームループ補完完了、STAGE-GIT-03実装完了・PR前
-- 現在地: STAGE-GIT-03（stash）の固定fixture、snapshot採点、CONCEPT_ONLY＋状態要約OFF、対象限定テストまで完了。次はPR後にSTAGE-GIT-04を個別設計する
+- 状態: Phase 4進行中、STAGE-GIT-01〜03とゲームループ補完完了、STAGE-GIT-04実装・レビュー中
+- 現在地: STAGE-GIT-04（merge conflict）の固定fixture、version token付き限定エディタ、snapshot採点、対象限定テストを整備中。次はレビューとテスト完了後にPRへ進む
 - 上位文書: [`docs/requirements.md`](docs/requirements.md)
 - 関連文書: [`docs/vertical-slice.md`](docs/vertical-slice.md)、[`docs/test-strategy.md`](docs/test-strategy.md)、[`docs/phase-2-hardening-plan.md`](docs/phase-2-hardening-plan.md)
 
@@ -153,8 +153,8 @@ Phase 1の次へ進む条件は満たした。安全境界を5stageへ拡張す�
 
 1. STAGE-GIT-02 cherry-pick（完了）
 2. Stage 1・2のゲームループ補完（完了）
-3. STAGE-GIT-03 stash（実装完了・PR前。案内量削減を先行確認し、読み取り専用状態要約はOFF）
-4. STAGE-GIT-04 merge conflict
+3. STAGE-GIT-03 stash（完了。案内量削減を先行確認し、読み取り専用状態要約はOFF）
+4. STAGE-GIT-04 merge conflict（実装・レビュー中）
 5. STAGE-GIT-05 reflog
 6. シーズン1全体の物語接続と振り返り整合
 
@@ -223,11 +223,12 @@ Phase 1の次へ進む条件は満たした。安全境界を5stageへ拡張す�
 
 ## 12. 現在の次作業
 
-1. STAGE-GIT-01／02、ゲームループ補完、MVP永続化、固定ルート、状態採点、対象限定テストは完了している。
-2. STAGE-GIT-03では、`main`上の未commit変更を`feature/search`へstashで移す。最終working treeは意図的にdirty、index／stash／途中状態は空、branch tipは不変というsnapshotで自動clearする。
-3. 表示は`CONCEPT_ONLY`＋`incidentBoardMode=OFF`で開始し、正確な構文はhint level 3以降だけに表示する。状態要約の有効化はPhase 5の観察結果を待つ。
-4. ライブworkspaceの完了を宣言する復旧報告、`POST /report`、report待機用状態機械、TTL、sweeperは採用せず、Phase 5で必要性を再評価する。
-5. このPRの後、STAGE-GIT-04を個別設計し、井上の実装前レビューを通してから実装する。
+1. STAGE-GIT-01〜03、ゲームループ補完、MVP永続化、固定ルート、状態採点、対象限定テストは完了している。
+2. STAGE-GIT-04では、`main`と`feature/profile-message`の同一行競合を、双方の要件を残す固定内容へ限定編集して2親のmerge commitを完成させる。
+3. 限定エディタはStage 4の固定file keyだけをread/writeし、別request ID、version token、UTF-8／size制限、実path・symlink・hard link検証、原子的置換を必須とする。
+4. 採点はparent順、固定最終tree／blob、feature tip不変、clean、途中状態と変更pathの空をsnapshotで確認する。
+5. ライブworkspaceの完了を宣言する復旧報告、`POST /report`、report待機用状態機械、TTL、sweeperは採用せず、Phase 5で必要性を再評価する。
+6. このPRの後、STAGE-GIT-05（reflog）を個別設計する。
 
 詳細は[`docs/requirements.md`](docs/requirements.md)、[`docs/game-design.md`](docs/game-design.md)、[`docs/git-mvp-stages.md`](docs/git-mvp-stages.md)、[`docs/architecture.md`](docs/architecture.md)、[`docs/test-strategy.md`](docs/test-strategy.md)を正本とする。
 

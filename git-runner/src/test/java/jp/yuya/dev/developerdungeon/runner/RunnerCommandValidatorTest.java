@@ -14,6 +14,10 @@ class RunnerCommandValidatorTest {
         assertThatCode(() -> validator.validate(new GitCommand(CommandKind.STASH_PUSH))).doesNotThrowAnyException();
         assertThatCode(() -> validator.validate(new GitCommand(CommandKind.STASH_LIST))).doesNotThrowAnyException();
         assertThatCode(() -> validator.validate(new GitCommand(CommandKind.STASH_POP))).doesNotThrowAnyException();
+        assertThatCode(() -> validator.validate(new GitCommand(CommandKind.LOG_GRAPH_ALL))).doesNotThrowAnyException();
+        assertThatCode(() -> validator.validate(new GitCommand(CommandKind.MERGE_PROFILE_MESSAGE))).doesNotThrowAnyException();
+        assertThatCode(() -> validator.validate(new GitCommand(CommandKind.ADD_PROFILE_MESSAGES))).doesNotThrowAnyException();
+        assertThatCode(() -> validator.validate(new GitCommand(CommandKind.COMMIT_NO_EDIT))).doesNotThrowAnyException();
     }
     @Test void rejectsRevisionSyntaxAndShortIds() {
         assertThatThrownBy(() -> validator.validate(new GitCommand(CommandKind.SHOW, "HEAD^"))).isInstanceOf(IllegalArgumentException.class);

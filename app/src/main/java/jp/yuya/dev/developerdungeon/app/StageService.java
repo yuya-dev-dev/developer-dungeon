@@ -57,9 +57,8 @@ class StageService {
         StageDefinition definition = rules.definition(stageKey);
         Attempt attempt = attempts.get(stageKey);
         if (attempt == null) attempt = openAttempt(definition);
-        if (requestId == null || !requestId.matches("[0-9a-f-]{36}")) throw new IllegalArgumentException("request ID is invalid");
-        UUID persistentRequestId = UUID.fromString(requestId);
-        StageView recorded = attempt.completedRequests.get(requestId);
+        UUID persistentRequestId = requireRequestId(requestId);
+        StageView recorded = attempt.completedCommandRequests.get(requestId);
         if (recorded != null) return recorded;
         if (attempt.closed) {
             attempt.lastOutput = "この課題はクリア済みです。最初からやり直す場合はリセットしてください。";
@@ -74,13 +73,71 @@ class StageService {
                     persistentRequestId, sequence, attempt.generation, rejectionReason(exception), clock.instant());
             attempt.apply(saved);
             attempt.lastOutput = exception.getMessage(); attempt.lastExitCode = null;
-            StageView result = attempt.view(); attempt.completedRequests.put(requestId, result); return result;
+            StageView result = attempt.view(); attempt.completedCommandRequests.put(requestId, result); return result;
         }
         String canonical = normalized.kind().name() + (normalized.objectId() == null ? normalized.branchName() == null ? "" : " " + normalized.branchName() : " " + normalized.objectId());
+        GitCommand command = normalized;
+        return performOperation(stageKey, definition, attempt, requestId, persistentRequestId, sequence, canonical,
+                normalized.kind().name(),
+                active -> runner.execute(new jp.yuya.dev.developerdungeon.contract.ExecuteRequest(active.attemptId, requestId,
+                        active.workspaceId, active.generation, command)), command);
+    }
+
+    synchronized StageEditorView editor(String stageKey) {
+        if (!"STAGE-GIT-04".equals(stageKey)) throw new IllegalArgumentException("editor is not available for this stage");
+        StageDefinition definition = rules.definition(stageKey);
+        Attempt attempt = attempts.get(stageKey);
+        if (attempt == null) attempt = openAttempt(definition);
+        if (attempt.closed) return null;
+        String readRequestId = UUID.randomUUID().toString();
+        var response = runner.readFile(new jp.yuya.dev.developerdungeon.contract.ReadFileRequest(attempt.attemptId,
+                readRequestId, attempt.workspaceId, attempt.generation,
+                jp.yuya.dev.developerdungeon.contract.StageFileKey.PROFILE_MESSAGES));
+        return new StageEditorView(response.content(), response.versionToken(), UUID.randomUUID().toString());
+    }
+
+    synchronized StageView edit(String stageKey, String content, String versionToken, String requestId) {
+        if (!"STAGE-GIT-04".equals(stageKey)) throw new IllegalArgumentException("editor is not available for this stage");
+        StageDefinition definition = rules.definition(stageKey);
+        Attempt attempt = attempts.get(stageKey);
+        if (attempt == null) attempt = openAttempt(definition);
+        UUID persistentRequestId = requireRequestId(requestId);
+        StageView recorded = attempt.completedWriteRequests.get(requestId);
+        if (recorded != null) return recorded;
+        if (attempt.closed) {
+            attempt.lastOutput = "この課題はクリア済みです。最初からやり直す場合はリセットしてください。";
+            return attempt.view();
+        }
+        long sequence = attempt.commandSequence + 1;
+        String normalized;
+        try {
+            normalized = StageEditorContentPolicy.normalize(content);
+            if (versionToken == null || !versionToken.matches("[0-9a-f]{64}")) throw new IllegalArgumentException("ファイルのversion tokenが不正です。");
+        } catch (IllegalArgumentException exception) {
+            StagePersistence.SavedAttempt saved = persistence.recordRejected(UUID.fromString(attempt.attemptId), attempt.version,
+                    persistentRequestId, sequence, attempt.generation, rejectionReason(exception), clock.instant());
+            attempt.apply(saved); attempt.lastOutput = exception.getMessage(); attempt.lastExitCode = null;
+            StageView result = attempt.view(); attempt.completedWriteRequests.put(requestId, result); return result;
+        }
+        return performOperation(stageKey, definition, attempt, requestId, persistentRequestId, sequence,
+                "EDIT_PROFILE_MESSAGES", "EDIT_PROFILE_MESSAGES", active -> {
+                    var response = runner.writeFile(new jp.yuya.dev.developerdungeon.contract.WriteFileRequest(active.attemptId,
+                            requestId, active.workspaceId, active.generation,
+                            jp.yuya.dev.developerdungeon.contract.StageFileKey.PROFILE_MESSAGES, normalized, versionToken));
+                    return new CommandResponse(response.written() ? 0 : 1,
+                            response.written() ? "messages.propertiesを保存しました。" : "",
+                            response.written() ? "" : "別の操作でファイルが更新されました。画面を更新してから編集し直してください。",
+                            false, 0, response.snapshot());
+                }, null);
+    }
+
+    private StageView performOperation(String stageKey, StageDefinition definition, Attempt attempt, String requestId,
+                                       UUID persistentRequestId, long sequence, String canonical, String operationKind,
+                                       RunnerOperation operation, GitCommand displayedCommand) {
         boolean started = persistence.beginCommand(UUID.fromString(attempt.attemptId), attempt.version, persistentRequestId,
-                sequence, attempt.generation, canonical, normalized.kind().name(), clock.instant());
+                sequence, attempt.generation, canonical, operationKind, clock.instant());
         if (!started) {
-            attempt.lastOutput = "この操作は処理済みです。Git操作は再実行されませんでした。";
+            attempt.lastOutput = "この操作は処理済みです。操作は再実行されませんでした。";
             attempt.lastExitCode = null;
             return attempt.view();
         }
@@ -88,8 +145,7 @@ class StageService {
         long startedAt = System.nanoTime();
         boolean commandPending = true;
         try {
-            CommandResponse response = runner.execute(new jp.yuya.dev.developerdungeon.contract.ExecuteRequest(attempt.attemptId, requestId,
-                    attempt.workspaceId, attempt.generation, normalized));
+            CommandResponse response = operation.run(attempt);
             StageGrade grade = rules.grade(definition, response.snapshot(), attempt.targets, attempt.highestHint, attempt.playerResets);
             UUID cleanupId = grade.cleared() ? UUID.randomUUID() : null;
             StagePersistence.SavedAttempt saved = persistence.finishCommand(UUID.fromString(attempt.attemptId), attempt.version,
@@ -98,7 +154,7 @@ class StageService {
             attempt.apply(saved); commandPending = false;
             attempt.lastOutput = sanitizer.sanitize(response.stdout() + (response.stderr().isBlank() ? "" : "\n" + response.stderr()) + (response.outputTruncated() ? "\n[output truncated]" : ""));
             attempt.lastExitCode = response.exitCode(); attempt.snapshot = response.snapshot();
-            rules.recordDisplayedObjects(definition, normalized, response.stdout(), attempt.targets, attempt.displayedShortIds);
+            if (displayedCommand != null) rules.recordDisplayedObjects(definition, displayedCommand, response.stdout(), attempt.targets, attempt.displayedShortIds);
             attempt.grade = grade;
             if (grade.cleared()) {
                 attempt.cleanupRequestId = cleanupId.toString();
@@ -131,7 +187,10 @@ class StageService {
                 attempt = previous; attempts.put(stageKey, attempt);
             }
         }
-        StageView result = attempt.view(); attempt.completedRequests.put(requestId, result); return result;
+        StageView result = attempt.view();
+        if (displayedCommand == null) attempt.completedWriteRequests.put(requestId, result);
+        else attempt.completedCommandRequests.put(requestId, result);
+        return result;
     }
     synchronized StageView hint(String stageKey) {
         StageDefinition definition = rules.definition(stageKey);
@@ -237,11 +296,23 @@ class StageService {
         return "INVALID_ARGUMENT";
     }
 
+    private UUID requireRequestId(String requestId) {
+        if (requestId == null || !requestId.matches("[0-9a-f-]{36}")) throw new IllegalArgumentException("request ID is invalid");
+        return UUID.fromString(requestId);
+    }
+
+    @FunctionalInterface
+    private interface RunnerOperation {
+        CommandResponse run(Attempt attempt);
+    }
+
     private final class Attempt {
         final StageDefinition definition; final String attemptId; final String workspaceId; final long generation; final StageRules.StageTargets targets;
         RepositorySnapshot snapshot; int highestHint; int playerResets; int systemRecoveryCount; long commandSequence; long version;
         boolean closed; Integer lastExitCode; String cleanupRequestId; final HashSet<String> displayedShortIds = new HashSet<>();
-        final HashMap<String, StageView> completedRequests = new HashMap<>(); String lastOutput = "まずは状態を調べてみましょう。";
+        final HashMap<String, StageView> completedCommandRequests = new HashMap<>();
+        final HashMap<String, StageView> completedWriteRequests = new HashMap<>();
+        String lastOutput = "まずは状態を調べてみましょう。";
         StageGrade grade = new StageGrade(false, 0, "未復旧");
         Attempt(StageDefinition definition, String attemptId, String workspaceId, long generation, RepositorySnapshot snapshot, StageRules.StageTargets targets,
                 int highestHint, int playerResets, int systemRecoveryCount, long commandSequence, long version) {
