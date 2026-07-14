@@ -2,8 +2,8 @@
 
 ## 文書情報
 
-- 状態: Phase 4進行中、STAGE-GIT-01〜05とゲームループ補完完了、STAGE-GIT-05はPR作成待ち
-- 現在地: STAGE-GIT-04（merge conflict）はPR #8でmainへ反映済み。STAGE-GIT-05（reflog）はバムのシナリオレビューと井上の実装前レビューをPASSし、実装と対象限定テストを完了した
+- 状態: Phase 4完了、Phase 5 MVP検証準備中
+- 現在地: STAGE-GIT-01〜05とゲームループ補完は完了し、STAGE-GIT-05（reflog）はPR #10でmainへ反映済み。将来の共通物語骨格を採用し、具体的な章の実装方針はPhase 5後に逐次決定する
 - 上位文書: [`docs/requirements.md`](docs/requirements.md)
 - 関連文書: [`docs/vertical-slice.md`](docs/vertical-slice.md)、[`docs/test-strategy.md`](docs/test-strategy.md)、[`docs/phase-2-hardening-plan.md`](docs/phase-2-hardening-plan.md)
 
@@ -28,10 +28,10 @@
 | 1 | 安全な1日縦切り版 | 完了・PR #1マージ済み |
 | 2 | Git Runner hardening | 完了・main反映済み |
 | 3 | 安定版MVP基盤 | 完了・main反映済み |
-| 4 | 5ステージ完成 | 実装完了・STAGE-GIT-01〜05完了、STAGE-GIT-05のPR作成待ち |
-| 5 | MVP検証と改善 | 未着手 |
-| 6 | 高難度Gitステージ | 未着手 |
-| 7 | 将来編の再評価 | 未着手 |
+| 4 | 5ステージ完成 | 完了・PR #10までmain反映済み |
+| 5 | MVP検証と改善 | 準備中 |
+| 6 | Git編拡張の逐次評価 | 未着手 |
+| 7 | 将来技術編の再評価 | 未着手 |
 
 ## 4. Phase 0 企画・要件定義・全体設計
 
@@ -155,8 +155,8 @@ Phase 1の次へ進む条件は満たした。安全境界を5stageへ拡張す�
 2. Stage 1・2のゲームループ補完（完了）
 3. STAGE-GIT-03 stash（完了。案内量削減を先行確認し、読み取り専用状態要約はOFF）
 4. STAGE-GIT-04 merge conflict（完了・PR #8マージ済み）
-5. STAGE-GIT-05 reflog（実装・対象限定テスト完了、PR作成待ち）
-6. シーズン1全体の物語接続と振り返り整合
+5. STAGE-GIT-05 reflog（完了・PR #10マージ済み）
+6. シーズン1全体の物語接続と振り返り整合（完了）
 
 ### 完成条件
 
@@ -190,47 +190,57 @@ Phase 1の次へ進む条件は満たした。安全境界を5stageへ拡張す�
 
 - Git編を継続改善する価値が確認できる。
 
-## 10. Phase 6 高難度Gitステージ
+## 10. Phase 6 Git編拡張の逐次評価
 
-候補：
+ゲーム内の将来章は、Chapter 0「日常開発フロー」、現在のStage 1〜5であるChapter 1「事故対応」、Chapter 2「remote共同作業」、Git編Finaleの順を候補とする。ゲーム内の章順と実装順は分離し、Phase 5後に1章ずつ個別設計・承認する。
+
+最初の候補は次のとおりとするが、試作順、remoteの表現方式、課題と評価の単位はPhase 5後に決定する。
+
+1. 初心者へ推奨し経験者がスキップできるChapter 0を、3ステージ・20〜40分の暫定規模で検討する。
+2. 他者と共有する開発を扱うChapter 2を検討する。
+3. Chapter 0〜2の判断を組み合わせるGit編Finaleを検討する。
+
+上記は承認済みの将来方向であり、許可command、fixture、Runner、snapshot、採点、画面、テストの実装仕様ではない。具体的な設計はPhase 5後に逐次決定する。
+
+その他の高難度候補：
 
 - interactive rebase
 - bisect
-- ローカル疑似remote
+- remote共同作業
 - stash conflict
 - detached HEAD
 - 複数事故の複合stage
 
-安定版MVPの検証結果をもとに、1stageずつ個別承認する。ランダム生成や汎用stage engineは導入しない。
+安定版MVPの検証結果をもとに、1stageずつ個別承認する。ランダム生成、汎用stage engine、キャラクター管理機構、将来編を見越した共通Runnerは導入しない。
 
 ## 11. Phase 7 将来編の再評価
 
 ### Javaコードレビュー編
 
-- 同じ主人公と世界観が学習体験に有効かを検討する。
+- 同じ主人公、会社、主力サービス、主要人物を再利用し、指摘を受ける側から根拠を示してレビューする側への成長を候補とする。
 - Git編のRunnerやstage実装を無理に共通化しない。
 
 ### SQL編
 
+- 同じサービスの架空データを使い、症状から仮説を立てて調査報告を作る成長を候補とする。
 - 管理DBと別instance、別network、別credentialを前提に脅威モデルを作り直す。
 - Git編との統合、同一repository内module、別applicationを再比較する。
 
 ### Docker障害対応編
 
+- 同じサービスの起動・build・deploy障害を扱い、運用担当と再発防止を合意する成長を候補とする。
 - Docker操作自体がhost支配につながるため、専用VM級の隔離costを再評価する。
 
 いずれもGit編MVPの完成と検証前には着手しない。
 
 ## 12. 現在の次作業
 
-1. STAGE-GIT-01〜04、ゲームループ補完、MVP永続化、固定ルート、状態採点、対象限定テストは完了している。
-2. STAGE-GIT-05は、削除済み`feature/payment-retry`の元commit `C1`をHEAD reflogから特定し、同名branchを`C1`へ復旧してswitchする最終ステージとする。
-3. `reflog`はHEAD・format・12桁ID・最大8件を固定したtyped commandとし、branch作成は固定branch名と表示済み完全`C1`だけをRunnerへ渡す。任意reflog selector、revision式、branch名、optionを許可しない。
-4. fixtureは`main=C0`、local branchは`main`だけ、`C1`はrefから到達不能だがHEAD reflogから観察可能な状態を固定し、reset後もobject IDとreflog順序を再現する。
-5. 採点はreflog出力を使わず、復旧branch tip、current branch、HEAD、parent、tree、main不変、local branch集合、clean、途中状態をsnapshotで確認する。
-6. 表示方針は`CONCEPT_ONLY + REDACTED_BRANCHES`とし、正確な構文はhint level 3、C1と具体手順はlevel 4で開示する。案内量と状態要約は既存の独立機能を使用する。
-7. ライブworkspaceの完了を宣言する復旧報告、`POST /report`、report待機用状態機械、TTL、sweeperは採用せず、Phase 5で必要性を再評価する。
-8. 個別設計はバムと井上のレビューをPASSした。ユーザーの実装開始指示を待ってStage 5専用branchを作成する。
+1. Phase 4とSTAGE-GIT-01〜05は完了し、PR #10までmainへ反映済みである。
+2. Phase 5では、現在のMVPについて状態確認から始められるか、exact hintへの依存、判断根拠の説明、物語のテンポ、Runner待ち、reset評価、クリア後の自己確認を内部パイロットで検証する。
+3. 新卒研修から後輩を支援する立場までの共通物語骨格は採用済みとする。Chapter 0の3ステージ・20〜40分は暫定規模であり、実装仕様ではない。
+4. Chapter 0、Chapter 2、Git編Finale、コードレビュー編、SQL編、Docker・CI/CD編の具体的な実装方針はPhase 5後に1章ずつ設計し、ユーザー承認を得てから着手する。
+5. 現時点では既存Stage 1〜5、コード、DB、Runner、fixture、採点、安全境界を章構成のために変更しない。
+6. ライブworkspaceの完了を宣言する復旧報告、`POST /report`、report待機用状態機械、TTL、sweeperは採用せず、Phase 5で必要性を再評価する。
 
 詳細は[`docs/requirements.md`](docs/requirements.md)、[`docs/game-design.md`](docs/game-design.md)、[`docs/git-mvp-stages.md`](docs/git-mvp-stages.md)、[`docs/architecture.md`](docs/architecture.md)、[`docs/test-strategy.md`](docs/test-strategy.md)を正本とする。
 

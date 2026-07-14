@@ -2,7 +2,7 @@
 
 ## 文書情報
 
-- 状態: STAGE-GIT-05実装・対象限定テスト完了（PR作成待ち）
+- 状態: STAGE-GIT-01〜05実装・対象限定テスト完了、PR #10までmain反映済み
 - 上位文書: [`requirements.md`](requirements.md)、[`game-design.md`](game-design.md)
 - 関連文書: [`threat-model.md`](threat-model.md)、[`architecture.md`](architecture.md)、[`test-strategy.md`](test-strategy.md)
 

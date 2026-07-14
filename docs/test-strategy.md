@@ -2,7 +2,7 @@
 
 ## 文書情報
 
-- 状態: 承認済み（Phase 1〜STAGE-GIT-05実装・対象限定テスト完了、PR作成待ち）
+- 状態: 承認済み（Phase 1〜STAGE-GIT-05実装・対象限定テスト完了、PR #10までmain反映済み）
 - 上位文書: [`requirements.md`](requirements.md)、[`git-mvp-stages.md`](git-mvp-stages.md)、[`threat-model.md`](threat-model.md)、[`architecture.md`](architecture.md)
 - 関連文書: [`vertical-slice.md`](vertical-slice.md)、[`../AGENTS.md`](../AGENTS.md)
 

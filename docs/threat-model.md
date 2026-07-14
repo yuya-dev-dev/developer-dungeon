@@ -2,7 +2,7 @@
 
 ## 文書情報
 
-- 状態: 承認済み（Phase 1〜STAGE-GIT-05実装・対象限定テスト完了、PR作成待ち）
+- 状態: 承認済み（Phase 1〜STAGE-GIT-05実装・対象限定テスト完了、PR #10までmain反映済み）
 - 対象: Git編の1日縦切り版および安定版MVP
 - 上位文書: [`requirements.md`](requirements.md)、[`git-mvp-stages.md`](git-mvp-stages.md)
 - 関連文書: [`architecture.md`](architecture.md)、[`test-strategy.md`](test-strategy.md)
