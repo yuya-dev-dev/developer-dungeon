@@ -3,12 +3,56 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; img-src 'self'; base-uri 'none'; form-action 'self'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; img-src 'self'; script-src 'self'; base-uri 'none'; form-action 'self'">
   <title th:text="${'Developer Dungeon | ' + stage.title}">Developer Dungeon</title>
   <link rel="stylesheet" th:href="@{/stage.css}">
+  <script defer th:src="@{/stage-dialogue.js}"></script>
 </head>
 <body>
 <div class="office-scene">
+  <section class="dialogue-scene" th:unless="${view.cleared}" data-dialogue-scene th:attr="data-stage-key=${stage.key}" aria-labelledby="dialogue-heading">
+    <div class="dialogue-card">
+      <div class="dialogue-heading-row">
+        <div><p class="dialogue-kicker">SCENE</p><h2 id="dialogue-heading" tabindex="-1">現場からの引き継ぎ</h2></div>
+        <p class="dialogue-progress" data-dialogue-progress aria-live="polite" hidden><span data-dialogue-current>1</span> / <span data-dialogue-total>3</span></p>
+      </div>
+      <ol class="dialogue-list" th:switch="${stage.key}">
+        <th:block th:case="'STAGE-GIT-01'">
+          <li class="dialogue-beat" data-dialogue-beat><span class="speaker-avatar avatar-operations" aria-hidden="true">運</span><div><strong>運用担当</strong><p>公開済みの設定に問題が見つかり、次のリリース確認を止めています。確認を再開できる安全な状態へ戻したいです。</p></div></li>
+          <li class="dialogue-beat" data-dialogue-beat><span class="speaker-avatar avatar-senior" aria-hidden="true">先</span><div><strong>先輩</strong><p>共有済みの履歴は、都合よく消していいものじゃない。何が変わり、何を残すべきか、まず証拠から確かめよう。</p></div></li>
+          <li class="dialogue-beat protagonist" data-dialogue-beat><span class="speaker-avatar avatar-player" aria-hidden="true">私</span><div><strong>主人公</strong><p>影響を戻すだけでなく、共有履歴を守れる復旧方針を考えます。</p></div></li>
+        </th:block>
+        <th:block th:case="'STAGE-GIT-02'">
+          <li class="dialogue-beat" data-dialogue-beat><span class="speaker-avatar avatar-qa" aria-hidden="true">QA</span><div><strong>QA担当</strong><p>通知機能のレビューを始めたいのですが、二つの作業場所の内容と位置が食い違っていて、確認を進められません。</p></div></li>
+          <li class="dialogue-beat" data-dialogue-beat><span class="speaker-avatar avatar-senior" aria-hidden="true">先</span><div><strong>先輩</strong><p>まだ共有前だからこそ、動かす前に両方を比べられる。どの変更をどこへ残すべきか整理しよう。</p></div></li>
+          <li class="dialogue-beat protagonist" data-dialogue-beat><span class="speaker-avatar avatar-player" aria-hidden="true">私</span><div><strong>主人公</strong><p>二つの状態を比較します。最後の位置と判断の根拠は、私からQAへ説明します。</p></div></li>
+        </th:block>
+        <th:block th:case="'STAGE-GIT-03'">
+          <li class="dialogue-beat" data-dialogue-beat><span class="speaker-avatar avatar-peer" aria-hidden="true">同</span><div><strong>同期</strong><p>検索機能の変更、まだmain上にあるみたい。途中の内容は消さずに、共同作業の場所へ持っていけるかな。</p></div></li>
+          <li class="dialogue-beat protagonist" data-dialogue-beat><span class="speaker-avatar avatar-player" aria-hidden="true">私</span><div><strong>主人公</strong><p>切り替えを忘れていました。今ある変更と現在地を確かめて、作業を保ったまま移す方法を考えます。</p></div></li>
+          <li class="dialogue-beat" data-dialogue-beat><span class="speaker-avatar avatar-senior" aria-hidden="true">先</span><div><strong>先輩</strong><p>慌てて確定すると、別の問題を増やす。何が変更済みで、何がまだ作業中かを分けて見よう。</p></div></li>
+        </th:block>
+        <th:block th:case="'STAGE-GIT-04'">
+          <li class="dialogue-beat" data-dialogue-beat><span class="speaker-avatar avatar-qa" aria-hidden="true">QA</span><div><strong>QA担当</strong><p>統合後の確認をしたいのですが、二つのチームの変更が同じ箇所でぶつかっています。片方だけでは承認できません。</p></div></li>
+          <li class="dialogue-beat" data-dialogue-beat><span class="speaker-avatar avatar-operations" aria-hidden="true">運</span><div><strong>運用チーム担当</strong><p>セキュリティ設定の案内は、運用手順のため残す必要があります。</p></div></li>
+          <li class="dialogue-beat" data-dialogue-beat><span class="speaker-avatar avatar-feature" aria-hidden="true">機</span><div><strong>機能チーム担当</strong><p>公開プロフィールの案内も、利用者が機能を理解するために必要です。</p></div></li>
+          <li class="dialogue-beat protagonist" data-dialogue-beat><span class="speaker-avatar avatar-player" aria-hidden="true">私</span><div><strong>主人公</strong><p>競合箇所と双方の意図を確認します。どちらかを消すのではなく、統合方針の説明まで私が引き取ります。</p></div></li>
+        </th:block>
+        <th:block th:case="'STAGE-GIT-05'">
+          <li class="dialogue-beat" data-dialogue-beat><span class="speaker-avatar avatar-peer" aria-hidden="true">同</span><div><strong>同期</strong><p>retry設定を入れた作業場所を消してしまったみたいです。作った内容までなくなったのでしょうか。</p></div></li>
+          <li class="dialogue-beat" data-dialogue-beat><span class="speaker-avatar avatar-operations" aria-hidden="true">運</span><div><strong>運用担当</strong><p>復旧するなら、元の成果物だと判断できる証拠が必要です。似た内容を作り直すだけでは検証を再開できません。</p></div></li>
+          <li class="dialogue-beat" data-dialogue-beat><span class="speaker-avatar avatar-senior" aria-hidden="true">先</span><div><strong>先輩</strong><p>今見えている一覧だけで、消えたと決めつけないこと。操作の記録から事実を集めよう。</p></div></li>
+          <li class="dialogue-beat protagonist" data-dialogue-beat><span class="speaker-avatar avatar-player" aria-hidden="true">私</span><div><strong>主人公</strong><p>元の成果物を特定できる根拠を集めます。復旧後の位置と変えていない場所まで、私が説明します。</p></div></li>
+        </th:block>
+      </ol>
+      <div class="dialogue-controls" data-dialogue-controls hidden>
+        <button type="button" data-dialogue-next>次へ</button>
+        <button class="secondary" type="button" data-dialogue-skip>会話をスキップ</button>
+      </div>
+      <a class="dialogue-fallback" href="#mission-heading" data-dialogue-fallback>障害チケットへ進む</a>
+    </div>
+  </section>
+
   <main class="monitor-ui">
     <div class="app-frame">
       <aside class="app-sidebar" aria-label="ゲームメニュー">
@@ -36,6 +80,7 @@
             <p class="stage-introduction" th:text="${stage.introduction}">新人のあなたは、先輩から緊急チケットを受け取った。</p>
           </div>
           <div class="stage-badges" aria-label="ステージ状態">
+            <button class="dialogue-replay" type="button" th:unless="${view.cleared}" data-dialogue-replay hidden>会話を見る</button>
             <span th:text="${view.cleared ? 'CLEAR' : 'ACTIVE'}">ACTIVE</span>
             <strong th:if="${view.cleared}"><span th:text="${view.stars}">3</span> ★</strong>
           </div>
@@ -45,7 +90,6 @@
           <section class="result" th:if="${view.cleared}" role="status" aria-live="polite" aria-labelledby="clear-heading">
             <h2 id="clear-heading" tabindex="-1" autofocus>復旧完了: <span th:text="${view.stars}">3</span> ★</h2>
             <p th:text="${view.gradeMessage}"></p>
-            <p class="clear-scene" th:text="${stage.outcome.clearScene}">「公開済みの履歴を消さずに戻せたね」と運用担当は、静かにうなずいた。</p>
             <section class="self-check">
               <h3>復旧根拠を確認する</h3>
               <p th:text="${stage.outcome.selfCheckPrompt}">何を確認できたから復旧完了と言えるでしょうか？</p>
@@ -70,7 +114,7 @@
           <div class="mission-grid">
             <section class="ticket">
               <p class="panel-kicker">INCIDENT TICKET</p>
-              <h2>障害チケット</h2>
+              <h2 id="mission-heading" tabindex="-1">障害チケット</h2>
               <p th:text="${stage.ticket}">誤ったcommitがmainへ公開された。</p>
               <p class="objective"><strong>目標</strong><span th:text="${stage.objective}">誤commitを履歴に残したまま、正常な状態へ戻す。</span></p>
             </section>
@@ -124,6 +168,35 @@
       </div>
     </div>
   </main>
+
+  <section class="dialogue-scene clear-dialogue" th:if="${view.cleared}" aria-labelledby="clear-dialogue-heading">
+    <div class="dialogue-card">
+      <div class="dialogue-heading-row"><div><p class="dialogue-kicker">RECOVERY COMPLETE</p><h2 id="clear-dialogue-heading">現場からの反応</h2></div></div>
+      <ol class="dialogue-list" th:switch="${stage.key}">
+        <th:block th:case="'STAGE-GIT-01'">
+          <li class="dialogue-beat"><span class="speaker-avatar avatar-operations" aria-hidden="true">運</span><div><strong>運用担当</strong><p>設定の復旧を確認できました。これで次のリリース確認へ戻れます。</p></div></li>
+          <li class="dialogue-beat"><span class="speaker-avatar avatar-senior" aria-hidden="true">先</span><div><strong>先輩</strong><p>共有履歴を守る判断ができたね。</p></div></li>
+        </th:block>
+        <th:block th:case="'STAGE-GIT-02'">
+          <li class="dialogue-beat"><span class="speaker-avatar avatar-qa" aria-hidden="true">QA</span><div><strong>QA担当</strong><p>これなら通知機能のレビューを再開できます。</p></div></li>
+          <li class="dialogue-beat"><span class="speaker-avatar avatar-senior" aria-hidden="true">先</span><div><strong>先輩</strong><p>二つの最終位置と、その判断の根拠は君から説明してみよう。</p></div></li>
+        </th:block>
+        <th:block th:case="'STAGE-GIT-03'">
+          <li class="dialogue-beat"><span class="speaker-avatar avatar-peer" aria-hidden="true">同</span><div><strong>同期</strong><p>途中の作業も残ってる。これなら一緒に続けられるね。</p></div></li>
+          <li class="dialogue-beat"><span class="speaker-avatar avatar-senior" aria-hidden="true">先</span><div><strong>先輩</strong><p>急いで確定せず、状態を整理してから運べたね。</p></div></li>
+        </th:block>
+        <th:block th:case="'STAGE-GIT-04'">
+          <li class="dialogue-beat"><span class="speaker-avatar avatar-qa" aria-hidden="true">QA</span><div><strong>QA担当</strong><p>双方の要件を確認できました。統合後の検証を始めます。</p></div></li>
+          <li class="dialogue-beat"><span class="speaker-avatar avatar-senior" aria-hidden="true">先</span><div><strong>先輩</strong><p>二つのチームへの解消説明は君に任せる。</p></div></li>
+        </th:block>
+        <th:block th:case="'STAGE-GIT-05'">
+          <li class="dialogue-beat"><span class="speaker-avatar avatar-operations" aria-hidden="true">運</span><div><strong>運用担当</strong><p>元の成果物だと確認できました。retry設定の再検証を始めます。</p></div></li>
+          <li class="dialogue-beat"><span class="speaker-avatar avatar-peer" aria-hidden="true">同</span><div><strong>同期</strong><p>消えたと決めつけなくてよかった……。</p></div></li>
+          <li class="dialogue-beat"><span class="speaker-avatar avatar-senior" aria-hidden="true">先</span><div><strong>先輩</strong><p>根拠から復旧を説明できた。次のインシデント説明は君に任せる。</p></div></li>
+        </th:block>
+      </ol>
+    </div>
+  </section>
 </div>
 </body>
 </html>
