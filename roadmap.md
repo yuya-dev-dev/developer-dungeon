@@ -2,8 +2,8 @@
 
 ## 文書情報
 
-- 状態: Phase 4完了、Phase 5 MVP検証準備中
-- 現在地: STAGE-GIT-01〜05とゲームループ補完は完了し、STAGE-GIT-05（reflog）はPR #10でmainへ反映済み。将来の共通物語骨格を採用し、具体的な章の実装方針はPhase 5後に逐次決定する
+- 状態: Phase 4完了、Phase 5内部パイロット・改善設計レビュー完了、実装待ち
+- 現在地: STAGE-GIT-01〜05の初回内部プレイを完了し、起動・DB不具合はPR #11で修正済み。ゲーム体験の改善設計はバム・井上レビューを通過した
 - 上位文書: [`docs/requirements.md`](docs/requirements.md)
 - 関連文書: [`docs/vertical-slice.md`](docs/vertical-slice.md)、[`docs/test-strategy.md`](docs/test-strategy.md)、[`docs/phase-2-hardening-plan.md`](docs/phase-2-hardening-plan.md)
 
@@ -29,7 +29,7 @@
 | 2 | Git Runner hardening | 完了・main反映済み |
 | 3 | 安定版MVP基盤 | 完了・main反映済み |
 | 4 | 5ステージ完成 | 完了・PR #10までmain反映済み |
-| 5 | MVP検証と改善 | 準備中 |
+| 5 | MVP検証と改善 | 内部パイロット・改善設計レビュー完了、実装待ち |
 | 6 | Git編拡張の逐次評価 | 未着手 |
 | 7 | 将来技術編の再評価 | 未着手 |
 
@@ -178,12 +178,13 @@ Phase 1の次へ進む条件は満たした。安全境界を5stageへ拡張す�
 - revertとresetなどの使い分けを説明できるか。
 - 物語が薄すぎる、長すぎる、正解誘導になっていないか。
 - Runner待ち時間とresetが離脱原因にならないか。
-- クリア後の自己確認だけで復旧根拠を考える体験が成立するか、ライブworkspace上の復旧報告が必要か。
+- クリア後の最終状態要約と自己確認だけで復旧根拠を考える体験が成立するか。ライブworkspace上の復旧報告は採用しない。
 - player resetを3スター条件に含めることが、安全な試行錯誤を妨げていないか。
 
 ### 完成条件
 
-- 実装前に決めた対象人数と成功閾値で検証結果を記録している。
+- Git初心者であるユーザー1名の内部パイロットと、改善後の対象限定再確認を記録している。Codexと補助エージェントは参加人数へ含めず、結果を一般ユーザーへ一般化しない。
+- [`docs/phase-5-validation-plan.md`](docs/phase-5-validation-plan.md)の合格基準を満たし、未解決のCriticalまたはMajorがない。
 - 学習効果またはゲーム体験の重大な欠陥を要件へ反映している。
 
 ### 次へ進む条件
@@ -235,12 +236,12 @@ Phase 1の次へ進む条件は満たした。安全境界を5stageへ拡張す�
 
 ## 12. 現在の次作業
 
-1. Phase 4とSTAGE-GIT-01〜05は完了し、PR #10までmainへ反映済みである。
-2. Phase 5では、現在のMVPについて状態確認から始められるか、exact hintへの依存、判断根拠の説明、物語のテンポ、Runner待ち、reset評価、クリア後の自己確認を内部パイロットで検証する。
-3. 新卒研修から後輩を支援する立場までの共通物語骨格は採用済みとする。Chapter 0の3ステージ・20〜40分は暫定規模であり、実装仕様ではない。
-4. Chapter 0、Chapter 2、Git編Finale、コードレビュー編、SQL編、Docker・CI/CD編の具体的な実装方針はPhase 5後に1章ずつ設計し、ユーザー承認を得てから着手する。
-5. 現時点では既存Stage 1〜5、コード、DB、Runner、fixture、採点、安全境界を章構成のために変更しない。
-6. ライブworkspaceの完了を宣言する復旧報告、`POST /report`、report待機用状態機械、TTL、sweeperは採用せず、Phase 5で必要性を再評価する。
+1. Phase 4とSTAGE-GIT-01〜05は完了し、起動・DB不具合の修正もPR #11でmainへ反映済みである。
+2. Phase 5の初回内部パイロットは完了し、暗色UI、物語導入不足、clear通知、正確な許可構文、失敗時の状態喪失、Stage 5の複数経路、短い固定手順を改善対象として採用した。
+3. [`docs/phase-5-experience-improvement-plan.md`](docs/phase-5-experience-improvement-plan.md)の順に、成功表示・文言、画面shell、会話scene、案内とエラー表示、状態保持と複数経路、学習過程の拡張を分離して実装する。
+4. 改善後はStage 1、2、5を外部支援なしで再確認し、全5ステージの共通UI、入力拒否・Gitエラー後の状態保持、Stage 5の2経路を対象限定で確認する。
+5. 新卒研修から後輩を支援する立場までの共通物語骨格は採用済みとする。Chapter 0の3ステージ・20〜40分は暫定規模であり、具体設計はPhase 5完了後にユーザー承認を得る。
+6. ライブworkspaceの完了を宣言する復旧報告、`POST /report`、report待機用状態機械、TTL、sweeperは採用しない。自動clearと即時cleanupを維持する。
 
 詳細は[`docs/requirements.md`](docs/requirements.md)、[`docs/game-design.md`](docs/game-design.md)、[`docs/git-mvp-stages.md`](docs/git-mvp-stages.md)、[`docs/architecture.md`](docs/architecture.md)、[`docs/test-strategy.md`](docs/test-strategy.md)を正本とする。
 

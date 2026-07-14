@@ -2,10 +2,10 @@
 
 ## 文書情報
 
-- 状態: 承認済み（Git編安定版MVPの5ステージをmainへ反映済み、Phase 5準備中、将来の共通物語骨格を反映済み）
+- 状態: 既存ベースラインは承認・実装済み。Phase 5ゲーム体験改訂はバム・井上レビューPASS、未実装
 - 対象: Git編の1日縦切り版および安定版MVP
 - 上位ルール: [`../AGENTS.md`](../AGENTS.md)
-- 関連文書: [`game-design.md`](game-design.md)、[`git-mvp-stages.md`](git-mvp-stages.md)、[`threat-model.md`](threat-model.md)、[`architecture.md`](architecture.md)
+- 関連文書: [`game-design.md`](game-design.md)、[`git-mvp-stages.md`](git-mvp-stages.md)、[`threat-model.md`](threat-model.md)、[`architecture.md`](architecture.md)、[`phase-5-experience-improvement-plan.md`](phase-5-experience-improvement-plan.md)
 
 ## 1. この文書が決めること
 
@@ -91,6 +91,12 @@ Javaコードレビュー編、SQL編、Docker・CI/CD障害対応編は、同�
 | REQ-GAME-013 | 同一attemptのコマンド、リセット、判定、破棄を直列化し、同じrequestの再送でGit操作を二重実行しない |
 | REQ-GAME-014 | 安定版MVPでは信頼できるrepository snapshotから自動クリアし、クリア後に非採点・非永続の自己確認で復旧完了の根拠を考えてから解説を確認できる |
 | REQ-GAME-015 | ステージの案内量と読み取り専用状態要約を独立して設定でき、案内を減らすステージでは正確なコマンド構文を常時表示せずヒントレベル3以降で開示する |
+| REQ-GAME-016 | プレイ画面は明るい一人称オフィス、中央PC、PC外の人物会話を基本構成とし、狭い画面ではPCと技術条件を優先して表示する |
+| REQ-GAME-017 | 初回導入会話はスキップ可能とし、会話を読んでもスキップしても同じ技術目標、attempt、採点条件へ到達する。障害チケットだけでも発生事象、困っている関係者、守る条件、対応が必要な理由を理解できる |
+| REQ-GAME-018 | 自動クリア後は最初のviewportで成功を明示し、command formを表示せず、最終状態、自己確認、振り返り、人物の反応へ移る |
+| REQ-GAME-019 | 入力拒否と通常のGitエラーでは同じworkspaceと論理attemptを継続し、明示resetまたは結果を安全に確定できないsystem recoveryだけがworkspaceを再生成する |
+| REQ-GAME-020 | 全ステージの常時案内は概念カテゴリに限定し、正確な構文はヒントレベル3、対象を含む具体手順はレベル4で開示する。server側のcommand allowlistは常に維持する |
+| REQ-GAME-021 | 採点は最終snapshotを正本とし、同じ安全な最終状態へ到達する複数の調査順序を許容する。固定コマンド列、最短手順、コマンド数を採点しない |
 
 ## 6. 評価要件
 
@@ -155,6 +161,7 @@ Javaコードレビュー編、SQL編、Docker・CI/CD障害対応編は、同�
 | NFR-DATA-001 | サンプル、ログ、スクリーンショットには架空の情報だけを使用する |
 | NFR-TEST-001 | 入力許可、状態採点、各ステージ、Runner制限に対象限定の自動テストを持つ |
 | NFR-UX-001 | Gitの生出力とゲーム演出を分離し、物語を読まなくても技術条件を誤解しない |
+| NFR-UX-002 | 背景と会話演出は装飾または補助情報として実装し、keyboard操作、focus移動、contrast、reduced motion、JavaScript無効時の基本操作を損なわない |
 | NFR-WEB-001 | Git出力、fixture、プレイヤー入力、エディタ内容、エラーを常にuntrusted plain textとしてescapeし、CSPでscript実行を制限する |
 | NFR-CON-001 | attempt単位の排他制御、状態機械、request ID、永続化の一意制約で並行要求と再送を安全に扱う |
 
@@ -208,6 +215,7 @@ Javaコードレビュー編、SQL編、Docker・CI/CD障害対応編は、同�
 - 主人公と主要人物は固定キャラクターとし、アバター作成は行わない。
 - 将来の共通物語は、同じ会社の主力サービスを複数のサブシステムとチームが支え、新人の主人公が研修から後輩を支援する立場へ成長する構造とする。
 - 現在の`STAGE-GIT-01`〜`05`はChapter 1の事故対応として維持し、将来の章構成だけを理由に技術仕様、採点、Runnerの安全境界を変更しない。
+- Phase 5はGit初心者であるユーザー1名の内部パイロットと改善後の対象限定再確認で判定する。Codexと補助エージェントは人間の参加人数へ含めず、結果を一般ユーザーへ統計的に一般化しない。成功閾値は[`phase-5-validation-plan.md`](phase-5-validation-plan.md)を正本とする。
 
 ### 実装前に確定する事項
 
@@ -215,7 +223,6 @@ Javaコードレビュー編、SQL編、Docker・CI/CD障害対応編は、同�
 |---|---|
 | TBD-001 | プロダクト、Git編、主人公、会社、主要人物の正式名称 |
 | TBD-004 | 5ステージの文章、fixture内のファイル名、コミットメッセージの最終表現 |
-| TBD-005 | MVP検証で採用する人数と学習効果の成功閾値 |
 | TBD-006 | Chapter 0の確定ステージ数、各課題、スキップ導線、許可操作、fixture、採点、実装順 |
 | TBD-007 | Chapter 2とGit編Finaleのステージ構成、remoteの表現方式、安全境界、採点方法 |
 | TBD-008 | コードレビュー編、SQL編、Docker・CI/CD編の順序と、各編専用の実行・隔離方式 |

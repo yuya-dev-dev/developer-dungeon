@@ -2,7 +2,7 @@
 
 ## 文書情報
 
-- 状態: 承認済み（Phase 1〜STAGE-GIT-05実装・対象限定テスト完了、PR #10までmain反映済み）
+- 状態: 既存ベースラインは承認・実装済み。Phase 5のWeb表示・状態継続改訂はバム・井上レビューPASS、未実装
 - 対象: Git編の1日縦切り版および安定版MVP
 - 上位文書: [`requirements.md`](requirements.md)、[`git-mvp-stages.md`](git-mvp-stages.md)、[`threat-model.md`](threat-model.md)
 - 関連文書: [`vertical-slice.md`](vertical-slice.md)、[`test-strategy.md`](test-strategy.md)
@@ -341,11 +341,13 @@ MVPでは次を行わない。
 
 1日縦切り版ではプレイ画面だけを直接表示してよい。
 
-Phase 4の現時点では、`GET /`が固定のSTAGE-GIT-01／STAGE-GIT-02一覧をDB read-onlyで表示し、各固定URLの`GET /stages/STAGE-GIT-01`と`GET /stages/STAGE-GIT-02`がプレイ画面を表示する。command、hint、resetも各stageの固定POST URLに分け、formから任意のstage keyを受け取らない。一覧は`CLEARED` attemptから導出した最高スターだけを読むため、閲覧時にRunner、workspace、attemptを作らない。未対応stage keyはrouteを定義せず404とする。
+Phase 5開始時点では、`GET /`が固定のSTAGE-GIT-01〜05一覧をDB read-onlyで表示し、各固定URLの`GET /stages/{固定stage key}`がプレイ画面を表示する。command、hint、resetもstageごとの固定POST URLに分け、formから任意のstage keyを受け取らない。一覧は`CLEARED` attemptから導出した最高スターだけを読むため、閲覧時にRunner、workspace、attemptを作らない。未対応stage keyはrouteを定義せず404とする。
 
 安定版MVPはrepository snapshotによる自動クリアを維持し、プレイヤーの復旧報告を待つ`report` routeは追加しない。クリア後の自己確認は、固定の問いと解説を表示するだけの非採点・非永続UIとし、POST、DB、Runner、attempt状態を追加しない。
 
-Stage 1・2とStage 4は`FULL_SYNTAX + BASIC`で現行表示を維持する。Stage 3の最初の手動確認は`CONCEPT_ONLY + OFF`とし、状態把握不足が主要な詰まりと確認された場合だけ`CONCEPT_ONLY + BASIC`へ変更して再確認する。Stage 5は`CONCEPT_ONLY + REDACTED_BRANCHES`とし、状態要約は`main`の存在と復旧対象branchの欠落だけを示す。reflog entry、object ID、正解構文を状態要約へ含めず、案内量と状態要約の既存分離を維持する。
+内部パイロット後の改善では全5ステージを`CONCEPT_ONLY`へ統一する。Stage 1・2・4の状態要約は既存の`BASIC`、Stage 3は`OFF`、Stage 5は`REDACTED_BRANCHES`を初期値とする。状態要約は案内量と独立させ、reflog entry、object ID、正解構文を先に漏らさない。これはview modelとtemplateの表示変更であり、command allowlist、parser、Runner contract、fixture、clear policyを変更しない。
+
+プレイ画面は固定resourceから会話をserver-side renderし、同梱した同一originの静的JavaScriptが会話の進行とskipだけをclient内で制御する。会話状態はDB、attempt、Runnerへ保存せず、通信も追加しない。inline script、inline event handler、任意HTML、`eval`を使わず、JavaScript無効時は全会話と技術条件を通常HTMLとして表示する。clear済みresponseではcommand formを描画せず、成功見出し、最終状態、自己確認、固定振り返りを最初のviewportへ配置する。最終状態要約はclearを確定したresponse内の信頼済みsnapshotからだけ作成し、再読込後の再現をMVP要件にしない。snapshot保存、`report` route、workspace保持は追加しない。
 
 ### 12.2 実装方式
 
@@ -358,7 +360,7 @@ Stage 1・2とStage 4は`FULL_SYNTAX + BASIC`で現行表示を維持する。St
 
 ログイン、SPA、WebSocketは使用しない。appとRunnerはloopbackへbindし、BrowserからのPOSTにはCSRF protectionを適用する。
 
-Git出力、commit message、diff、player入力、限定editor内容、errorはすべてuntrusted dataとして扱う。Thymeleafではplain textとしてescapeし、raw HTML描画を使用しない。ANSI escapeと表示不要なcontrol characterを除去または可視化し、少なくとも`default-src 'self'`、`script-src 'self'`、`object-src 'none'`、`base-uri 'none'`、`frame-ancestors 'none'`を含むCSPを適用する。
+Git出力、commit message、diff、player入力、限定editor内容、error、固定会話、clear sceneはすべてuntrusted dataとして扱う。Thymeleafではplain textとしてescapeし、raw HTML描画を使用しない。ANSI escapeと表示不要なcontrol characterを除去または可視化し、少なくとも`default-src 'self'`、`script-src 'self'`、`object-src 'none'`、`base-uri 'none'`、`frame-ancestors 'none'`を含むCSPを適用する。会話用JavaScriptのために外部origin、`'unsafe-inline'`、`'unsafe-eval'`を追加しない。
 
 ## 13. 永続化
 
@@ -431,7 +433,7 @@ Spring JDBCとFlywayを使い、JPAはMVPでは導入しない。
 | error category | appの扱い |
 |---|---|
 | INPUT_REJECTED | Git未実行。理由を安全な表現で表示 |
-| GIT_ERROR | exit codeとtruncated outputを表示し、attempt継続 |
+| GIT_ERROR | exit codeとtruncated outputを表示し、Gitが残した状態のまま同じworkspace／generation／attemptを継続 |
 | TIMEOUT | containerを破棄し、同じ論理attemptのsystem recoveryとしてcountとgenerationを増やす。再生成失敗時だけFAILEDにする |
 | OUTPUT_LIMIT | 出力を打ち切り、command結果に明示。必要ならattempt継続 |
 | RUNNER_UNAVAILABLE | player操作を止め、resetまたは再起動案内 |

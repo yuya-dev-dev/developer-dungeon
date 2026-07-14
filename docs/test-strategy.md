@@ -2,9 +2,9 @@
 
 ## 文書情報
 
-- 状態: 承認済み（Phase 1〜STAGE-GIT-05実装・対象限定テスト完了、PR #10までmain反映済み）
+- 状態: 既存ベースラインのテストは完了。Phase 5ゲーム体験改訂の検証観点はバム・井上レビューPASS、未実装
 - 上位文書: [`requirements.md`](requirements.md)、[`git-mvp-stages.md`](git-mvp-stages.md)、[`threat-model.md`](threat-model.md)、[`architecture.md`](architecture.md)
-- 関連文書: [`vertical-slice.md`](vertical-slice.md)、[`../AGENTS.md`](../AGENTS.md)
+- 関連文書: [`vertical-slice.md`](vertical-slice.md)、[`phase-5-experience-improvement-plan.md`](phase-5-experience-improvement-plan.md)、[`../AGENTS.md`](../AGENTS.md)
 
 ## 1. この文書が決めること
 
@@ -84,8 +84,9 @@ stage固有観点：
 
 - attempt開始とRunner workspace作成の対応
 - input rejected時にRunnerを呼ばない
-- Git error時にattemptを継続する
-- timeout時にattemptをFAILEDにしてdestroyを呼ぶ
+- input rejected時にworkspace ID、generation、repository状態を変えない
+- Git error時にGitが残した状態のまま同じworkspace IDとgenerationでattemptを継続する
+- timeout時に旧workspaceをcleanupし、同じ論理attemptのsystem recoveryとしてgenerationを進める。再生成不能の場合だけFAILEDとする
 - reset時に旧workspaceを破棄して新規作成する
 - reset／system recoveryで旧workspaceのcleanupが失敗した場合は新workspaceを作成せず、cleanup pendingを維持する
 - reset後も同じ論理attempt、最高hint level、player reset count、system recovery count、command sequenceを保持する
@@ -104,16 +105,22 @@ stage固有観点：
 - Host／Origin方針
 - error categoryごとのplayer向け表示
 - stack trace、host path、credentialをviewへ渡さない
-- Git出力、commit message、diff、editor内容、error内のHTML、script、event属性をplain textとしてescapeする
+- Git出力、commit message、diff、editor内容、error、固定会話、clear scene内のHTML、script、event属性をplain textとしてescapeする
 - ANSI escapeとcontrol characterを実行・解釈せず、安全に除去または可視化する
-- CSP headerが必須directiveを持つ
+- CSP headerが必須directiveを持ち、会話用静的JavaScriptの追加後も外部script、`'unsafe-inline'`、`'unsafe-eval'`を許可しない
 - hintの段階開示
 - reset確認
 - clear後のstarと振り返り表示
+- clear responseの最初のviewportに成功見出しがあり、command formが描画されない
+- 導入会話を進めてもskipしても同じstage、attempt、技術目標へ到達する
+- 会話skip後も障害チケットに発生事象、困っている関係者、守る条件、対応が必要な理由が残る
+- JavaScript無効時も会話、技術目標、command form、clear結果を利用できる
+- PC幅ではオフィスと中央PC、スマートフォン相当幅ではPC優先と下部会話パネルになる
 - Stage 1・2でstage固有のclear scene、安全な理由、危険な代替案、成長beatが表示され、別stageの文言が混在しない
 - クリア後の自己確認が非採点・非永続で、POST、DB更新、Runner呼び出しを発生させない
 - `guidanceMode`と`incidentBoardMode`を独立して切り替え、4組合せで案内領域と状態要約領域が不可分になっていない
 - `CONCEPT_ONLY`では正確な構文を常時表示せず、ヒントレベル3以降だけで開示する
+- 全5ステージが`CONCEPT_ONLY`で、入力拒否応答が正確な許可構文一覧を代わりに開示しない
 - STAGE-GIT-04以外でeditor endpointを拒否
 
 Thymeleafの見た目そのものはunit testへ寄せすぎず、重要な要素と条件分岐だけを確認する。
@@ -130,10 +137,11 @@ Thymeleafの見た目そのものはunit testへ寄せすぎず、重要な要�
 6. fixtureにhook、symlink、submodule、外部URL、秘密値がない。
 7. repository-local configが許可keyと期待valueの組だけである。
 8. `.gitattributes`、`.git/info/attributes`、`.gitmodules`、external diff、filter、custom merge driver、fsmonitor、credential helper、signing programを含むfixtureを拒否し、system attributesを無効化する。
+9. STAGE-GIT-05は、通常履歴を先に確認する経路とreflogを先に確認する経路の少なくとも2つで同じclear snapshotへ到達する。
 
 複数の正しい手順を許可するstageでは、少なくとも2経路を用意する。ただしMVPのcommand allowlistが実質的に1経路しか許可しない場合は、その理由をstage testへ記録する。
 
-STAGE-GIT-05の状態変更を伴う最小正解経路は、`reflog`で表示された`C1`へ固定名branchを作成してswitchする経路とする。`git show C1`は内容を裏付ける推奨の任意確認であり、command history上のclear必須操作にしない。安全境界を変えない範囲で、showあり／なしの両方が同じ正しいsnapshotへ到達することを確認する。任意ref、revision式、reflog selector、別branch名を許可する別経路は増やさない。最低限、次を対象限定で確認する。
+STAGE-GIT-05の状態変更を伴う最小正解経路は、`reflog`で表示された`C1`へ固定名branchを作成してswitchする経路とする。観察順序は、A: `status`→通常履歴→`reflog`→branch作成→switch、B: `reflog`→`status`または通常履歴→branch作成→switchの2経路を確認する。`git show C1`は両経路へ追加できる任意の内容確認であり、2経路そのものやcommand history上のclear必須操作にしない。任意ref、revision式、reflog selector、別branch名を許可する別経路は増やさない。最低限、次を対象限定で確認する。
 
 - 初期状態でlocal branchが`main`だけ、`main=C0`、`C1`は`log --all`に現れず、HEAD reflogの最大8件内に一意な12桁IDで現れる。
 - Runner側固定fixture定義の`C0`／`C1`／tree／reflog entryと実repositoryが一致し、initial snapshotがrefやstdoutではなく信頼済み`recoveryTargetId=C1`を返し、reset後もobject IDとreflog順序を再現する。
@@ -255,6 +263,11 @@ PostgreSQL Testcontainersを使用し、次を確認する。
 11. Stage 3を最初に`CONCEPT_ONLY + OFF`で確認し、案内削減による詰まりを記録する。
 12. 状態把握不足が主要な詰まりの場合だけStage 3を`CONCEPT_ONLY + BASIC`で再確認し、ボード追加前後の行動差だけを記録する。
 13. Stage 5を`CONCEPT_ONLY + REDACTED_BRANCHES`で確認し、状態要約がbranch消失だけを伝えてreflog entry、object ID、正解構文を先に漏らさず、hint level 3・4で段階開示されることを確認する。
+14. 入力拒否と通常Gitエラーの後に、正しかった過去操作とworkspaceが維持され、明示reset時だけ初期状態へ戻ることを確認する。
+15. clear直後にスクロールせず成功を認識でき、command入力がなく、人物の反応と自己確認へ進めることを確認する。
+16. clear後の確認は最終snapshotの状態要約と自己確認で成立し、追加Gitコマンドを要求しないことを確認する。
+17. Stage 2の目標文が`feature/profile`、`feature/notification`、最後のcheckout状態を区別していることを確認する。
+18. Stage 1、2、5を外部支援なしで再確認し、常時案内だけで総当たりできないこと、ヒント3・4で行き止まりから回復できることを記録する。
 
 ## 11. 要件traceability
 
@@ -273,6 +286,10 @@ PostgreSQL Testcontainersを使用し、次を確認する。
 | REQ-GAME-013 | application concurrency test、TEST-SEC-017、persistence一意制約test |
 | REQ-GAME-014 | clear後の自己確認Web test、各stage manual play、DB／Runner非呼出しtest |
 | REQ-GAME-015 | 表示方針4組合せのWeb test、Stage 3段階手動確認、hint level test |
+| REQ-GAME-016〜018 | responsive manual、会話skip Web test、clear response Web test、accessibility manual |
+| REQ-GAME-019 | application use case、error後のworkspace／generation継続test、manual |
+| REQ-GAME-020 | 全stage guidance Web test、hint level test、入力拒否表示test |
+| REQ-GAME-021 | clear policy unit、STAGE-GIT-05複数経路fixture integration、manual |
 | REQ-VS-001〜006 | vertical-slice unit／Docker integration／manual checklist、文書scope確認 |
 | REQ-MVP-001 | 5stage fixture integration、manual |
 | REQ-MVP-002 | Web route／view test、manual |
@@ -284,6 +301,7 @@ PostgreSQL Testcontainersを使用し、次を確認する。
 | NFR-DATA-001 | fixture／log／screenshot data inspection |
 | NFR-TEST-001 | test inventoryと実行結果のcompletion audit |
 | NFR-UX-001 | Web test、manual play review |
+| NFR-UX-002 | keyboard-only manual、clear見出しfocus Web test、contrast manual、`prefers-reduced-motion` manual／CSS確認、JavaScript無効manual、PC幅・狭幅responsive manual |
 | NFR-WEB-001 | Web XSS／CSP／control-character test |
 | NFR-CON-001 | concurrency、request ID、generation、optimistic lock test |
 

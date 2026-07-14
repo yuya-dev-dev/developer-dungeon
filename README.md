@@ -6,7 +6,7 @@ Developer Dungeonは、新人エンジニアが複数の開発現場で技術的
 
 ## 現在の状態
 
-企画・要件定義・全体設計の文書一式はユーザー承認済みです。安全な縦切り版、Git Runner hardening、PostgreSQLによるMVP基盤を経て、STAGE-GIT-01（revert）からSTAGE-GIT-05（reflog）までとゲームループ補完をmainへ反映し、Phase 4を完了しました。現在はPhase 5のMVP検証準備中です。
+Phase 4までの企画・要件・全体設計と実装はユーザー承認済みです。安全な縦切り版、Git Runner hardening、PostgreSQLによるMVP基盤を経て、STAGE-GIT-01（revert）からSTAGE-GIT-05（reflog）までとゲームループ補完をmainへ反映しました。Phase 5ではGit初心者であるユーザー1名の初回内部パイロットを完了し、未実装のゲーム体験改訂はバムと井上の文書レビューを通過しました。
 
 現在の1日縦切り版は、安全な使い捨てGit実行環境を含みます。player入力をhost上で直接実行せず、別processのGit Runnerとdisposable challenge containerを使用します。
 
@@ -25,7 +25,7 @@ Developer Dungeonは、新人エンジニアが複数の開発現場で技術的
 - 信頼済みsnapshotによる自動クリア後に、復旧完了の根拠を考える非採点・非永続の自己確認を行う
 - 4段階hintと累積3スターで、探索を罰せず自力判断を評価する
 - 安定版MVPはrevert、cherry-pick、stash、merge conflict、reflogの5stage
-- Stage 3では正確なコマンド構文を常時表示せず、案内量削減と読み取り専用状態要約を別々に検証する
+- Phase 5改善では全5ステージの常時案内を概念カテゴリに限定し、正確な構文を段階ヒントへ移す
 - Stage 4では固定ファイルだけをversion token付き限定エディタで編集し、双方の要件と2親のmerge commitを状態採点する
 - Stage 5ではHEAD reflogに残る表示済みcommit IDだけを使い、削除済みbranchを元のcommitへ復旧できたかを状態採点する
 
@@ -77,6 +77,7 @@ player入力から実Gitを動かす機能は、通常のWeb入力より高い�
 | [`docs/architecture.md`](docs/architecture.md) | component、module、Runner、DB、Docker境界 |
 | [`docs/vertical-slice.md`](docs/vertical-slice.md) | 1日縦切り版の範囲と完成条件 |
 | [`docs/test-strategy.md`](docs/test-strategy.md) | 自動・統合・手動testの方針 |
+| [`docs/phase-5-experience-improvement-plan.md`](docs/phase-5-experience-improvement-plan.md) | 内部パイロットの所見、採用した改善、実装分割、再確認条件 |
 | [`roadmap.md`](roadmap.md) | 開発段階、完成条件、次へ進む条件 |
 
 文書の優先順位は、`AGENTS.md`、要件定義、脅威モデル、ゲーム・stage仕様、アーキテクチャ、縦切り仕様、テスト戦略、ロードマップ、READMEの順です。

@@ -2,7 +2,7 @@
 
 ## 文書情報
 
-- 状態: STAGE-GIT-01〜05実装・対象限定テスト完了、PR #10までmain反映済み
+- 状態: 既存STAGE-GIT-01〜05は実装・対象限定テスト完了。Phase 5の表示・文言・複数経路改訂はバム・井上レビューPASS、未実装
 - 上位文書: [`requirements.md`](requirements.md)、[`game-design.md`](game-design.md)
 - 関連文書: [`threat-model.md`](threat-model.md)、[`architecture.md`](architecture.md)、[`test-strategy.md`](test-strategy.md)
 
@@ -44,7 +44,7 @@ fixture内の具体的な文章、コミットメッセージ、object IDは実�
 
 全ステージで4段階ヒントと累積3スターを使う。詳細は[`game-design.md`](game-design.md)を正本とする。
 
-Stage 1・2は正確な許可構文を常時表示する。Stage 3は概念カテゴリだけを常時表示し、正確な構文はヒントレベル3、対象を含む具体手順はヒントレベル4で開示する。案内量と読み取り専用状態要約は独立した表示方針とし、command allowlist、fixture、clear policyを変更しない。
+全5ステージの常時表示は概念カテゴリだけとし、正確な構文はヒントレベル3、対象を含む具体手順はヒントレベル4で開示する。案内量と読み取り専用状態要約は独立した表示方針とし、command allowlist、fixture、clear policyを変更しない。
 
 ### 2.4 物語resource
 
@@ -148,6 +148,8 @@ Stage 1・2は正確な許可構文を常時表示する。Stage 3は概念カ�
 - indexとworking treeがcleanである。
 - cherry-pick途中状態ではない。
 
+画面上の目標文は「通知機能の変更を`feature/notification`へ移し、`feature/profile`を変更前のC0へ戻す。最後に`feature/notification`をcheckoutした状態にする。」とし、2つのbranch位置と最後のcheckout状態を分けて示す。C0と対象commitのobject IDは目標文だけで開示しない。
+
 ### 近似不正解
 
 - 正しいbranchへ変更を移したが、誤ったbranchに`C1`が残っている。
@@ -164,7 +166,7 @@ Stage 1・2は正確な許可構文を常時表示する。Stage 3は概念カ�
 ### クリア後の物語
 
 - 成長beat: 主人公は、commitの内容だけでなく、branch位置の安全性をQA担当へ説明する役割を任された。
-- 固定clear scene: QA担当がレビューを再開すると、先輩は「なぜ二つのbranchがこの位置で安全なのか、君から説明して」と主人公に任せた。
+- 固定clear scene: 主人公が2つのbranchの最終位置と未共有履歴だけを戻した根拠を説明すると、QA担当は「これなら通知機能のレビューを再開できます」と受け取り、確認作業へ戻った。
 
 ## 5. STAGE-GIT-03 作業中の変更を正しいbranchへ移す
 
@@ -225,7 +227,7 @@ Stage 1・2は正確な許可構文を常時表示する。Stage 3は概念カ�
 ### クリア後の物語
 
 - 成長beat: 主人公は、作業中の変更を失わずに整理し、次の作業段取りを任されるようになった。
-- 固定clear scene: 同期が`feature/search`の状態を確認すると、先輩は「急いでcommitせず、状況を整理してから運べたね。次の作業段取りは任せる」と主人公に告げた。
+- 固定clear scene: 同期が作業内容が残っていることを確認し、「この後はどの順で仕上げようか」と主人公へ相談する。主人公は確認、commit、レビュー依頼までの次の段取りを示した。
 
 ## 6. STAGE-GIT-04 コンフリクトを解消して統合する
 
@@ -286,7 +288,7 @@ Stage 1・2は正確な許可構文を常時表示する。Stage 3は概念カ�
 ### クリア後の物語
 
 - 成長beat: 主人公は、コンフリクトを他者の意図を統合する作業として扱い、その判断を両チームへ説明する役割を任された。
-- 固定clear scene: QA担当が双方の要件を満たすと確認すると、先輩は「二つのチームへの解消説明は君に任せる」と主人公に告げた。
+- 固定clear scene: 主人公が競合箇所で残した双方の意図を説明すると、二つのチームが統合結果へ合意し、QA担当は検証を再開した。
 
 ## 7. STAGE-GIT-05 reflogから失われたcommitを復旧する
 
@@ -342,6 +344,8 @@ Stage 1・2は正確な許可構文を常時表示する。Stage 3は概念カ�
 - indexとworking treeがcleanで、merge、rebase、cherry-pick、revertの途中状態ではない。
 
 採点はreflog出力や入力command列をparseせず、Runnerが固定Git commandで取得する`main` tip、復旧branch tip、current branch、HEAD、HEADの直接parent、tree ID、local branch集合、porcelain状態、途中状態だけを使う。clear条件成立時は既存の自動clearとworkspace破棄を行い、復旧報告待ちは追加しない。
+
+観察commandの順序は採点条件にしない。`status`や通常履歴を確認してからreflogへ進む経路と、reflogから対象commitを見つけて必要な内容・状態確認を前後して行う経路の少なくとも2つを許容する。branch作成前の表示済みobject ID検証、固定C1だけを許可するRunner境界、最終snapshotの全clear条件はどちらの経路でも維持する。
 
 ### 近似不正解
 

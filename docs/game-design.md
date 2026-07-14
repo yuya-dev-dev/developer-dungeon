@@ -2,9 +2,9 @@
 
 ## 文書情報
 
-- 状態: Phase 5検証中（将来の章構成、共通物語骨格、一人称オフィスUIの目標構成を反映済み）
+- 状態: 既存ベースラインは承認・実装済み。Phase 5ゲーム体験改訂はバム・井上レビューPASS、未実装
 - 上位文書: [`requirements.md`](requirements.md)
-- 関連文書: [`git-mvp-stages.md`](git-mvp-stages.md)、[`vertical-slice.md`](vertical-slice.md)
+- 関連文書: [`git-mvp-stages.md`](git-mvp-stages.md)、[`vertical-slice.md`](vertical-slice.md)、[`phase-5-experience-improvement-plan.md`](phase-5-experience-improvement-plan.md)
 
 ## 1. この文書が決めること
 
@@ -84,7 +84,7 @@ Chapter 0は文章中心の講義にせず、小さな業務上の問題を実�
 5. **実操作**: 許可されたGitコマンドを入力する。
 6. **フィードバック**: Git出力と現在状態の要約を確認する。
 7. **自動判定**: repository snapshotを使ってクリア条件を確認し、成立時はworkspaceを破棄してクリアを確定する。
-8. **自己確認**: 何を確認できたから復旧完了と言えるかを考え、その後に固定解説を開く。
+8. **自己確認**: 最終snapshotから作成した状態要約を読み、何を確認できたから復旧完了と言えるかを考え、その後に固定解説を開く。clear後の追加Gitコマンドは要求しない。
 9. **振り返り**: 修復前後、安全な理由、危険な代替案を確認する。
 10. **物語結果**: 登場人物の反応と主人公の成長を見る。
 
@@ -151,9 +151,9 @@ Phase 5の手動確認で、現状の全面的な暗色UIは、日中のIT企業
 
 ヒントは順番に開示し、未開示の内容を先に見せない。ヒント使用を恥や失敗として扱わず、1スターのクリアは常に正規の達成とする。
 
-Stage 1・2は正確な許可構文を常時表示する。Stage 3では、最初の手動確認時に「観察」「一時退避」「branch移動」のような概念カテゴリだけを常時表示し、正確な構文をヒントレベル3、対象を含む具体手順をヒントレベル4で開示する。案内量と読み取り専用状態要約は別機能として扱い、Stage 3の初回確認では状態要約を無効にする。状態を見失うことが主要な詰まりと確認された場合だけ、最小状態要約を有効にして再確認する。
+内部パイロットでは、Stage 1・2を含む正確な許可構文の常時表示が、状態を理解せず候補を総当たりする余地を作ると確認された。以後は全5ステージを`CONCEPT_ONLY`へ統一し、常時表示は「状態確認」「履歴確認」「差分確認」「復旧」のような概念カテゴリだけにする。正確な構文はヒントレベル3、対象を含む具体手順はヒントレベル4で開示する。server側のcommand allowlistとtyped command検証は変更しない。
 
-Stage 5はシーズン1の最終判断として`CONCEPT_ONLY + REDACTED_BRANCHES`を使用する。常時表示は「状態確認」「通常履歴」「操作履歴」「commit確認」「branch復旧」の概念カテゴリに限定し、状態要約は`main`が存在し復旧対象branchが存在しないことだけを示す。reflog entry、object ID、正解commandは状態要約へ出さず、正確な構文をヒントレベル3、対象IDを含む具体手順をヒントレベル4で開示する。案内量と状態要約は既存の独立した表示方針を使い、新しいfeature flagや動的設定を追加しない。
+案内量と読み取り専用状態要約は別機能として維持する。Stage 5は`CONCEPT_ONLY + REDACTED_BRANCHES`とし、状態要約は`main`が存在し復旧対象branchが存在しないことだけを示す。reflog entry、object ID、正解commandは状態要約へ出さない。新しい汎用feature flagや動的設定は追加しない。
 
 ## 8. 3スター評価
 
@@ -176,7 +176,7 @@ Stage 5はシーズン1の最終判断として`CONCEPT_ONLY + REDACTED_BRANCHES
 3. **実行制限**: timeout、出力上限、workspace上限。
 4. **システム障害**: Runner、Docker、管理DBなどの利用不能。
 
-入力拒否ではGitを実行しない。Gitエラーは学習材料として出力を表示する。リセットはattemptの記録を残したままworkspaceを破棄して再生成する。
+入力拒否ではGitを実行せず、同じworkspace、generation、repository状態を維持する。Gitエラーは学習材料として出力を表示し、Gitが実際に残した状態を同じworkspaceで維持する。入力拒否と通常Gitエラーを理由に、正しかった過去操作を失う自動rollbackやworkspace再生成を行わない。リセットはプレイヤーが明示した場合に、attemptの記録を残したままworkspaceを破棄して再生成する。
 
 リセット後も同じ論理attemptを継続し、開示済みの最高hint level、player reset回数、system recovery回数、command履歴を保持する。プレイヤー操作のリセットで3スター条件を回復させない一方、system recoveryは減点しない。ステージ一覧から明示的に「新しい挑戦」を開始した場合だけ、別attemptとして評価を0から始める。
 
@@ -194,6 +194,10 @@ Stage 5はシーズン1の最終判断として`CONCEPT_ONLY + REDACTED_BRANCHES
 - 複数のbranch、index、working tree、履歴を観察する。
 - 危険な近似解が存在する。
 - `STAGE-GIT-02`から`STAGE-GIT-05`を該当させる。
+- 初見プレイでは診断、仮説、復旧、確認の4段階を体験できる情報と判断を用意する。
+- 確認は自動clear後の最終状態要約と自己確認で行い、clear後の追加Gitコマンドを前提にしない。
+- 操作量は、新しい証拠によって仮説または次の判断が変わる意味のあるbeatで比較する。会話送り、画面遷移、既知情報の再表示、自動feedbackは数えない。
+- コマンドを増やす場合は、新しい証拠を得る、危険な操作を避ける、または復旧方針を選ぶ役割を必要とする。固定コマンド数、最短手順、調査回数を採点しない。
 
 ### 修羅場
 
