@@ -50,19 +50,48 @@ class StageResultTemplateTest {
         String cleared = render("STAGE-GIT-01", true);
         String active = render("STAGE-GIT-01", false);
         String result = cleared.substring(cleared.indexOf("<section class=\"result\""));
+        String selfCheck = result.substring(result.indexOf("<section class=\"self-check\""), result.indexOf("<section class=\"reflection\""));
 
-        assertThat(result).contains("<details>", "復旧根拠を確認する").doesNotContain("<form", "method=\"post\"");
+        assertThat(selfCheck).contains("<details>", "復旧根拠を確認する").doesNotContain("<form", "method=\"post\"");
         assertThat(active).doesNotContain("復旧根拠を確認する", "何が壊れていたか", "修復後どうなったか", "なぜこの方法が安全か", "避けるべき選択",
                 "公開済みのmainに、必要な設定を削除する誤commitが含まれていました。", "mainには誤commitが履歴として残り");
     }
 
+    @Test void clearResponseLeadsWithAccessibleSuccessAndKeepsOnlyResetAction() {
+        String cleared = render("STAGE-GIT-04", true, 2);
+        String active = render("STAGE-GIT-04", false, 2);
+
+        assertThat(cleared.indexOf("id=\"clear-heading\"")).isLessThan(cleared.indexOf("class=\"ticket\""));
+        assertThat(cleared).contains("role=\"status\"", "aria-live=\"polite\"", "aria-labelledby=\"clear-heading\"",
+                "id=\"clear-heading\" tabindex=\"-1\" autofocus", "action=\"/stages/STAGE-GIT-04/reset\"")
+                .doesNotContain("action=\"/stages/STAGE-GIT-04/commands\"", "action=\"/stages/STAGE-GIT-04/hint\"",
+                        "action=\"/stages/STAGE-GIT-04/editor\"", "name=\"command\"", "name=\"content\"", "<h2>ヒント</h2>");
+        assertThat(active).contains("action=\"/stages/STAGE-GIT-04/commands\"", "action=\"/stages/STAGE-GIT-04/hint\"",
+                "action=\"/stages/STAGE-GIT-04/editor\"", "action=\"/stages/STAGE-GIT-04/reset\"", "<h2>ヒント</h2>")
+                .doesNotContain("id=\"clear-heading\"", "role=\"status\"");
+    }
+
+    @Test void stageTwoObjectiveExplainsBothBranchPositionsAndFinalCheckout() {
+        String stageTwo = render("STAGE-GIT-02", false);
+
+        assertThat(stageTwo).contains("通知機能の変更をfeature/notificationへ移し、feature/profileを変更前のC0へ戻す。最後にfeature/notificationをcheckoutした状態にする。")
+                .doesNotContain("C1をnotificationへ移し、profileをC0へ戻してnotificationにいる。");
+    }
+
     private String render(String stageKey, boolean cleared) {
+        return render(stageKey, cleared, 0);
+    }
+
+    private String render(String stageKey, boolean cleared, int hintLevel) {
         StageService stages = mock(StageService.class);
         StageDefinition definition = new StageRules().definition(stageKey);
-        StageView view = new StageView("request", "output", null, null, 0, 0, 0, 0, cleared, cleared ? 3 : 0,
-                cleared ? "復旧しました。" : "未復旧", List.of());
+        StageView view = new StageView("request", "output", null, null, hintLevel, 0, 0, 0, cleared, cleared ? 3 : 0,
+                cleared ? "復旧しました。" : "未復旧", hintLevel > 0 ? List.of("段階ヒント") : List.of());
         when(stages.open(stageKey)).thenReturn(view);
         when(stages.definition(stageKey)).thenReturn(definition);
+        if ("STAGE-GIT-04".equals(stageKey) && !cleared) {
+            when(stages.editor(stageKey)).thenReturn(new StageEditorView("content", "a".repeat(64), "write-request"));
+        }
         MockMvc mvc = MockMvcBuilders.standaloneSetup(new StageController(stages)).setViewResolvers(viewResolver()).build();
 
         try {
@@ -71,6 +100,7 @@ class StageResultTemplateTest {
                     .andReturn().getResponse().getContentAsString();
             verify(stages).open(stageKey);
             verify(stages).definition(stageKey);
+            if ("STAGE-GIT-04".equals(stageKey) && !cleared) verify(stages).editor(stageKey);
             verifyNoMoreInteractions(stages);
             return rendered;
         } catch (Exception exception) {
