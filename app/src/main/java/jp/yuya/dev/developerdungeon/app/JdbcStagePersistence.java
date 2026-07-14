@@ -12,7 +12,7 @@ import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionTemplate;
 
 @Repository
-final class JdbcStagePersistence implements StagePersistence {
+class JdbcStagePersistence implements StagePersistence {
     private static final String COLUMNS = "id,status,version,current_generation,workspace_id,create_request_id,cleanup_request_id,pending_stars,highest_hint_level,player_reset_count,system_recovery_count,last_sequence_no,stars";
     private final JdbcTemplate jdbc;
     private final TransactionTemplate transactions;

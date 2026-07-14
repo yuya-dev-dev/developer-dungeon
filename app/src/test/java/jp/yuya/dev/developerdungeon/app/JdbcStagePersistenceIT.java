@@ -9,6 +9,7 @@ import java.sql.Statement;
 import java.time.Instant;
 import java.util.UUID;
 import javax.sql.DataSource;
+import jp.yuya.dev.developerdungeon.contract.CommandKind;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -80,6 +81,32 @@ class JdbcStagePersistenceIT {
             assertThatThrownBy(() -> statement.execute("CREATE TABLE app_must_not_create(id integer)"))
                     .isInstanceOf(Exception.class);
         }
+    }
+
+    @Test
+    void persistsEveryCurrentCommandKindAndRejectsUnknownKind() {
+        JdbcStagePersistence store = store();
+        UUID attemptId = UUID.randomUUID();
+        Instant now = Instant.parse("2026-07-12T00:00:00Z");
+        var starting = store.createStarting(attemptId, "STAGE-GIT-02", UUID.randomUUID(), now);
+        var created = store.workspaceCreated(attemptId, starting.version(), UUID.randomUUID());
+        var active = store.activate(attemptId, created.version(), created.workspaceId());
+        long version = active.version();
+        long sequence = 1;
+
+        for (CommandKind kind : CommandKind.values()) {
+            UUID requestId = UUID.randomUUID();
+            assertThat(store.beginCommand(attemptId, version, requestId, sequence, active.generation(), kind.name(), kind.name(), now)).isTrue();
+            var afterCommand = store.finishCommand(attemptId, version + 1, requestId, "SUCCEEDED", 0, 1, null, null);
+            version = afterCommand.version();
+            sequence++;
+        }
+
+        long invalidSequence = sequence;
+        assertThatThrownBy(() -> new JdbcTemplate(appDataSource).update(
+                "INSERT INTO command_history(attempt_id,request_id,sequence_no,workspace_generation,entered_text,command_kind,result_kind,duration_ms,executed_at) VALUES (?,?,?,?,?,?, 'SUCCEEDED',?,?)",
+                attemptId, UUID.randomUUID(), invalidSequence, active.generation(), "UNKNOWN", "NOT_A_COMMAND", 1, java.sql.Timestamp.from(now)))
+                .isInstanceOf(RuntimeException.class);
     }
 
     private JdbcStagePersistence store() {
