@@ -2,8 +2,8 @@
 
 ## 文書情報
 
-- 状態: Phase 4完了、Phase 5内部パイロット・改善設計レビュー完了、改善単位1〜3完了・単位4 PR待ち
-- 現在地: 成功表示・文言はPR #13、画面shellはPR #14、導入会話・skip・clear反応はPR #15でmainへ反映済み。全Stageの概念案内、段階ヒント、入力拒否・Gitエラー・システムエラーの区別を実装した
+- 状態: Phase 4完了、Phase 5内部パイロット・改善設計レビュー完了、改善単位1〜4完了・単位5 PR待ち
+- 現在地: 成功表示・文言はPR #13、画面shellはPR #14、導入会話・skip・clear反応はPR #15、全Stageの概念案内とエラー表示はPR #16でmainへ反映済み。入力拒否・通常Gitエラー後のworkspace状態保持とStage 5の複数の安全な観察順序を実装した
 - 上位文書: [`docs/requirements.md`](docs/requirements.md)
 - 関連文書: [`docs/vertical-slice.md`](docs/vertical-slice.md)、[`docs/test-strategy.md`](docs/test-strategy.md)、[`docs/phase-2-hardening-plan.md`](docs/phase-2-hardening-plan.md)
 
@@ -29,7 +29,7 @@
 | 2 | Git Runner hardening | 完了・main反映済み |
 | 3 | 安定版MVP基盤 | 完了・main反映済み |
 | 4 | 5ステージ完成 | 完了・PR #10までmain反映済み |
-| 5 | MVP検証と改善 | 改善単位1〜3完了、案内とエラー表示を実装済み・PR待ち |
+| 5 | MVP検証と改善 | 改善単位1〜4完了、状態保持とStage 5複数経路を実装済み・PR待ち |
 | 6 | Git編拡張の逐次評価 | 未着手 |
 | 7 | 将来技術編の再評価 | 未着手 |
 

@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -15,6 +16,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import jp.yuya.dev.developerdungeon.contract.CommandResponse;
+import jp.yuya.dev.developerdungeon.contract.ExecuteRequest;
 import jp.yuya.dev.developerdungeon.contract.RepositorySnapshot;
 import jp.yuya.dev.developerdungeon.contract.WorkspaceRequest;
 import jp.yuya.dev.developerdungeon.contract.WorkspaceResponse;
@@ -22,6 +24,8 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 class StageInputRejectionTest {
+    private static final String WORKSPACE_ID = "11111111-1111-1111-1111-111111111111";
+
     @Test void persistsExplicitReasonCodesForSyntaxAndObjectRejections() {
         RunnerClient runner = mock(RunnerClient.class);
         when(runner.create(any())).thenAnswer(invocation -> workspace(invocation.getArgument(0)));
@@ -53,14 +57,75 @@ class StageInputRejectionTest {
         assertThat(systemErrorService.execute("STAGE-GIT-01", "git status", id(11)).feedbackKind()).isEqualTo(StageFeedbackKind.SYSTEM_ERROR);
     }
 
+    @Test void retainsTheSameWorkspaceGenerationAndSnapshotAfterAnInputRejection() {
+        RunnerClient runner = mock(RunnerClient.class);
+        RepositorySnapshot observed = observed();
+        when(runner.create(any())).thenAnswer(invocation -> workspace(invocation.getArgument(0)));
+        when(runner.execute(any())).thenReturn(new CommandResponse(0, "On branch main", "", false, 1, observed),
+                new CommandResponse(0, "On branch main", "", false, 1, observed));
+        StageService service = new StageService(runner, new StageRules(), new OutputSanitizer());
+
+        service.open("STAGE-GIT-01");
+        StageView first = service.execute("STAGE-GIT-01", "git status", id(20));
+        StageView rejected = service.execute("STAGE-GIT-01", "git stash push", id(21));
+        StageView resumed = service.execute("STAGE-GIT-01", "git status", id(22));
+
+        assertThat(rejected.feedbackKind()).isEqualTo(StageFeedbackKind.INPUT_REJECTED);
+        assertThat(rejected.snapshot()).isEqualTo(first.snapshot());
+        assertThat(rejected.resetCount()).isZero();
+        assertThat(rejected.systemRecoveryCount()).isZero();
+        assertThat(resumed.snapshot()).isEqualTo(observed);
+        ArgumentCaptor<ExecuteRequest> requests = ArgumentCaptor.forClass(ExecuteRequest.class);
+        verify(runner, times(2)).execute(requests.capture());
+        assertThat(requests.getAllValues()).allSatisfy(request -> {
+            assertThat(request.workspaceId()).isEqualTo(WORKSPACE_ID);
+            assertThat(request.generation()).isZero();
+        });
+        verify(runner, times(1)).create(any());
+        verify(runner, never()).destroy(any());
+    }
+
+    @Test void retainsTheSameWorkspaceGenerationAndSnapshotAfterAGitError() {
+        RunnerClient runner = mock(RunnerClient.class);
+        RepositorySnapshot observed = observed();
+        when(runner.create(any())).thenAnswer(invocation -> workspace(invocation.getArgument(0)));
+        when(runner.execute(any())).thenReturn(new CommandResponse(1, "", "fatal: bad revision", false, 1, observed),
+                new CommandResponse(0, "On branch main", "", false, 1, observed));
+        StageService service = new StageService(runner, new StageRules(), new OutputSanitizer());
+
+        service.open("STAGE-GIT-01");
+        StageView failed = service.execute("STAGE-GIT-01", "git status", id(30));
+        StageView resumed = service.execute("STAGE-GIT-01", "git status", id(31));
+
+        assertThat(failed.feedbackKind()).isEqualTo(StageFeedbackKind.GIT_ERROR);
+        assertThat(failed.snapshot()).isEqualTo(observed);
+        assertThat(failed.resetCount()).isZero();
+        assertThat(failed.systemRecoveryCount()).isZero();
+        assertThat(resumed.snapshot()).isEqualTo(observed);
+        ArgumentCaptor<ExecuteRequest> requests = ArgumentCaptor.forClass(ExecuteRequest.class);
+        verify(runner, times(2)).execute(requests.capture());
+        assertThat(requests.getAllValues()).allSatisfy(request -> {
+            assertThat(request.workspaceId()).isEqualTo(WORKSPACE_ID);
+            assertThat(request.generation()).isZero();
+        });
+        verify(runner, times(1)).create(any());
+        verify(runner, never()).destroy(any());
+    }
+
     private static WorkspaceResponse workspace(WorkspaceRequest request) {
-        return new WorkspaceResponse(UUID.randomUUID().toString(), request.generation(), initial());
+        return new WorkspaceResponse(WORKSPACE_ID, request.generation(), initial());
     }
 
     private static RepositorySnapshot initial() {
         String c1 = "a".repeat(40);
         String c0 = "b".repeat(40);
         return new RepositorySnapshot(c1, "bad-tree", "safe-tree", List.of(c0), true, false, List.of(c1, c0));
+    }
+
+    private static RepositorySnapshot observed() {
+        String c1 = "a".repeat(40);
+        String c0 = "b".repeat(40);
+        return new RepositorySnapshot(c1, "bad-tree", "safe-tree", List.of(c0), false, false, List.of(c1, c0));
     }
 
     private static String id(int value) {
