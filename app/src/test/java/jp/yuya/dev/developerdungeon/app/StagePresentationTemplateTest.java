@@ -30,7 +30,8 @@ class StagePresentationTemplateTest {
         String before = render(stage, List.of());
         String after = render(stage, List.of("git stash push、git switch <branch>、git stash popの形を順に使う。"));
 
-        assertThat(before).contains("使う考え方:", "観察 / ", "一時退避 / ", "branch移動", "Gitコマンドを入力")
+        assertThat(before).contains("調査・対応の観点", "class=\"concept-chips\"", "観察", "一時退避", "branch移動", "Gitコマンドを入力",
+                        "正確な構文はヒント3", "具体的な対象と手順はヒント4")
                 .doesNotContain("git stash push", "git diff --staged", "incident-board");
         assertThat(after).contains("git stash push", "git switch &lt;branch&gt;", "git stash pop");
     }
@@ -41,15 +42,35 @@ class StagePresentationTemplateTest {
                 new StagePresentationPolicy(guidance, board, List.of("観察")));
         String rendered = render(stage, List.of());
         if (expectsSyntax) assertThat(rendered).contains("EXACT COMMANDS");
-        else assertThat(rendered).contains("使う考え方:", "観察").doesNotContain("EXACT COMMANDS");
+        else assertThat(rendered).contains("調査・対応の観点", "観察").doesNotContain("EXACT COMMANDS");
         if (expectsBoard) assertThat(rendered).contains("class=\"incident-board\"");
         else assertThat(rendered).doesNotContain("class=\"incident-board\"");
     }
 
+    @Test void rendersFeedbackKindsWithoutInferringThemFromExitCode() {
+        StageDefinition stage = new StageRules().definition("STAGE-GIT-03");
+
+        assertThat(render(stage, List.of(), StageFeedbackKind.INPUT_REJECTED, null, "構文を確認してください"))
+                .contains("feedback-input_rejected", "入力を確認してください");
+        assertThat(render(stage, List.of(), StageFeedbackKind.GIT_ERROR, 1, "fatal"))
+                .contains("feedback-git_error", "Gitからエラーが返されました", "exit code:", ">1<");
+        assertThat(render(stage, List.of(), StageFeedbackKind.SYSTEM_ERROR, null, "Runnerへ接続できません"))
+                .contains("feedback-system_error", "システムからのお知らせ");
+        assertThat(render(stage, List.of(), StageFeedbackKind.EDIT_CONFLICT, 1, "別の操作で更新されました"))
+                .contains("feedback-edit_conflict", "ファイルを再読み込みしてください")
+                .doesNotContain("Gitからエラーが返されました");
+        assertThat(render(stage, List.of(), StageFeedbackKind.SUCCEEDED, 0, "ok"))
+                .contains("feedback-succeeded", "実行結果", "exit code:", ">0<");
+    }
+
     private String render(StageDefinition stage, List<String> hints) {
+        return render(stage, hints, StageFeedbackKind.INITIAL, null, "output");
+    }
+
+    private String render(StageDefinition stage, List<String> hints, StageFeedbackKind feedbackKind, Integer exitCode, String output) {
         StageService stages = mock(StageService.class);
         var snapshot = new jp.yuya.dev.developerdungeon.contract.RepositorySnapshot("a".repeat(40), "tree", "", List.of(), true, false, List.of(), "main", "", "", false);
-        var view = new StageView("request", "output", null, snapshot, hints.isEmpty() ? 0 : 3, 0, 0, 0, false, 0, "未復旧", hints);
+        var view = new StageView("request", output, exitCode, feedbackKind, snapshot, hints.isEmpty() ? 0 : 3, 0, 0, 0, false, 0, "未復旧", hints);
         when(stages.open(stage.key())).thenReturn(view);
         when(stages.definition(stage.key())).thenReturn(stage);
         MockMvc mvc = MockMvcBuilders.standaloneSetup(new StageController(stages)).setViewResolvers(viewResolver()).build();

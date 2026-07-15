@@ -52,7 +52,8 @@ class StageFiveServiceTest {
         service.execute("STAGE-GIT-05", "git reflog", id(1));
         StageView rejected = service.execute("STAGE-GIT-05", "git branch feature/payment-retry " + C1.substring(0, 12), id(2));
 
-        assertThat(rejected.output()).contains("表示済み");
+        assertThat(rejected.output()).contains("確認済み").doesNotContain("git branch feature/payment-retry");
+        assertThat(rejected.feedbackKind()).isEqualTo(StageFeedbackKind.INPUT_REJECTED);
         verify(runner).execute(any());
     }
 
@@ -66,7 +67,8 @@ class StageFiveServiceTest {
         service.execute("STAGE-GIT-05", "git log --oneline --all --decorate", id(1));
         StageView rejected = service.execute("STAGE-GIT-05", "git branch feature/payment-retry " + C1.substring(0, 12), id(2));
 
-        assertThat(rejected.output()).contains("表示済み");
+        assertThat(rejected.output()).contains("確認済み").doesNotContain("git branch feature/payment-retry");
+        assertThat(rejected.feedbackKind()).isEqualTo(StageFeedbackKind.INPUT_REJECTED);
         verify(runner).execute(any());
     }
 

@@ -135,11 +135,20 @@
             <form th:unless="${view.cleared}" method="post" th:action="${actions.commandPath}">
               <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
               <input type="hidden" name="requestId" th:value="${view.requestId}">
-              <label for="command"><span th:if="${presentation.guidance.fullSyntax}">許可: <span th:text="${stage.allowedCommands}">git status</span></span><span th:unless="${presentation.guidance.fullSyntax}">使う考え方: <span th:each="category, stat : ${presentation.guidance.conceptCategories}" th:text="${category + (stat.last ? '' : ' / ')}">観察</span></span></label>
+              <div class="command-guidance" th:if="${presentation.guidance.fullSyntax}"><p>使用できるコマンド</p><p th:text="${stage.allowedCommands}">git status</p></div>
+              <div class="command-guidance" th:unless="${presentation.guidance.fullSyntax}">
+                <p>調査・対応の観点</p>
+                <ul class="concept-chips" aria-label="調査・対応の観点"><li th:each="category : ${presentation.guidance.conceptCategories}" th:text="${category}">状態確認</li></ul>
+                <p class="guidance-note">正確な構文はヒント3、具体的な対象と手順はヒント4で確認できます。</p>
+              </div>
+              <label class="command-label" for="command">Gitコマンド</label>
               <div class="command-row"><span class="prompt" aria-hidden="true">$</span><input id="command" name="command" required autocomplete="off" th:placeholder="${presentation.guidance.fullSyntax ? 'git status' : 'Gitコマンドを入力'}"><button type="submit">実行 <span aria-hidden="true">↵</span></button></div>
             </form>
-            <p class="exit-code" th:if="${view.exitCode != null}">exit code: <span th:text="${view.exitCode}">0</span></p>
-            <pre th:text="${view.output}">output</pre>
+            <div class="console-feedback" th:classappend="${' feedback-' + view.feedbackKind.cssToken()}" role="status" aria-live="polite">
+              <p class="feedback-label" th:switch="${view.feedbackKind.name()}"><span th:case="'INPUT_REJECTED'">入力を確認してください</span><span th:case="'GIT_ERROR'">Gitからエラーが返されました</span><span th:case="'EDIT_CONFLICT'">ファイルを再読み込みしてください</span><span th:case="'SYSTEM_ERROR'">システムからのお知らせ</span><span th:case="*">実行結果</span></p>
+              <p class="exit-code" th:if="${view.exitCode != null}">exit code: <span th:text="${view.exitCode}">0</span></p>
+              <pre th:text="${view.output}">output</pre>
+            </div>
           </section>
 
           <section class="editor" th:if="${editor != null}">

@@ -62,6 +62,7 @@ class StageService {
         if (recorded != null) return recorded;
         if (attempt.closed) {
             attempt.lastOutput = "この課題はクリア済みです。最初からやり直す場合はリセットしてください。";
+            attempt.feedbackKind = StageFeedbackKind.INFO;
             return attempt.view();
         }
         GitCommand normalized;
@@ -73,12 +74,13 @@ class StageService {
                     persistentRequestId, sequence, attempt.generation, rejectionReason(exception), clock.instant());
             attempt.apply(saved);
             attempt.lastOutput = exception.getMessage(); attempt.lastExitCode = null;
+            attempt.feedbackKind = StageFeedbackKind.INPUT_REJECTED;
             StageView result = attempt.view(); attempt.completedCommandRequests.put(requestId, result); return result;
         }
         String canonical = normalized.kind().name() + (normalized.objectId() == null ? normalized.branchName() == null ? "" : " " + normalized.branchName() : " " + normalized.objectId());
         GitCommand command = normalized;
         return performOperation(stageKey, definition, attempt, requestId, persistentRequestId, sequence, canonical,
-                normalized.kind().name(),
+                normalized.kind().name(), StageFeedbackKind.GIT_ERROR,
                 active -> runner.execute(new jp.yuya.dev.developerdungeon.contract.ExecuteRequest(active.attemptId, requestId,
                         active.workspaceId, active.generation, command)), command);
     }
@@ -106,6 +108,7 @@ class StageService {
         if (recorded != null) return recorded;
         if (attempt.closed) {
             attempt.lastOutput = "この課題はクリア済みです。最初からやり直す場合はリセットしてください。";
+            attempt.feedbackKind = StageFeedbackKind.INFO;
             return attempt.view();
         }
         long sequence = attempt.commandSequence + 1;
@@ -117,10 +120,11 @@ class StageService {
             StagePersistence.SavedAttempt saved = persistence.recordRejected(UUID.fromString(attempt.attemptId), attempt.version,
                     persistentRequestId, sequence, attempt.generation, rejectionReason(exception), clock.instant());
             attempt.apply(saved); attempt.lastOutput = exception.getMessage(); attempt.lastExitCode = null;
+            attempt.feedbackKind = StageFeedbackKind.INPUT_REJECTED;
             StageView result = attempt.view(); attempt.completedWriteRequests.put(requestId, result); return result;
         }
         return performOperation(stageKey, definition, attempt, requestId, persistentRequestId, sequence,
-                "EDIT_PROFILE_MESSAGES", "EDIT_PROFILE_MESSAGES", active -> {
+                "EDIT_PROFILE_MESSAGES", "EDIT_PROFILE_MESSAGES", StageFeedbackKind.EDIT_CONFLICT, active -> {
                     var response = runner.writeFile(new jp.yuya.dev.developerdungeon.contract.WriteFileRequest(active.attemptId,
                             requestId, active.workspaceId, active.generation,
                             jp.yuya.dev.developerdungeon.contract.StageFileKey.PROFILE_MESSAGES, normalized, versionToken));
@@ -133,12 +137,13 @@ class StageService {
 
     private StageView performOperation(String stageKey, StageDefinition definition, Attempt attempt, String requestId,
                                        UUID persistentRequestId, long sequence, String canonical, String operationKind,
-                                       RunnerOperation operation, GitCommand displayedCommand) {
+                                       StageFeedbackKind failureFeedback, RunnerOperation operation, GitCommand displayedCommand) {
         boolean started = persistence.beginCommand(UUID.fromString(attempt.attemptId), attempt.version, persistentRequestId,
                 sequence, attempt.generation, canonical, operationKind, clock.instant());
         if (!started) {
             attempt.lastOutput = "この操作は処理済みです。操作は再実行されませんでした。";
             attempt.lastExitCode = null;
+            attempt.feedbackKind = StageFeedbackKind.INFO;
             return attempt.view();
         }
         attempt.version++; attempt.commandSequence = sequence;
@@ -154,6 +159,7 @@ class StageService {
             attempt.apply(saved); commandPending = false;
             attempt.lastOutput = sanitizer.sanitize(response.stdout() + (response.stderr().isBlank() ? "" : "\n" + response.stderr()) + (response.outputTruncated() ? "\n[output truncated]" : ""));
             attempt.lastExitCode = response.exitCode(); attempt.snapshot = response.snapshot();
+            attempt.feedbackKind = response.exitCode() == 0 ? StageFeedbackKind.SUCCEEDED : failureFeedback;
             if (displayedCommand != null && response.exitCode() == 0 && !response.outputTruncated()) {
                 rules.recordDisplayedObjects(definition, displayedCommand, response.stdout(), attempt.targets, attempt.displayedShortIds);
             }
@@ -169,6 +175,7 @@ class StageService {
                     attempt.apply(saved); attempt.grade = new StageGrade(false, 0, "未復旧");
                     attempt.lastOutput = "クリア状態は確認できましたが、旧環境の削除を確認できません。再接続後にもう一度試してください。";
                     attempt.lastExitCode = null;
+                    attempt.feedbackKind = StageFeedbackKind.SYSTEM_ERROR;
                 }
             }
         } catch (RuntimeException exception) {
@@ -183,9 +190,11 @@ class StageService {
                 attempts.put(stageKey, attempt);
                 attempt.lastOutput = "Runnerへ接続できません。安全のため操作は実行されませんでした。新しい作業環境を用意しました。";
                 attempt.lastExitCode = null;
+                attempt.feedbackKind = StageFeedbackKind.SYSTEM_ERROR;
             } catch (RuntimeException recoveryFailure) {
                 previous.lastOutput = "Runnerへ接続できません。安全のため操作は実行されませんでした。再接続後にもう一度試してください。";
-                previous.lastExitCode = null; previous.grade = new StageGrade(false, 0, "未復旧"); previous.closed = false;
+                previous.lastExitCode = null; previous.feedbackKind = StageFeedbackKind.SYSTEM_ERROR;
+                previous.grade = new StageGrade(false, 0, "未復旧"); previous.closed = false;
                 attempt = previous; attempts.put(stageKey, attempt);
             }
         }
@@ -216,7 +225,7 @@ class StageService {
             catch (RuntimeException exception) {
                 attempt.apply(persistence.markCleanupPending(UUID.fromString(attempt.attemptId), attempt.version));
                 attempt.lastOutput = "旧環境の安全な削除を確認できないため、新しい作業環境は作成しません。再接続後にもう一度リセットしてください。";
-                attempt.lastExitCode = null; return attempt.view();
+                attempt.lastExitCode = null; attempt.feedbackKind = StageFeedbackKind.SYSTEM_ERROR; return attempt.view();
             }
             StagePersistence.SavedAttempt saved = persistence.completeReset(UUID.fromString(attempt.attemptId), attempt.version, false, UUID.randomUUID(), clock.instant());
             attempt = createWorkspace(definition, saved); attempts.put(stageKey, attempt);
@@ -291,10 +300,7 @@ class StageService {
         return createWorkspace(definition, saved);
     }
     private String rejectionReason(IllegalArgumentException exception) {
-        String message = exception.getMessage();
-        if (message != null && message.contains("commit ID")) return "OBJECT_NOT_ALLOWED";
-        if (message != null && message.contains("許可")) return "UNKNOWN_COMMAND";
-        if (message != null && message.contains("形式")) return "INVALID_SYNTAX";
+        if (exception instanceof StageInputException rejected) return rejected.reasonCode();
         return "INVALID_ARGUMENT";
     }
 
@@ -311,7 +317,8 @@ class StageService {
     private final class Attempt {
         final StageDefinition definition; final String attemptId; final String workspaceId; final long generation; final StageRules.StageTargets targets;
         RepositorySnapshot snapshot; int highestHint; int playerResets; int systemRecoveryCount; long commandSequence; long version;
-        boolean closed; Integer lastExitCode; String cleanupRequestId; final HashSet<String> displayedShortIds = new HashSet<>();
+        boolean closed; Integer lastExitCode; StageFeedbackKind feedbackKind = StageFeedbackKind.INITIAL;
+        String cleanupRequestId; final HashSet<String> displayedShortIds = new HashSet<>();
         final HashMap<String, StageView> completedCommandRequests = new HashMap<>();
         final HashMap<String, StageView> completedWriteRequests = new HashMap<>();
         String lastOutput = "まずは状態を調べてみましょう。";
@@ -322,7 +329,7 @@ class StageService {
             this.highestHint=highestHint; this.playerResets=playerResets; this.systemRecoveryCount=systemRecoveryCount; this.commandSequence=commandSequence; this.version=version;
         }
         void apply(StagePersistence.SavedAttempt saved) { version=saved.version(); highestHint=saved.highestHint(); playerResets=saved.playerResets(); systemRecoveryCount=saved.systemRecoveries(); commandSequence=saved.lastSequence(); }
-        StageView view() { return new StageView(UUID.randomUUID().toString(), lastOutput, lastExitCode, snapshot, highestHint, playerResets, systemRecoveryCount,
+        StageView view() { return new StageView(UUID.randomUUID().toString(), lastOutput, lastExitCode, feedbackKind, snapshot, highestHint, playerResets, systemRecoveryCount,
                 commandSequence, grade.cleared(), grade.stars(), grade.message(), rules.hints(definition, highestHint, targets)); }
     }
 }

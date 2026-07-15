@@ -13,6 +13,9 @@ public record StagePresentationPolicy(GuidanceMode guidanceMode, IncidentBoardMo
     public static StagePresentationPolicy fullSyntaxBasic() {
         return new StagePresentationPolicy(GuidanceMode.FULL_SYNTAX, IncidentBoardMode.BASIC, List.of());
     }
+    public static StagePresentationPolicy conceptOnlyBasic(String... categories) {
+        return new StagePresentationPolicy(GuidanceMode.CONCEPT_ONLY, IncidentBoardMode.BASIC, List.of(categories));
+    }
     public static StagePresentationPolicy conceptOnlyOff(String... categories) {
         return new StagePresentationPolicy(GuidanceMode.CONCEPT_ONLY, IncidentBoardMode.OFF, List.of(categories));
     }

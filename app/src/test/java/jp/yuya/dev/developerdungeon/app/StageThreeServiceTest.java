@@ -46,7 +46,8 @@ class StageThreeServiceTest {
         service.open("STAGE-GIT-03");
         var rejected = service.execute("STAGE-GIT-03", "git stash push -u", id(1));
 
-        assertThat(rejected.output()).contains("許可されたGitコマンド");
+        assertThat(rejected.output()).contains("構文または引数", "ヒント").doesNotContain("git status /", "許可されたGitコマンド");
+        assertThat(rejected.feedbackKind()).isEqualTo(StageFeedbackKind.INPUT_REJECTED);
         org.mockito.Mockito.verify(runner, org.mockito.Mockito.never()).execute(any());
     }
 
