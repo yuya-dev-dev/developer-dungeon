@@ -2,13 +2,19 @@ package jp.yuya.dev.developerdungeon.app;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.AdditionalAnswers.delegatesTo;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.time.Clock;
 import java.util.List;
+import java.util.UUID;
 import jp.yuya.dev.developerdungeon.contract.CommandKind;
 import jp.yuya.dev.developerdungeon.contract.CommandResponse;
 import jp.yuya.dev.developerdungeon.contract.ExecuteRequest;
@@ -68,6 +74,21 @@ class StageFourServiceTest {
         var reads = org.mockito.ArgumentCaptor.forClass(jp.yuya.dev.developerdungeon.contract.ReadFileRequest.class);
         verify(runner).readFile(reads.capture());
         assertThat(editor.requestId()).isNotEqualTo(reads.getValue().requestId());
+    }
+
+    @Test void reportsAStaleEditorVersionAsAnEditConflictInsteadOfAGitError() {
+        RunnerClient runner = mock(RunnerClient.class);
+        when(runner.create(any())).thenReturn(new WorkspaceResponse("11111111-1111-1111-1111-111111111111", 0, initial()));
+        when(runner.writeFile(any())).thenReturn(new WriteFileResponse(false, "b".repeat(64), initial()));
+        StagePersistence persistence = mock(StagePersistence.class, delegatesTo(new MemoryStagePersistence()));
+        StageService service = new StageService(runner, new StageRules(), new OutputSanitizer(), persistence, Clock.systemUTC());
+
+        StageView result = service.edit("STAGE-GIT-04", "profile.description=Manage security settings and edit your public profile.\n",
+                "a".repeat(64), id(10));
+
+        assertThat(result.feedbackKind()).isEqualTo(StageFeedbackKind.EDIT_CONFLICT);
+        assertThat(result.output()).contains("別の操作でファイルが更新されました");
+        verify(persistence).finishCommand(any(UUID.class), anyLong(), any(UUID.class), eq("GIT_ERROR"), eq(1), anyLong(), isNull(), isNull());
     }
 
     @Test void rejectsInvalidEditorTextBeforeCallingRunner() {

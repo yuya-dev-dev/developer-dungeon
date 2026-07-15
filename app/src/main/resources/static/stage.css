@@ -123,6 +123,12 @@ h3 { margin: 0; font-size: 1em; }
 .console .panel-kicker { color: #60a5fa; }
 .console form { margin-top: .7em; }
 .console label { display: block; margin-bottom: .45em; color: #aebbd0; font-size: .82em; line-height: 1.45; }
+.command-guidance { margin-bottom: .7em; }
+.command-guidance > p { margin: 0; color: #aebbd0; font-size: .8em; line-height: 1.45; }
+.concept-chips { display: flex; flex-wrap: wrap; gap: .4em; margin: .45em 0; padding: 0; list-style: none; }
+.concept-chips li { padding: .28em .55em; border: 1px solid #38506f; border-radius: 999px; background: #17243a; color: #bfdbfe; font-size: .76em; font-weight: 700; }
+.command-guidance .guidance-note { color: #8fa1ba; font-size: .72em; }
+.command-label { font-weight: 700; }
 .command-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: .55em; }
 .prompt { color: #86efac; font-family: ui-monospace, "Cascadia Code", monospace; font-weight: 800; }
 input, textarea { min-width: 0; border: 1px solid #c5d0df; border-radius: .5em; background: white; color: #172033; }
@@ -132,8 +138,18 @@ button { padding: .62em .9em; border: 0; border-radius: .5em; background: #246bf
 button:hover { background: #1d58db; }
 button:focus-visible, a:focus-visible, summary:focus-visible { outline: .2em solid #f59e0b; outline-offset: .15em; }
 button.secondary { border: 1px solid #cbd5e1; background: white; color: #344054; box-shadow: none; }
-.exit-code { margin: .55em 0 0; color: #93c5fd; font-family: ui-monospace, monospace; font-size: .8em; }
-pre { min-height: 2.5em; max-height: 9em; margin: .65em 0 0; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; color: #bbf7d0; font-family: ui-monospace, "Cascadia Code", monospace; font-size: .88em; line-height: 1.45; }
+.console-feedback { margin-top: .65em; padding: .7em .8em; border: 1px solid #24334a; border-radius: .55em; background: #0b1220; }
+.feedback-label { margin: 0; color: #93c5fd; font-size: .74em; font-weight: 750; }
+.console-feedback.feedback-input_rejected { border-color: #b7791f; background: #211a0d; }
+.console-feedback.feedback-input_rejected .feedback-label, .console-feedback.feedback-input_rejected pre { color: #fde68a; }
+.console-feedback.feedback-git_error { border-color: #b54747; background: #241113; }
+.console-feedback.feedback-git_error .feedback-label, .console-feedback.feedback-git_error pre { color: #fecaca; }
+.console-feedback.feedback-edit_conflict { border-color: #b7791f; background: #211a0d; }
+.console-feedback.feedback-edit_conflict .feedback-label, .console-feedback.feedback-edit_conflict pre { color: #fde68a; }
+.console-feedback.feedback-system_error { border-color: #c2415d; background: #26111a; }
+.console-feedback.feedback-system_error .feedback-label, .console-feedback.feedback-system_error pre { color: #fda4af; }
+.exit-code { margin: .35em 0 0; color: #93c5fd; font-family: ui-monospace, monospace; font-size: .8em; }
+pre { min-height: 2.5em; max-height: 9em; margin: .45em 0 0; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; color: #bbf7d0; font-family: ui-monospace, "Cascadia Code", monospace; font-size: .88em; line-height: 1.45; }
 
 .editor, .hint, .result { margin-top: .9em; }
 .editor form { display: grid; gap: .6em; margin-top: .7em; }

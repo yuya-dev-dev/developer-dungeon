@@ -34,7 +34,8 @@ class StageRules {
                     "公開済み履歴を壊さずに復旧できたと判断するには、履歴と作業ツリーのどの状態を確認すべきでしょうか？",
                     "誤commitが履歴に残り、その変更を打ち消す新しいcommitによって作業ツリーが正常な状態へ戻っていることを確認します。",
                     "運用担当が設定の復旧確認を再開すると、先輩は「共有履歴を守る判断ができたね」と主人公にうなずいた。",
-                    "主人公は、最短に見える操作ではなく、共有中の履歴を守る判断を初めて任された。"));
+                    "主人公は、最短に見える操作ではなく、共有中の履歴を守る判断を初めて任された。"),
+            StagePresentationPolicy.conceptOnlyBasic("状態確認", "履歴確認", "commit確認", "安全な取り消し"));
     private static final StageDefinition STAGE_TWO = new StageDefinition("STAGE-GIT-02", "第2現場 / branchの取り違え", "間違ったbranchのcommitを移す",
             "未公開の通知機能commitを、正しいbranchへ安全に移し直す。", "主人公は通知機能の変更を、誤って別の作業branchへcommitした。正しいbranchに変更がないため、QA担当はレビューを始められない。先輩は、共有前に二つのbranchを正しい位置へ戻すよう主人公へ依頼した。",
             "通知機能のcommitはfeature/profileにある。未公開のうちにfeature/notificationへ移し、profileを元の位置へ戻すこと。", "通知機能の変更をfeature/notificationへ移し、feature/profileを変更前のC0へ戻す。最後にfeature/notificationをcheckoutした状態にする。",
@@ -46,7 +47,8 @@ class StageRules {
                     "通知機能を正しいbranchへ移し、誤ったbranchを元へ戻せたと判断するには、二つのbranchの位置と作業ツリーのどこを確認すべきでしょうか？",
                     "feature/notificationが通知機能を持つ新しいcommitを指し、feature/profileが元のC0へ戻り、作業ツリーがcleanであることを確認します。",
                     "QA担当がレビューを再開すると、先輩は「なぜ二つのbranchがこの位置で安全なのか、君から説明して」と主人公に任せた。",
-                    "主人公は、commitの内容だけでなく、branch位置の安全性をQA担当へ説明する役割を任された。"));
+                    "主人公は、commitの内容だけでなく、branch位置の安全性をQA担当へ説明する役割を任された。"),
+            StagePresentationPolicy.conceptOnlyBasic("状態確認", "branch比較", "commit確認", "変更移動", "履歴修正"));
     private static final StageDefinition STAGE_THREE = new StageDefinition("STAGE-GIT-03", "第3現場 / 作業中のbranch移動", "未commitの作業を正しいbranchへ移す",
             "mainで始めた検索機能の作業を失わずに、feature/searchへ移す。", "同期と検索機能を分担している最中、主人公はmain上で作業を始めてしまった。同期との共同作業をfeature/searchで続けたいが、変更はまだcommitできる段階ではない。作業を失わず、正しいbranchへ移そう。",
             "検索機能の未commit変更がmainに残っている。作業を一時退避し、feature/searchで復元してmainをきれいに戻すこと。", "検索機能の変更をfeature/searchへ未commitのまま移し、stashを残さない。",
@@ -72,7 +74,8 @@ class StageRules {
                     "双方の意図を残して統合できたと判断するには、commitの親、ファイル内容、作業ツリーの何を確認すべきでしょうか？",
                     "merge commitがmainとfeatureの両方を直接parentに持ち、期待する統合文言と一致し、競合状態・index・作業ツリーがcleanであることを確認します。",
                     "QA担当が双方の要件を満たすと確認すると、先輩は「二つのチームへの解消説明は君に任せる」と主人公に告げた。",
-                    "主人公は、コンフリクトを他者の意図を統合する作業として扱い、その判断を両チームへ説明する役割を任された。"));
+                    "主人公は、コンフリクトを他者の意図を統合する作業として扱い、その判断を両チームへ説明する役割を任された。"),
+            StagePresentationPolicy.conceptOnlyBasic("状態確認", "履歴比較", "競合確認", "限定編集", "統合確定"));
     private static final StageDefinition STAGE_FIVE = new StageDefinition("STAGE-GIT-05", "第5現場 / 消えたretry設定", "reflogから失われたcommitを復旧する",
             "削除されたbranchの元commitを、操作履歴から見つけて復旧する。", "対応終了の連絡を受けた同期が、決済APIのretry設定を持つfeature/payment-retryを削除してしまった。通常の履歴には見えないが、復旧の手掛かりは操作履歴に残っている。主人公はmainを動かさず、再検証できるbranchを戻すよう依頼される。",
             "feature/payment-retryは削除され、mainはC0に留まっている。HEAD reflogから元のC1を特定し、mainを変えずにbranchを復旧してそのbranchへ移動すること。", "feature/payment-retryを元のC1で復旧し、mainをC0のまま保ってそのbranchへ移動する。",
@@ -191,6 +194,9 @@ class StageRules {
                 .filter(prefix -> targets.allowedObjects().stream().anyMatch(id -> id.startsWith(prefix))).forEach(displayed::add);
     }
     void revealHintTargets(StageDefinition definition, int hintLevel, StageTargets targets, Set<String> displayed) {
+        if ("STAGE-GIT-01".equals(definition.key()) && hintLevel >= 4) {
+            displayed.add(targets.primaryObjectId().substring(0, 12));
+        }
         if ("STAGE-GIT-02".equals(definition.key()) && hintLevel >= 4) {
             displayed.add(targets.primaryObjectId().substring(0, 12));
             displayed.add(targets.secondaryObjectId().substring(0, 12));
@@ -200,9 +206,12 @@ class StageRules {
     List<String> hints(StageDefinition definition, int hintLevel, StageTargets targets) {
         if (hintLevel == 0) return List.of();
         if ("STAGE-GIT-01".equals(definition.key())) {
-            if (hintLevel == 1) return List.of("まず履歴と作業ツリーの状態を観察しよう。");
-            if (hintLevel == 2) return List.of("公開済みのcommitは、履歴を消すより取り消しcommitを積む方法を考えよう。");
-            return List.of("対象commitを確認し、git revert --no-edit <commit-id>を使う。");
+            if (hintLevel == 1) return List.of("まず履歴と作業ツリーを見比べ、どの変更の後から設定が消えたか確認しよう。");
+            if (hintLevel == 2) return List.of("公開済みの履歴は消さず、対象の変更を打ち消す新しいcommitを積む方法を考えよう。");
+            if (hintLevel == 3) return List.of("git status、git log --oneline、git show <commit-id>で根拠を確認し、git revert --no-edit <commit-id>の形を使う。");
+            return List.of("取り消す対象は " + targets.primaryObjectId().substring(0, 12)
+                    + "。git show " + targets.primaryObjectId().substring(0, 12) + "で内容を確認し、git revert --no-edit "
+                    + targets.primaryObjectId().substring(0, 12) + "を実行しよう。");
         }
         if ("STAGE-GIT-03".equals(definition.key())) {
             if (hintLevel == 1) return List.of("まず作業ツリーとindexに、どの変更が残っているか観察しよう。");
@@ -211,24 +220,27 @@ class StageRules {
             return List.of("git stash pushで退避し、git switch feature/searchへ移動してから、git stash popで検索機能の変更を戻そう。");
         }
         if ("STAGE-GIT-04".equals(definition.key())) {
-            if (hintLevel == 1) return List.of("statusとdiffで、競合中のファイルと双方の変更を確認しよう。");
+            if (hintLevel == 1) return List.of("現在の状態と差分から、競合中のファイルと双方の変更を確認しよう。");
             if (hintLevel == 2) return List.of("片方を選ぶのではなく、security settingsとpublic profileの両方を残す文言を考えよう。");
-            if (hintLevel == 3) return List.of("限定エディタで解消した後、git addで解消済みにし、git commit --no-editでmerge commitを完成させる。");
-            return List.of("限定エディタへ `profile.description=Manage security settings and edit your public profile.` と入力し、git add "
+            if (hintLevel == 3) return List.of("git merge <branch>で統合を始め、限定エディタで解消した後、git add <file>、git commit --no-editの形で確定する。");
+            return List.of("git merge feature/profile-messageの後、限定エディタへ `profile.description=Manage security settings and edit your public profile.` と入力し、git add "
                     + STAGE_FOUR_PATH + "、git commit --no-editの順に実行しよう。");
         }
         if ("STAGE-GIT-05".equals(definition.key())) {
-            if (hintLevel == 1) return List.of("通常のlog --allにない操作履歴を確認する方法を考えよう。");
+            if (hintLevel == 1) return List.of("通常の履歴に目的の変更がないことを確かめ、HEADが以前指していた操作履歴を調べよう。");
             if (hintLevel == 2) return List.of("branch名がなくても、以前HEADが指したcommitは操作履歴に残ることがあります。");
-            if (hintLevel == 3) return List.of("git reflogでC1を確認し、mainを動かさずそのIDからfeature/payment-retryを復旧しよう。");
+            if (hintLevel == 3) return List.of("git reflog、git show <commit-id>で根拠を確認し、git branch <branch> <commit-id>、git switch <branch>の形で復旧する。");
             return List.of("C1は " + targets.primaryObjectId().substring(0, 12)
-                    + "。git branch feature/payment-retry <C1> の後に、git switch feature/payment-retryを実行しよう。");
+                    + "。git branch feature/payment-retry " + targets.primaryObjectId().substring(0, 12)
+                    + " の後に、git switch feature/payment-retryを実行しよう。");
         }
-        if (hintLevel == 1) return List.of("--all --decorateで、2つのbranchがどこを指すか比較しよう。");
+        if (hintLevel == 1) return List.of("二つのbranchが現在どこを指し、どちらに通知機能の変更があるか比較しよう。");
         if (hintLevel == 2) return List.of("commitを移す操作と、未公開branchを元へ戻す操作を分けて考えよう。");
-        if (hintLevel == 3) return List.of("feature/notificationへswitchし、C1をcherry-pickしてからprofileをC0へ戻す順序を考えよう。");
+        if (hintLevel == 3) return List.of("git switch <branch>、git cherry-pick <commit-id>、git reset --hard <commit-id>の形を、必要な変更を先に残す順で使う。");
         return List.of("C1は " + targets.primaryObjectId().substring(0, 12) + "、C0は " + targets.secondaryObjectId().substring(0, 12)
-                + "。notificationへswitchしてC1をcherry-pickし、profileへswitchしてC0へreset --hardし、notificationへ戻ろう。");
+                + "。git switch feature/notification、git cherry-pick " + targets.primaryObjectId().substring(0, 12)
+                + "、git switch feature/profile、git reset --hard " + targets.secondaryObjectId().substring(0, 12)
+                + "、git switch feature/notificationの順に進めよう。");
     }
     StageGrade grade(StageDefinition definition, RepositorySnapshot snapshot, StageTargets targets, int highestHint, int playerResets) {
         boolean cleared;
@@ -292,7 +304,7 @@ class StageRules {
         if ("git log --oneline".equals(raw)) return new GitCommand(CommandKind.LOG_ONELINE);
         if (raw.matches("git show " + OBJECT_ID.pattern())) return new GitCommand(CommandKind.SHOW, raw.substring(9));
         if (raw.matches("git revert --no-edit " + OBJECT_ID.pattern())) return new GitCommand(CommandKind.REVERT_NO_EDIT, raw.substring(21));
-        throw new IllegalArgumentException("このステージで許可されたGitコマンドではありません。");
+        throw unsupportedSyntax();
     }
     private GitCommand parseStageTwo(String raw) {
         if ("git status".equals(raw)) return new GitCommand(CommandKind.STATUS);
@@ -302,7 +314,7 @@ class StageRules {
         if (raw.matches("git switch feature/(profile|notification)")) return GitCommand.switchTo(raw.substring(11));
         if (raw.matches("git cherry-pick " + OBJECT_ID.pattern())) return new GitCommand(CommandKind.CHERRY_PICK, raw.substring(16));
         if (raw.matches("git reset --hard " + OBJECT_ID.pattern())) return new GitCommand(CommandKind.RESET_HARD, raw.substring(17));
-        throw new IllegalArgumentException("このステージで許可されたGitコマンドではありません。");
+        throw unsupportedSyntax();
     }
     private GitCommand parseStageThree(String raw) {
         if ("git status".equals(raw)) return new GitCommand(CommandKind.STATUS);
@@ -313,7 +325,7 @@ class StageRules {
         if ("git stash list".equals(raw)) return new GitCommand(CommandKind.STASH_LIST);
         if ("git switch feature/search".equals(raw)) return GitCommand.switchTo("feature/search");
         if ("git stash pop".equals(raw)) return new GitCommand(CommandKind.STASH_POP);
-        throw new IllegalArgumentException("このステージで許可されたGitコマンドではありません。");
+        throw unsupportedSyntax();
     }
     private GitCommand parseStageFour(String raw) {
         if ("git status".equals(raw)) return new GitCommand(CommandKind.STATUS);
@@ -323,7 +335,7 @@ class StageRules {
         if ("git merge feature/profile-message".equals(raw)) return new GitCommand(CommandKind.MERGE_PROFILE_MESSAGE);
         if (("git add " + STAGE_FOUR_PATH).equals(raw)) return new GitCommand(CommandKind.ADD_PROFILE_MESSAGES);
         if ("git commit --no-edit".equals(raw)) return new GitCommand(CommandKind.COMMIT_NO_EDIT);
-        throw new IllegalArgumentException("このステージで許可されたGitコマンドではありません。");
+        throw unsupportedSyntax();
     }
     private GitCommand parseStageFive(String raw) {
         if ("git status".equals(raw)) return new GitCommand(CommandKind.STATUS);
@@ -334,20 +346,26 @@ class StageRules {
             return new GitCommand(CommandKind.CREATE_PAYMENT_RETRY_BRANCH, raw.substring("git branch feature/payment-retry ".length()));
         }
         if ("git switch feature/payment-retry".equals(raw)) return new GitCommand(CommandKind.SWITCH_PAYMENT_RETRY);
-        throw new IllegalArgumentException("このステージで許可されたGitコマンドではありません。");
+        throw unsupportedSyntax();
     }
     private void rejectUnsafeRaw(String raw) {
         if (raw == null || raw.length() > 512 || raw.indexOf('\n') >= 0 || raw.indexOf('\r') >= 0
                 || raw.matches(".*[;|&<>`].*") || raw.contains("$()") || raw.contains("\"") || raw.contains("'")) {
-            throw new IllegalArgumentException("許可されていない入力です。");
+            throw new StageInputException("入力形式を確認してください。改行やshell記号は使わず、1回に1つのGitコマンドを入力してください。必要に応じてヒントを確認してください。",
+                    "INVALID_SYNTAX");
         }
     }
     private String exactAllowedObject(String input, StageTargets targets, Set<String> displayed) {
         List<String> candidates = targets.allowedObjects().stream().filter(id -> id.startsWith(input)).toList();
         if (candidates.size() != 1 || !displayed.contains(candidates.getFirst().substring(0, 12))) {
-            throw new IllegalArgumentException("表示済みの一意なcommit IDだけを指定してください。");
+            throw new StageInputException("そのcommit IDは確認済みの対象として扱えません。履歴を調査するか、必要に応じてヒントを確認してください。",
+                    "OBJECT_NOT_ALLOWED");
         }
         return candidates.getFirst();
+    }
+    private StageInputException unsupportedSyntax() {
+        return new StageInputException("入力した構文または引数は、このステージでは扱えません。必要に応じてヒントを確認してください。",
+                "INVALID_SYNTAX");
     }
     private int stars(int highestHint, int playerResets) { return highestHint >= 3 ? 1 : playerResets > 0 ? 2 : 3; }
 

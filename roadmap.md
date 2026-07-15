@@ -2,8 +2,8 @@
 
 ## 文書情報
 
-- 状態: Phase 4完了、Phase 5内部パイロット・改善設計レビュー完了、改善単位1完了・単位2〜3 PR待ち
-- 現在地: 成功表示・文言はPR #13でmainへ反映済み。明るいオフィス背景と白いモニターによる画面shell、その外側の導入会話・skip・clear反応を実装した
+- 状態: Phase 4完了、Phase 5内部パイロット・改善設計レビュー完了、改善単位1〜3完了・単位4 PR待ち
+- 現在地: 成功表示・文言はPR #13、画面shellはPR #14、導入会話・skip・clear反応はPR #15でmainへ反映済み。全Stageの概念案内、段階ヒント、入力拒否・Gitエラー・システムエラーの区別を実装した
 - 上位文書: [`docs/requirements.md`](docs/requirements.md)
 - 関連文書: [`docs/vertical-slice.md`](docs/vertical-slice.md)、[`docs/test-strategy.md`](docs/test-strategy.md)、[`docs/phase-2-hardening-plan.md`](docs/phase-2-hardening-plan.md)
 
@@ -29,7 +29,7 @@
 | 2 | Git Runner hardening | 完了・main反映済み |
 | 3 | 安定版MVP基盤 | 完了・main反映済み |
 | 4 | 5ステージ完成 | 完了・PR #10までmain反映済み |
-| 5 | MVP検証と改善 | 改善単位1完了、画面shell・会話scene実装済み・PR待ち |
+| 5 | MVP検証と改善 | 改善単位1〜3完了、案内とエラー表示を実装済み・PR待ち |
 | 6 | Git編拡張の逐次評価 | 未着手 |
 | 7 | 将来技術編の再評価 | 未着手 |
 
@@ -237,8 +237,8 @@ Phase 1の次へ進む条件は満たした。安全境界を5stageへ拡張す�
 ## 12. 現在の次作業
 
 1. Phase 4とSTAGE-GIT-01〜05は完了し、起動・DB不具合の修正はPR #11、成功表示・文言はPR #13でmainへ反映済みである。
-2. Phase 5の初回内部パイロットは完了し、明るい固定背景と白いモニターによる画面shell、Stage 1〜5の導入会話、skip・再表示、clear時の人物反応を実装した。PC幅とスマートフォン幅の表示・操作確認後にPRへ進める。
-3. [`docs/phase-5-experience-improvement-plan.md`](docs/phase-5-experience-improvement-plan.md)の順に、次は案内とエラー表示、状態保持と複数経路、学習過程の拡張を分離して実装する。
+2. Phase 5の初回内部パイロットは完了し、明るい固定背景と白いモニターによる画面shell、Stage 1〜5の導入会話、skip・再表示、clear時の人物反応をmainへ反映した。
+3. [`docs/phase-5-experience-improvement-plan.md`](docs/phase-5-experience-improvement-plan.md)の改善単位4として、全Stageの概念案内、段階ヒント、入力拒否・Gitエラー・システムエラーの区別を実装した。PR反映後は、状態保持と複数経路、学習過程の拡張を分離して進める。
 4. 改善後はStage 1、2、5を外部支援なしで再確認し、全5ステージの共通UI、入力拒否・Gitエラー後の状態保持、Stage 5の2経路を対象限定で確認する。
 5. 新卒研修から後輩を支援する立場までの共通物語骨格は採用済みとする。Chapter 0の3ステージ・20〜40分は暫定規模であり、具体設計はPhase 5完了後にユーザー承認を得る。
 6. ライブworkspaceの完了を宣言する復旧報告、`POST /report`、report待機用状態機械、TTL、sweeperは採用しない。自動clearと即時cleanupを維持する。
