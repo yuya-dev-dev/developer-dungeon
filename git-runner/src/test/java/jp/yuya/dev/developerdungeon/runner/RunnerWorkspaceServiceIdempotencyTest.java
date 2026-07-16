@@ -242,7 +242,7 @@ class RunnerWorkspaceServiceIdempotencyTest {
     }
 
     @Test
-    void startupRecoveryDeletesOnlyFullyMatchingLedgerContainer() {
+    void startupRecoveryKeepsDeletedTombstoneForAppRecoveryWithoutCallingDockerAgain() {
         DockerGateway docker = mock(DockerGateway.class);
         when(docker.run(any(), any(Duration.class))).thenAnswer(invocation -> {
             List<String> arguments = invocation.getArgument(0);
@@ -259,8 +259,74 @@ class RunnerWorkspaceServiceIdempotencyTest {
         service.cleanupOrphansOnStartup();
 
         assertThat(service.isReady()).isTrue();
-        assertThat(ledger.entries()).isEmpty();
+        assertThat(ledger.entries()).singleElement().satisfies(entry -> {
+            assertThat(entry.state()).isEqualTo(ContainerOwnershipLedger.State.DELETED);
+            assertThat(entry.attemptId()).isEqualTo("11111111-1111-1111-1111-111111111111");
+            assertThat(entry.workspaceId()).isEqualTo("22222222-2222-2222-2222-222222222222");
+            assertThat(entry.generation()).isZero();
+        });
+        service.destroy(new DestroyRequest("11111111-1111-1111-1111-111111111111", "33333333-3333-3333-3333-333333333333",
+                "22222222-2222-2222-2222-222222222222", 0, "startup-system-recovery"));
         verify(docker).run(argThat(arguments -> arguments.getFirst().equals("rm") && arguments.contains(CONTAINER)), any(Duration.class));
+        verify(docker, times(1)).run(argThat(arguments -> arguments.getFirst().equals("rm")), any(Duration.class));
+    }
+
+    @Test
+    void periodicRecoveryKeepsDeletedTombstoneForAppRecoveryWithoutCallingDockerAgain() {
+        DockerGateway docker = mock(DockerGateway.class);
+        when(docker.run(any(), any(Duration.class))).thenAnswer(invocation -> {
+            List<String> arguments = invocation.getArgument(0);
+            if (arguments.getFirst().equals("container")) return result(ownedContainerInspection("11111111-1111-1111-1111-111111111111", "22222222-2222-2222-2222-222222222222"));
+            if (arguments.getFirst().equals("rm")) return result("");
+            throw new AssertionError("Unexpected Docker arguments: " + arguments);
+        });
+        MutableClock clock = new MutableClock(Instant.parse("2026-01-01T00:16:00Z"));
+        ContainerOwnershipLedger ledger = new MemoryContainerOwnershipLedger(Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneId.of("UTC")));
+        ledger.recordIntent("11111111-1111-1111-1111-111111111111", "22222222-2222-2222-2222-222222222222", 0, IMAGE, FINGERPRINT);
+        ledger.attachContainer("22222222-2222-2222-2222-222222222222", CONTAINER);
+        var service = new RunnerWorkspaceService(docker, new RunnerProperties("a".repeat(43), IMAGE, FINGERPRINT, "C:\\docker.exe"),
+                new RunnerCommandValidator(), clock, ledger);
+
+        service.cleanupExpiredWorkspaces();
+        service.destroy(new DestroyRequest("11111111-1111-1111-1111-111111111111", "33333333-3333-3333-3333-333333333333",
+                "22222222-2222-2222-2222-222222222222", 0, "startup-system-recovery"));
+
+        assertThat(ledger.entries()).singleElement().extracting(ContainerOwnershipLedger.Entry::state)
+                .isEqualTo(ContainerOwnershipLedger.State.DELETED);
+        verify(docker, times(1)).run(argThat(arguments -> arguments.getFirst().equals("rm")), any(Duration.class));
+    }
+
+    @Test
+    void rejectsUnknownWorkspaceThatHasNoMatchingDeletedTombstone() {
+        DockerGateway docker = mock(DockerGateway.class);
+        var service = new RunnerWorkspaceService(docker, new RunnerProperties("a".repeat(43), IMAGE, FINGERPRINT, "C:\\docker.exe"),
+                new RunnerCommandValidator());
+
+        assertThatThrownBy(() -> service.destroy(new DestroyRequest("11111111-1111-1111-1111-111111111111",
+                "33333333-3333-3333-3333-333333333333", "22222222-2222-2222-2222-222222222222", 0, "startup-system-recovery")))
+                .isInstanceOf(IllegalArgumentException.class).hasMessage("unknown workspace");
+
+        verify(docker, times(0)).run(any(), any(Duration.class));
+    }
+
+    @Test
+    void rejectsDeletedTombstoneWhenAttemptOrGenerationDoesNotMatch() {
+        DockerGateway docker = mock(DockerGateway.class);
+        ContainerOwnershipLedger ledger = new MemoryContainerOwnershipLedger(Clock.systemUTC());
+        ledger.recordIntent("11111111-1111-1111-1111-111111111111", "22222222-2222-2222-2222-222222222222", 0, IMAGE, FINGERPRINT);
+        ledger.attachContainer("22222222-2222-2222-2222-222222222222", CONTAINER);
+        ledger.markDeleted("22222222-2222-2222-2222-222222222222", "33333333-3333-3333-3333-333333333333");
+        var service = new RunnerWorkspaceService(docker, new RunnerProperties("a".repeat(43), IMAGE, FINGERPRINT, "C:\\docker.exe"),
+                new RunnerCommandValidator(), Clock.systemUTC(), ledger);
+
+        assertThatThrownBy(() -> service.destroy(new DestroyRequest("44444444-4444-4444-4444-444444444444",
+                "55555555-5555-5555-5555-555555555555", "22222222-2222-2222-2222-222222222222", 0, "startup-system-recovery")))
+                .isInstanceOf(IllegalArgumentException.class).hasMessage("unknown workspace");
+        assertThatThrownBy(() -> service.destroy(new DestroyRequest("11111111-1111-1111-1111-111111111111",
+                "66666666-6666-6666-6666-666666666666", "22222222-2222-2222-2222-222222222222", 1, "startup-system-recovery")))
+                .isInstanceOf(IllegalArgumentException.class).hasMessage("unknown workspace");
+
+        verify(docker, times(0)).run(any(), any(Duration.class));
     }
 
     @Test

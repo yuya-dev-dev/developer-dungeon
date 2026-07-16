@@ -89,7 +89,7 @@ SEC-001〜004、SEC-019、SEC-020はPhase 1のDockerなしunit／Web testで回�
 - challenge containerにはproject、owner、attempt UUID、workspace UUID、image fingerprintのlabelを必須とする。
 - Runnerはstartup sweepより前に`.developer-dungeon/runtime/runner-owned-containers.lock`をWindowsの排他的file lockとして取得し、process終了まで保持する。lock取得失敗時は台帳読込、container inspect、削除、作成、readiness開始の前に起動失敗する。
 - RunnerはDocker create前に、作成時刻、確認回数、attempt ID、workspace ID、generation、完全image ID、fingerprintを含む作成intentを、秘密値を含まないローカル所有台帳へ原子的に記録する。作成後にcontainer IDを同じentryへ原子的に追記する。台帳pathはlauncherが`.developer-dungeon/runtime`配下の固定絶対pathとしてRunnerへ渡す。
-- container削除成功後だけ台帳entryを原子的に削除する。container ID追記に失敗したcontainerはworkspaceとして公開せず、作成intentを残したまま直ちに削除を試みる。削除にも失敗した場合は次回startup sweepがintentのworkspace labelから限定回収し、広いscanへfallbackしない。
+- container削除成功後だけ台帳entryをcleanup request ID付き`DELETED` tombstoneへ原子的に置換する。認証済みinternal requestでattempt ID、workspace ID、generationが一致する削除再確認にはDockerを呼ばず成功を返す。container ID追記に失敗したcontainerはworkspaceとして公開せず、作成intentを残したまま直ちに削除を試みる。削除にも失敗した場合は次回startup sweepがintentのworkspace labelから限定回収し、広いscanへfallbackしない。
 - startup sweepは台帳entryごとにcontainer inspectを行い、container ID、project、owner、attempt/workspace UUID、image ID、fingerprintの全一致時だけ削除する。container ID未確定のintentはworkspace labelで候補を限定し、完全一致する候補が1件の場合だけ削除する。
 - ID未確定intentの候補が0件でもentryを削除しない。各scanのDocker期限を5秒、scan間隔を2秒、回数を最大3回、startup recovery全体を20秒以内とし、後発containerを回収する。3回とも0件、複数件、不一致、台帳破損、台帳外containerの場合は台帳を保持したままRunnerをdegradedとしてreadinessを失敗させ、Docker操作を受け付けない。intentの自動破棄や広いscanへのfallbackは行わない。
 - periodic sweepはstartup sweepと分離し、in-memoryのactive container IDを必ず除外する。TTL超過またはcleanup待ち状態で、台帳とinspectが完全一致するentryだけを削除する。
@@ -102,7 +102,7 @@ SEC-001〜004、SEC-019、SEC-020はPhase 1のDockerなしunit／Web testで回�
 - appは旧workspaceのdestroy成功を受け取るまで、resetまたはsystem recovery用の新workspaceを作成しない。
 - Runnerはtimeout、TTL、destroy、create途中失敗でcleanupが失敗したworkspaceを`cleanup pending`として隔離し、execute、snapshot、通常destroyを拒否する。
 - 同一request IDのcleanup再送は同じcontainer IDだけを対象にし、別containerを作らない。
-- container削除成功時は台帳entryを直ちに消さず、cleanup request IDと`DELETED`結果を持つtombstoneへ原子的に置換する。同じrequest IDの再送にはDockerを呼ばず成功を返す。appが次generationのworkspace作成に成功した時だけ、旧generationのtombstoneを削除する。
+- container削除成功時は台帳entryを直ちに消さず、cleanup request IDと`DELETED`結果を持つtombstoneへ原子的に置換する。認証済みinternal requestでattempt ID、workspace ID、generationが一致する削除再確認にはDockerを呼ばず成功を返す。appが次generationのworkspace作成に成功した時だけ、旧generationのtombstoneを削除する。
 - cleanup成功後も古いworkspace IDとgenerationは再利用しない。appは明示的なreset/recovery操作で次generationを作る。
 - graceful shutdown中は新規workspace operationをDocker起動前に拒否する。cleanup失敗entryは台帳に残し、process終了を隠して成功扱いにしない。
 - ローカルMVPは同時attempt 1のため、graceful shutdown開始時のactive container上限を1件とする。起動時に回収できないorphan／曖昧entryがあればreadinessを成功させない。

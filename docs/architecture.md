@@ -209,12 +209,12 @@ Runnerは表示済み集合を保持しない。Runnerの責務は、appから�
 - 台帳は秘密値を含まず、作成状態、作成時刻、確認回数、nullableなcontainer ID、attempt ID、workspace ID、generation、完全image ID、build fingerprintだけを持つ。
 - RunnerはDocker create前にattempt／workspace／generation／image／fingerprintを作成intentとしてtemporary file、flush、同一filesystem上のatomic replaceで保存する。intent保存失敗時はcontainerを作成しない。
 - Docker create後、workspace公開前にcontainer IDをentryへ原子的に追記する。追記失敗時はworkspaceを公開せず、intentを残して対象containerの削除を試みる。
-- container削除成功後だけ対応entryを同じ方式で削除する。削除失敗時はentryを残す。
+- container削除成功後だけ対応entryをcleanup request ID付き`DELETED` tombstoneへ同じ方式で置換する。削除失敗時はentryを残す。
 - 起動時cleanupは台帳entryとcontainer inspectのproject、owner、attempt、workspace、image、fingerprintが完全一致する場合だけ削除する。container ID未確定のintentはworkspace labelで候補を限定し、完全一致する候補が1件の場合だけ削除する。
 - ID未確定intentの候補が0件でもentryを削除せず、各scanのDocker期限5秒、2秒間隔、最大3回、startup recovery全体20秒以内で再scanする。解決しない0件、複数件、台帳破損、台帳外、不一致では台帳を保持してRunnerをdegradedにし、readinessとDockerを伴うworkspace operationを拒否する。
 - 定期cleanupはin-memory active containerを除外し、TTL超過または`CLEANUP_PENDING`のentryだけを対象にする。
 - 台帳はcontainerの安全な所有確認とcrash recoveryだけに使い、player progress、command history、採点を永続化しない。
-- container削除成功時はentryをcleanup request ID付き`DELETED` tombstoneへ原子的に置換する。同じrequest IDの再送にはDockerを呼ばず成功を返し、appが次generationのworkspace作成に成功した後だけ旧tombstoneを削除する。
+- container削除成功時はentryをcleanup request ID付き`DELETED` tombstoneへ原子的に置換する。認証済みinternal requestでattempt ID、workspace ID、generationが一致する削除再確認にはDockerを呼ばず成功を返し、appが次generationのworkspace作成に成功した後だけ旧tombstoneを削除する。
 - internal shutdownはshutdown状態へ遷移してから同期的に所有containerをcleanupする。ローカルMVPのactive container上限を1件、cleanup全体を6秒以内、`docker rm -f`を5秒以内とし、成功時だけ204を返す。失敗時は5xxを返して台帳entryを保持し、launcherは正常終了として表示しない。
 - launcherはRunner readinessを45秒待つ。shutdown HTTP timeoutを8秒、応答後のprocess終了待機を5秒とし、shutdown開始から最大13秒を超えた場合だけ該当process treeを強制停止する。
 

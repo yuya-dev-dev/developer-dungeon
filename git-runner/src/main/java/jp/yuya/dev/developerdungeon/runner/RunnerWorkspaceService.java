@@ -813,7 +813,7 @@ class RunnerWorkspaceService {
             if (entry.state() == ContainerOwnershipLedger.State.DELETED) continue;
             String id = entry.containerId();
             if (id == null) id = resolveIntent(entry);
-            verifyOwnedContainer(entry, id); removeContainer(id); ledger.remove(entry.workspaceId());
+            verifyOwnedContainer(entry, id); removeContainer(id); ledger.markDeleted(entry.workspaceId(), UUID.randomUUID().toString());
         }
     }
     private void recoverUnpublishedCreate(WorkspaceRequest request, String workspaceId, String imageId, String knownContainerId, RuntimeException original) {
@@ -858,7 +858,8 @@ class RunnerWorkspaceService {
         Set<String> active = workspaces.values().stream().map(Workspace::containerId).collect(java.util.stream.Collectors.toSet());
         for (ContainerOwnershipLedger.Entry entry : ledger.entries()) {
             if (entry.state() != ContainerOwnershipLedger.State.ACTIVE || entry.containerId() == null || active.contains(entry.containerId()) || entry.createdAt().isAfter(cutoff)) continue;
-            verifyOwnedContainer(entry, entry.containerId()); removeContainer(entry.containerId()); ledger.remove(entry.workspaceId());
+            verifyOwnedContainer(entry, entry.containerId()); removeContainer(entry.containerId());
+            ledger.markDeleted(entry.workspaceId(), UUID.randomUUID().toString());
         }
     }
     private void tryCleanup(Workspace workspace, String cleanupRequestId, String reason) {

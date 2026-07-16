@@ -52,6 +52,33 @@ class StageOneServiceTest {
         assertThat(requests.getAllValues().get(1).attemptId()).isEqualTo(requests.getAllValues().getFirst().attemptId());
         assertThat(requests.getAllValues().get(1).generation()).isEqualTo(1);
     }
+    @Test void startupRecoveryReplacesSavedWorkspaceAfterRunnerAlreadyCleanedItUp() {
+        RunnerClient runner = mock(RunnerClient.class);
+        StagePersistence persistence = mock(StagePersistence.class);
+        UUID attemptId = UUID.randomUUID(); UUID oldWorkspaceId = UUID.randomUUID(); UUID newWorkspaceId = UUID.randomUUID();
+        UUID oldCreateId = UUID.randomUUID(); UUID createId = UUID.randomUUID();
+        var active = new StagePersistence.SavedAttempt(attemptId, "ACTIVE", 7, 0, oldWorkspaceId, oldCreateId, null, null, 0, 0, 0, 0, null);
+        var resetting = new StagePersistence.SavedAttempt(attemptId, "RESETTING", 8, 0, oldWorkspaceId, createId, UUID.randomUUID(), null, 0, 0, 0, 0, null);
+        var starting = new StagePersistence.SavedAttempt(attemptId, "STARTING", 9, 1, null, createId, null, null, 0, 0, 1, 0, null);
+        var created = new StagePersistence.SavedAttempt(attemptId, "STARTING", 10, 1, newWorkspaceId, createId, null, null, 0, 0, 1, 0, null);
+        var recovered = new StagePersistence.SavedAttempt(attemptId, "ACTIVE", 11, 1, newWorkspaceId, createId, null, null, 0, 0, 1, 0, null);
+        var initial = new RepositorySnapshot("c2", "bad-tree", "safe-tree", List.of("c1"), true, false, List.of("c2", "c1"));
+        when(persistence.findOpen("STAGE-GIT-01")).thenReturn(Optional.of(active));
+        when(persistence.prepareSystemRecovery(eq(attemptId), eq(7L), any(), any())).thenReturn(resetting);
+        when(persistence.completeReset(eq(attemptId), eq(8L), eq(true), any(), any())).thenReturn(starting);
+        when(runner.create(any())).thenReturn(new WorkspaceResponse(newWorkspaceId.toString(), 1, initial));
+        when(persistence.workspaceCreated(attemptId, 9, newWorkspaceId)).thenReturn(created);
+        when(persistence.activate(attemptId, 10, newWorkspaceId)).thenReturn(recovered);
+        var service = new StageService(runner, new GitCommandParser(), new StageOneGrader(), new OutputSanitizer(), persistence, Clock.systemUTC());
+
+        var view = service.open();
+
+        assertThat(view.systemRecoveryCount()).isEqualTo(1);
+        verify(runner).destroy(argThat(request -> request.attemptId().equals(attemptId.toString())
+                && request.workspaceId().equals(oldWorkspaceId.toString()) && request.generation() == 0
+                && request.reason().equals("startup-system-recovery")));
+        verify(runner).create(argThat(request -> request.attemptId().equals(attemptId.toString()) && request.generation() == 1));
+    }
     @Test void duplicateRequestIdExecutesGitOnlyOnce() {
         RunnerClient runner = mock(RunnerClient.class);
         var initial = new RepositorySnapshot("c2", "bad-tree", "safe-tree", List.of("c1"), true, false, List.of("c2", "c1"));
