@@ -116,6 +116,24 @@ h3 { margin: 0; font-size: 1em; }
 .incident-board code { color: #146c43; font-family: ui-monospace, "Cascadia Code", monospace; font-size: .92em; }
 .board-placeholder { color: #667085; }
 
+.learning-card { margin-top: .9em; padding: 1em 1.1em; border: 1px solid #cbd9f8; border-left: .35em solid #246bfd; border-radius: .75em; background: #f8fbff; box-shadow: 0 .35em 1.1em rgb(32 55 86 / 6%); }
+.learning-card-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: .8em; }
+.learning-card .panel-kicker { margin-bottom: .35em; }
+.learning-badge { flex: 0 0 auto; padding: .3em .55em; border: 1px solid #cbd9f8; border-radius: 999px; color: #2457c5; font-size: .7em; font-weight: 750; }
+.learning-evidence { display: grid; gap: .28em; margin: .65em 0 0; padding: .65em .75em; border-radius: .55em; background: #eef4ff; color: #344054; line-height: 1.5; }
+.learning-evidence strong { color: #2457c5; font-size: .8em; }
+.learning-card fieldset { display: grid; gap: .45em; margin: .8em 0 0; padding: 0; border: 0; }
+.learning-card legend { padding: 0; color: #172033; font-weight: 750; line-height: 1.5; }
+.learning-card label { display: flex; align-items: flex-start; gap: .55em; padding: .55em .65em; border: 1px solid #d9e2ec; border-radius: .55em; background: white; color: #344054; cursor: pointer; line-height: 1.45; }
+.learning-card label:has(input:checked) { border-color: #246bfd; background: #eef4ff; color: #173aa8; }
+.learning-card input { flex: 0 0 auto; margin-top: .2em; accent-color: #246bfd; }
+.learning-note { margin: .65em 0 0; color: #667085; font-size: .76em; line-height: 1.45; }
+.clear-learning-card { border-color: #cfe6da; border-left-color: #2f9e67; background: #fbfffc; }
+.clear-learning-card .panel-kicker { color: #147a4b; }
+.clear-learning-card .learning-evidence { background: #effaf3; }
+.clear-learning-card .learning-evidence strong { color: #176f4a; }
+.clear-learning-card label:has(input:checked) { border-color: #2f9e67; background: #effaf3; color: #176f4a; }
+
 .console { margin-top: .9em; padding: 1em 1.1em; border: 1px solid #1f2937; border-radius: .75em; background: #111827; color: #e8eef8; box-shadow: 0 .45em 1.3em rgb(16 24 40 / 18%); }
 .console-heading { display: flex; align-items: flex-start; justify-content: space-between; }
 .console-heading h2 { color: white; }

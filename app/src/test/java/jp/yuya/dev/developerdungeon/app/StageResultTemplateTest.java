@@ -68,7 +68,7 @@ class StageResultTemplateTest {
                         "action=\"/stages/STAGE-GIT-04/editor\"", "name=\"command\"", "name=\"content\"", "<h2>ヒント</h2>");
         assertThat(active).contains("action=\"/stages/STAGE-GIT-04/commands\"", "action=\"/stages/STAGE-GIT-04/hint\"",
                 "action=\"/stages/STAGE-GIT-04/editor\"", "action=\"/stages/STAGE-GIT-04/reset\"", "<h2>ヒント</h2>")
-                .doesNotContain("id=\"clear-heading\"", "role=\"status\"");
+                .doesNotContain("id=\"clear-heading\"", "aria-labelledby=\"clear-heading\"");
     }
 
     @Test void stageTwoObjectiveExplainsBothBranchPositionsAndFinalCheckout() {
@@ -114,6 +114,39 @@ class StageResultTemplateTest {
                 .doesNotContain("data-dialogue-scene", "data-dialogue-replay", "運用担当が設定の復旧確認を再開すると");
         assertThat(stageFive).contains("元の成果物だと確認できました", "消えたと決めつけなくてよかった", "次のインシデント説明は君に任せる")
                 .doesNotContain("主人公が復旧根拠を運用担当へ説明すると");
+    }
+
+    @Test void rendersNonPersistentLearningCardsForAllStages() {
+        String stageOne = render("STAGE-GIT-01", false);
+        String stageTwo = render("STAGE-GIT-02", false);
+        String stageThree = render("STAGE-GIT-03", false);
+        String stageFour = render("STAGE-GIT-04", false);
+        String stageFive = render("STAGE-GIT-05", false);
+
+        for (String html : List.of(stageOne, stageTwo, stageThree, stageFour, stageFive)) {
+            assertThat(html).contains("class=\"learning-card active-learning-card\"", "EVIDENCE CHECK",
+                    "証拠から次の判断を考える", "name=\"learningDecision\"", "回答は送信されず")
+                    .doesNotContain("復旧結果を報告する", "name=\"learningReport\"");
+            String card = html.substring(html.indexOf("class=\"learning-card active-learning-card\""), html.indexOf("<section class=\"console\""));
+            assertThat(card).doesNotContain("<form", "action=", "method=\"post\"");
+        }
+        assertThat(stageOne).contains("公開履歴の直近変更と、削除された設定の内容を確認する");
+        assertThat(stageTwo).contains("2つのbranchの位置と、通知機能commitがどこにあるかを比較する");
+        assertThat(stageThree).contains("mainの未commit変更、index、移動先branch、stashの状態を確認する");
+        assertThat(stageFour).contains("競合箇所と、運用チーム・機能チームそれぞれの受入条件を確認する");
+        assertThat(stageFive).contains("通常のbranch一覧にない作業の痕跡と、操作履歴に残る候補の内容を確認する")
+                .doesNotContain("39194dda957695ace62387ecdc5f77fcd5ee81ea");
+    }
+
+    @Test void separatesClearReportCardFromActiveEvidenceCard() {
+        String cleared = render("STAGE-GIT-05", true);
+        String active = render("STAGE-GIT-05", false);
+
+        assertThat(cleared).contains("class=\"learning-card clear-learning-card\"", "復旧結果を報告する",
+                "name=\"learningReport\"", "この確認は採点・保存されません")
+                .doesNotContain("class=\"learning-card active-learning-card\"");
+        assertThat(active).contains("class=\"learning-card active-learning-card\"")
+                .doesNotContain("class=\"learning-card clear-learning-card\"", "復旧結果を報告する", "name=\"learningReport\"");
     }
 
     private String render(String stageKey, boolean cleared) {

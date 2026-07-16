@@ -35,7 +35,13 @@ class StageRules {
                     "誤commitが履歴に残り、その変更を打ち消す新しいcommitによって作業ツリーが正常な状態へ戻っていることを確認します。",
                     "運用担当が設定の復旧確認を再開すると、先輩は「共有履歴を守る判断ができたね」と主人公にうなずいた。",
                     "主人公は、最短に見える操作ではなく、共有中の履歴を守る判断を初めて任された。"),
-            StagePresentationPolicy.conceptOnlyBasic("状態確認", "履歴確認", "commit確認", "安全な取り消し"));
+            StagePresentationPolicy.conceptOnlyBasic("状態確認", "履歴確認", "commit確認", "安全な取り消し"),
+            learningCard("公開履歴の直近変更と、削除された設定の内容を確認する。",
+                    "共有済みの履歴を残したまま、影響を打ち消す方法はどれ？",
+                    List.of("打ち消しcommitを追加し、元commitを履歴に残す", "公開commitを履歴から外す"),
+                    "元の変更を履歴に残したまま、必要な設定が戻り、作業ツリーがcleanになった。",
+                    "運用担当へ、何を守って復旧したと報告する？",
+                    List.of("共有履歴を残し、打ち消し結果を確認した", "履歴を消して見えなくした")));
     private static final StageDefinition STAGE_TWO = new StageDefinition("STAGE-GIT-02", "第2現場 / branchの取り違え", "間違ったbranchのcommitを移す",
             "未公開の通知機能commitを、正しいbranchへ安全に移し直す。", "主人公は通知機能の変更を、誤って別の作業branchへcommitした。正しいbranchに変更がないため、QA担当はレビューを始められない。先輩は、共有前に二つのbranchを正しい位置へ戻すよう主人公へ依頼した。",
             "通知機能のcommitはfeature/profileにある。未公開のうちにfeature/notificationへ移し、profileを元の位置へ戻すこと。", "通知機能の変更をfeature/notificationへ移し、feature/profileを変更前のC0へ戻す。最後にfeature/notificationをcheckoutした状態にする。",
@@ -48,7 +54,13 @@ class StageRules {
                     "feature/notificationが通知機能を持つ新しいcommitを指し、feature/profileが元のC0へ戻り、作業ツリーがcleanであることを確認します。",
                     "QA担当がレビューを再開すると、先輩は「なぜ二つのbranchがこの位置で安全なのか、君から説明して」と主人公に任せた。",
                     "主人公は、commitの内容だけでなく、branch位置の安全性をQA担当へ説明する役割を任された。"),
-            StagePresentationPolicy.conceptOnlyBasic("状態確認", "branch比較", "commit確認", "変更移動", "履歴修正"));
+            StagePresentationPolicy.conceptOnlyBasic("状態確認", "branch比較", "commit確認", "変更移動", "履歴修正"),
+            learningCard("2つのbranchの位置と、通知機能commitがどこにあるかを比較する。",
+                    "通知機能を失わず、2つのbranchの役割を戻すには何を先に判断する？",
+                    List.of("変更を正しいbranchへ残した後、誤ったbranchを戻す", "先に誤ったbranchを戻してから変更の所在を考える"),
+                    "通知機能を正しいbranchへ移し、誤ったbranchを元の位置へ戻して、最後の作業位置も確認できた。",
+                    "QAへ、どのbranch位置ならレビューを再開できると報告する？",
+                    List.of("通知機能のbranchと元のbranchの位置をそれぞれ説明する", "通知機能の内容だけを説明する")));
     private static final StageDefinition STAGE_THREE = new StageDefinition("STAGE-GIT-03", "第3現場 / 作業中のbranch移動", "未commitの作業を正しいbranchへ移す",
             "mainで始めた検索機能の作業を失わずに、feature/searchへ移す。", "同期と検索機能を分担している最中、主人公はmain上で作業を始めてしまった。同期との共同作業をfeature/searchで続けたいが、変更はまだcommitできる段階ではない。作業を失わず、正しいbranchへ移そう。",
             "検索機能の未commit変更がmainに残っている。作業を一時退避し、feature/searchで復元してmainをきれいに戻すこと。", "検索機能の変更をfeature/searchへ未commitのまま移し、stashを残さない。",
@@ -61,7 +73,13 @@ class StageRules {
                     "feature/search上で検索機能の変更だけが未commitで残り、indexは空、mainとfeature/searchのcommit位置は変わらず、stashも空であることを確認します。",
                     "同期がfeature/searchの状態を確認すると、先輩は「急いでcommitせず、状況を整理してから運べたね。次の作業段取りは任せる」と主人公に告げた。",
                     "主人公は、作業中の変更を失わずに整理し、次の作業段取りを任されるようになった。"),
-            StagePresentationPolicy.conceptOnlyOff("観察", "一時退避", "branch移動"));
+            StagePresentationPolicy.conceptOnlyOff("観察", "一時退避", "branch移動"),
+            learningCard("mainの未commit変更、index、移動先branch、stashの状態を確認する。",
+                    "まだcommitできない作業を失わず、正しいbranchへ運ぶには何を選ぶ？",
+                    List.of("作業を一時退避してbranchを移動し、そこで復元する", "main上で急いでcommitしてから移動する"),
+                    "commit位置を変えず、移動先の作業ツリーへ変更を復元し、indexとstashの状態も整理できた。",
+                    "同期へ、次にどの段取りで作業を続けると報告する？",
+                    List.of("変更を確認してcommit・レビューへ進む順序を説明する", "とにかく先にcommitすると伝える")));
     private static final StageDefinition STAGE_FOUR = new StageDefinition("STAGE-GIT-04", "第4現場 / チーム間の変更衝突", "コンフリクトを解消して統合する",
             "二つのチームの意図を残して、競合したメッセージ定義をmainへ統合する。", "プロフィール画面の文言を、運用チームと機能チームが同じ行で変更した。QA担当は片方の要件だけではリリース確認を承認できない。主人公は、双方の意図を残してmainへ統合する必要がある。",
             "mainはsecurity settings、feature/profile-messageはpublic profileの案内を必要としている。競合を解消し、双方を含むmerge commitを完成させること。",
@@ -75,7 +93,13 @@ class StageRules {
                     "merge commitがmainとfeatureの両方を直接parentに持ち、期待する統合文言と一致し、競合状態・index・作業ツリーがcleanであることを確認します。",
                     "QA担当が双方の要件を満たすと確認すると、先輩は「二つのチームへの解消説明は君に任せる」と主人公に告げた。",
                     "主人公は、コンフリクトを他者の意図を統合する作業として扱い、その判断を両チームへ説明する役割を任された。"),
-            StagePresentationPolicy.conceptOnlyBasic("状態確認", "履歴比較", "競合確認", "限定編集", "統合確定"));
+            StagePresentationPolicy.conceptOnlyBasic("状態確認", "履歴比較", "競合確認", "限定編集", "統合確定"),
+            learningCard("競合箇所と、運用チーム・機能チームそれぞれの受入条件を確認する。",
+                    "競合を解消するとき、最初に守るべき判断はどれ？",
+                    List.of("片方を捨てず、双方の要件を満たす内容へ統合する", "oursかtheirsの一方をそのまま採用する"),
+                    "2つの親を持つ統合履歴と、双方の要件を満たすファイル内容を確認できた。",
+                    "両チームへ、どの要件を残して統合したと報告する？",
+                    List.of("運用と機能の両方の要件を残した理由を説明する", "競合markerを消したことだけを説明する")));
     private static final StageDefinition STAGE_FIVE = new StageDefinition("STAGE-GIT-05", "第5現場 / 消えたretry設定", "reflogから失われたcommitを復旧する",
             "削除されたbranchの元commitを、操作履歴から見つけて復旧する。", "対応終了の連絡を受けた同期が、決済APIのretry設定を持つfeature/payment-retryを削除してしまった。通常の履歴には見えないが、復旧の手掛かりは操作履歴に残っている。主人公はmainを動かさず、再検証できるbranchを戻すよう依頼される。",
             "feature/payment-retryは削除され、mainはC0に留まっている。HEAD reflogから元のC1を特定し、mainを変えずにbranchを復旧してそのbranchへ移動すること。", "feature/payment-retryを元のC1で復旧し、mainをC0のまま保ってそのbranchへ移動する。",
@@ -88,10 +112,21 @@ class StageRules {
                     "feature/payment-retryがreflogで確認したC1を指し、mainがC0のまま、作業ツリーがcleanであることを確認します。",
                     "主人公が復旧根拠を運用担当へ説明すると、同期は安堵する。先輩は「今回はコマンドだけでなく、根拠から復旧を説明できた。次のインシデント説明は君に任せる」と告げた。",
                     "主人公は、復旧操作だけでなく、その根拠を運用担当へ伝える役割を任された。"),
-            StagePresentationPolicy.conceptOnlyRedactedBranches("状態確認", "通常履歴", "操作履歴", "commit確認", "branch復旧"));
+            StagePresentationPolicy.conceptOnlyRedactedBranches("状態確認", "通常履歴", "操作履歴", "commit確認", "branch復旧"),
+            learningCard("通常のbranch一覧にない作業の痕跡と、操作履歴に残る候補の内容を確認する。",
+                    "元の成果物だと判断できる根拠を集めるには、何を結び付ける？",
+                    List.of("mainを変えていないこと、操作履歴、内容の一致を確認する", "似た内容を新しいcommitとして作り直す"),
+                    "元の成果物をbranchとして復旧し、mainを変えていないことと作業ツリーの状態を確認できた。",
+                    "運用担当へ、元の成果物だと説明する根拠は何か？",
+                    List.of("操作履歴・内容・復旧後のbranch位置をつなげて説明する", "同じような内容になったとだけ説明する")));
     private static final Map<String, StageDefinition> DEFINITIONS = Map.of(
             STAGE_ONE.key(), STAGE_ONE, STAGE_TWO.key(), STAGE_TWO, STAGE_THREE.key(), STAGE_THREE, STAGE_FOUR.key(), STAGE_FOUR,
             STAGE_FIVE.key(), STAGE_FIVE);
+
+    private static StageLearningCard learningCard(String evidence, String decisionPrompt, List<String> decisionOptions,
+                                                   String result, String reportPrompt, List<String> reportOptions) {
+        return new StageLearningCard(evidence, decisionPrompt, decisionOptions, result, reportPrompt, reportOptions);
+    }
 
     List<StageDefinition> definitions() { return List.of(STAGE_ONE, STAGE_TWO, STAGE_THREE, STAGE_FOUR, STAGE_FIVE); }
     StageDefinition definition(String stageKey) {

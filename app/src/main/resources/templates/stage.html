@@ -95,6 +95,19 @@
               <p th:text="${stage.outcome.selfCheckPrompt}">何を確認できたから復旧完了と言えるでしょうか？</p>
               <details><summary>根拠と解説を開く</summary><p th:text="${stage.outcome.selfCheckExplanation}">解説</p></details>
             </section>
+            <section class="learning-card clear-learning-card" aria-labelledby="clear-learning-heading">
+              <p class="panel-kicker">REPORT CHECK</p>
+              <h3 id="clear-learning-heading">復旧結果を報告する</h3>
+              <p class="learning-evidence" th:text="${stage.learningCard.result}">復旧後の結果</p>
+              <fieldset>
+                <legend th:text="${stage.learningCard.reportPrompt}">関係者へ何を報告しますか？</legend>
+                <label th:each="option, optionStat : ${stage.learningCard.reportOptions}" th:for="${'learning-report-' + optionStat.index}">
+                  <input type="radio" name="learningReport" th:id="${'learning-report-' + optionStat.index}" th:value="${option}" autocomplete="off">
+                  <span th:text="${option}">報告内容</span>
+                </label>
+              </fieldset>
+              <p class="learning-note">この確認は採点・保存されません。自分の言葉で復旧根拠を整理するためのものです。</p>
+            </section>
             <section class="reflection">
               <h3>振り返り</h3>
               <dl>
@@ -129,6 +142,22 @@
               <p class="board-placeholder" th:if="${presentation.incidentBoard == null}">Git consoleで状態を確認すると、ここに現在地が表示されます。</p>
             </section>
           </div>
+
+          <section class="learning-card active-learning-card" th:unless="${view.cleared}" aria-labelledby="learning-heading">
+            <div class="learning-card-heading">
+              <div><p class="panel-kicker">EVIDENCE CHECK</p><h2 id="learning-heading">証拠から次の判断を考える</h2></div>
+              <span class="learning-badge">採点対象外</span>
+            </div>
+            <p class="learning-evidence"><strong>確認する証拠</strong><span th:text="${stage.learningCard.evidence}">確認する証拠</span></p>
+            <fieldset>
+              <legend th:text="${stage.learningCard.decisionPrompt}">次の判断はどれですか？</legend>
+              <label th:each="option, optionStat : ${stage.learningCard.decisionOptions}" th:for="${'learning-decision-' + optionStat.index}">
+                <input type="radio" name="learningDecision" th:id="${'learning-decision-' + optionStat.index}" th:value="${option}" autocomplete="off">
+                <span th:text="${option}">判断</span>
+              </label>
+            </fieldset>
+            <p class="learning-note">回答は送信されず、Git操作・スター・進行状況には影響しません。</p>
+          </section>
 
           <section class="console">
             <div class="console-heading"><div><p class="panel-kicker">WORKSPACE</p><h2>Git console</h2></div><span aria-hidden="true">● ● ●</span></div>

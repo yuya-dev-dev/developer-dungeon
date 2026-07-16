@@ -2,7 +2,7 @@
 
 ## 文書情報
 
-- 状態: バム・井上レビューPASS、改善単位1〜4はmain反映済み、改善単位5は実装済み・PR待ち、単位6は未実装
+- 状態: バム・井上レビューPASS、改善単位1〜5はmain反映済み、改善単位6は実装・対象テスト完了（PR待ち）
 - レビュー結果: バムはS1・S2なしで`PASS`、井上はP1・P2・P3なしで`PASS`（2026-07-14）
 - 対象: `STAGE-GIT-01`〜`STAGE-GIT-05`
 - 根拠: 2026-07-14にGit初心者のユーザー1名が全5ステージをプレイした内部パイロット
@@ -92,6 +92,22 @@ Phase 5では次を採用する。
 
 fixtureの可変化やランダム生成は今回行わない。暗記対策としての周辺commit、branch名、症状の変化は、固定fixtureによる再現性と学習効果を再検証した後の別設計とする。
 
+### 5.3 証拠→判断→結果カード
+
+改善単位6では、Stage 1〜5の操作画面に、1ステージにつき1枚の非採点・非永続カードを置く。カードは同じ配置と見出しを使い、Stage固有の証拠と判断だけを差し替える。目的はコマンド数を増やすことではなく、出力を読んで次の判断を選んだ理由をプレイヤー自身に確認させることである。
+
+カードの内容は静的なStage定義メタデータからだけ生成し、`RepositorySnapshot`、`StageTargets`、表示済みobject ID、attempt、DB、Runnerの出力を参照しない。特にStage 5のC1の完全IDやredacted branch状態を、操作前のカードから推測できる形で表示しない。active中は証拠の観点と判断の問いだけを表示し、実結果と関係者への復旧報告は`CLEARED`後の固定文面だけで表示する。clear後の結果カードもcleanup済みworkspaceやlive snapshotへ依存しない。
+
+| Stage | 証拠 | 判断 | 結果・報告 |
+|---|---|---|---|
+| 1 | 公開済みC2と削除内容、共有履歴の状態 | 履歴を残したまま影響を打ち消す | 共有履歴を守った根拠を運用担当へ説明する |
+| 2 | 2つのbranch位置と通知機能commitの所在 | C1を保持してnotificationへ移し、profileをC0へ戻す | 2つのbranch位置をQAへ説明する |
+| 3 | mainの未commit変更、index、対象branchの状態 | 作業を退避してfeature/searchへ運ぶ | 次のcommit・レビュー段取りを同期へ示す |
+| 4 | 競合箇所と運用・機能チームの受入条件 | 片方を捨てず双方の要件を統合する | 2つの要件を残した理由を両チームへ説明する |
+| 5 | main=C0、通常履歴にないC1、操作履歴の候補 | 元のC1を根拠付きでbranchとして復旧する | mainを変えていない根拠をインシデントとして報告する |
+
+カードの選択内容は採点、スター、ヒント、attempt、DB、Runner、workspace cleanupへ影響させない。選択はブラウザ内の表示状態だけで、HTTP endpoint、DB列、attempt lifecycleを追加しない。clear後は固定メタデータから同じカードを報告確認として表示し、回答を保存せず、既存の自己確認と固定振り返りへ接続する。Stage 1は簡略表示で短さを維持し、Stage 2〜5は証拠の比較を中心にする。順序、コマンド数、最短手順を採点しない。
+
 ## 6. 状態と安全上の不変条件
 
 1. `INPUT_REJECTED`ではRunnerを呼ばず、workspace ID、generation、repository状態を変えない。
@@ -141,7 +157,7 @@ branch作成前に対象object IDがそのattemptで安全に表示済みであ�
 3. **会話scene**: 固定導入会話、skip、clear反応。表示専用JavaScriptだけを追加する。
 4. **案内とエラー表示**: 全ステージ`CONCEPT_ONLY`、段階ヒント、入力拒否文言。server allowlistは維持する。
 5. **状態保持・複数経路**: 入力拒否とGitエラーの継続、Stage 5の2経路確認。attempt lifecycleとcleanupの回帰を重点確認する。
-6. **学習過程の拡張**: Stage 2〜5の証拠、会話、振り返りを見直す。fixture変更が必要な場合はステージごとに別途承認する。
+6. **学習過程の拡張**: Stage 1〜5へ証拠→判断→結果カードとclear後の関係者報告確認を追加する。fixture変更が必要な場合はステージごとに別途承認する。
 
 各単位は別PRを基本とし、前段のUIだけで後段のRunner、DB、fixtureを先回りして変更しない。
 
@@ -157,6 +173,8 @@ branch作成前に対象object IDがそのattemptで安全に表示済みであ�
 - clear後の確認は最終snapshotの状態要約と自己確認で行い、存在しないclear後commandを前提にしない。
 - Stage 2の目標文が2つのbranch位置と最後のcheckout状態を区別している。
 - Stage 5を少なくとも2つの安全な観察順序でclearできる。
+- Stage 1〜5で証拠→判断→結果カードを表示でき、選択内容が採点・永続状態・workspace lifecycleへ影響しない。
+- active中は証拠と判断の問いだけ、clear後は固定の結果・報告だけを表示し、Stage 5の対象IDやredacted状態をactiveカードへ漏らさない。
 - Stage 1・2・5の対象限定再確認と未知の類似状況4問によって、[`phase-5-validation-plan.md`](phase-5-validation-plan.md)の改訂済み内部ゲートを判定できる。
 - clear後の自己確認は非採点・非永続で、DB、Runner、workspace保持を追加しない。
 - Git出力、会話、fixture文字列はplain textとしてescapeされ、CSPを維持する。
