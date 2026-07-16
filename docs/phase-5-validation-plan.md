@@ -2,7 +2,7 @@
 
 ## 文書情報
 
-- 状態: 初回内部パイロット実施済み・改善後の対象限定再確認待ち
+- 状態: 第2回内部プレイ所見を改善単位7A・7B・7Cへ反映済み・実装後の対象限定再確認待ち
 - 対象: Git編安定版MVP `STAGE-GIT-01`〜`05`
 - 上位文書: [`requirements.md`](requirements.md)、[`game-design.md`](game-design.md)、[`../roadmap.md`](../roadmap.md)
 - 関連文書: [`git-mvp-stages.md`](git-mvp-stages.md)、[`test-strategy.md`](test-strategy.md)
@@ -18,7 +18,7 @@ Phase 5では、現在の5ステージが機能することだけでなく、Git
 
 初回内部パイロットは全5ステージを完走したが、外部支援を利用し、正確な許可構文の常時表示、失敗時の状態喪失、物語と成功表示の弱さなど複数のMajorを確認したため、判定を`CONDITIONAL`とする。採用した改善と再確認条件は[`phase-5-experience-improvement-plan.md`](phase-5-experience-improvement-plan.md)を正本とする。
 
-初回のStage 3・4を含む記録は、全5ステージの起動、clear、cleanup、技術題材、観察された問題の証拠として使用するが、自力到達と学習効果の合格証拠には使用しない。改善後は変更箇所を代表するStage 1・2・5を外部支援なしで再確認し、未知の類似状況4問による転用確認と組み合わせて内部ゲートを判定する。
+初回のStage 3・4を含む記録は、全5ステージの起動、clear、cleanup、技術題材、観察された問題の証拠として使用するが、自力到達と学習効果の合格証拠には使用しない。第2回内部プレイでは画面密度、全画面再読込、sidebar導線、active学習カードの弱さを確認した。改善単位7A・7B・7Cの実装後は、入口2画面と変更箇所を代表するStage 1・4・5を操作性確認し、Stage 1・2・5を外部支援なしで再確認して、未知の類似状況4問による転用確認と組み合わせて内部ゲートを判定する。
 
 ## 2. 検証対象
 
@@ -27,6 +27,9 @@ Phase 5では、現在の5ステージが機能することだけでなく、Git
 - 4段階ヒントと案内量
 - player resetとsystem recoveryの区別
 - 自動クリア後の自己確認、技術振り返り、成長beat
+- active画面のsidebar、統合header、repository状態、workspaceの情報量と可読性
+- sidebarのcommand参照と段階hint、command／hint／reset／editor保存の部分更新と通常form fallback
+- Stage 4のmerge conflict中だけ表示される限定editor
 - Runner待ち時間、エラー表示、workspaceとコンテナのcleanup
 - Chapter 0を優先して追加すべき基礎知識上の詰まり
 
@@ -35,7 +38,7 @@ Phase 5では、現在の5ステージが機能することだけでなく、Git
 - 外部学習者に対する統計的な学習効果
 - Chapter 0、Chapter 2、Git編Finaleの具体的なステージ設計
 - Javaコードレビュー編、SQL編、Docker・CI/CD編
-- 新しい機能、画面、DB、Runner、fixtureの実装
+- 検証中に行う新しい機能、画面、DB、Runner、fixtureの追加実装
 - macOS、Linux native、Windows on Armなど初期対応外の環境
 - クラウド、外部公開、実在するremoteやGitHubとの連携
 - 負荷試験、カバレッジ測定、全テストの再実行
@@ -79,7 +82,7 @@ Phase 5では、現在の5ステージが機能することだけでなく、Git
 ### 6.1 起動確認
 
 1. Codexがlocal環境のpreflightとアプリ起動を補助する。
-2. ユーザーがステージ一覧を開き、表示、進捗、導線を確認する。
+2. ユーザーがタイトル画面からGit編を選び、ステージ選択画面の表示、clear進捗、戻る導線、各Stageへの導線を確認する。
 3. システムエラーがある場合はプレイ評価を止め、技術問題として分離して記録する。
 
 ### 6.2 各ステージのプレイ
@@ -138,7 +141,7 @@ player resetは少なくとも1ステージで実際に確認する。ただし�
 1. 5ステージすべてを開始し、期待状態へ到達してclearできる。
 2. 少なくとも1ステージでplayer reset後に初期状態から再挑戦できる。
 3. clear、reset、終了後に今回のattempt由来のchallenge containerが残らない。
-4. ステージ一覧へclear状態と最高スターが反映される。
+4. Git編ステージ選択画面へclear状態が反映され、最高スター、XP、ランキング、詳細説明が表示されない。
 5. 入力拒否、Gitエラー、system recoveryが混同されず、進行不能な未処理エラーがない。
 6. 正解の具体的なcommandまたは対象は、各ステージで定めたhint levelより前に表示されない。
 
@@ -159,6 +162,12 @@ player resetは少なくとも1ステージで実際に確認する。ただし�
 5. player resetが必要だと思ったのに、3スターを守る目的だけで使用を避けた場面がない。
 6. 再確認するStage 1・2・5のすべてで、ライブworkspaceを保持しなくても最終状態要約と自己確認から復旧根拠を説明できる。
 7. 再確認するStage 1・2・5で、「長すぎて読み飛ばした」「正解を先に教えられた」と感じる導入がない。
+8. Stage 1・4・5で、command、hint、reset、Stage 4 editor保存後に全画面遷移せず、scroll位置、拡大状態、操作文脈を失わない。clear成立時だけ成功表示へ移動する。
+9. active画面で独立ticket、証拠選択カード、概念chip、main領域下部hintが重複せず、統合header、repository状態、workspaceを一画面内で往復できる。
+10. `/commands`の番号、command、用途から基本用途を確認できる一方、Stage固有の正解や操作順を先に知ることはできない。
+11. Stage 4限定editorはmerge conflict中だけ表示され、競合前、他Stage、clear後には表示されない。
+12. JavaScript無効時もcommand、hint、reset、Stage 4 editor保存を完了でき、JavaScript有効時の通信失敗では自動再送による二重操作が起きない。
+13. タイトル画面とGit編ステージ選択画面が承認済み参照画像の明るさ、中央の選択対象、最小限の情報階層を保ち、入口画面の閲覧だけでattempt、workspace、Runnerを作らない。
 
 ### 8.4 Chapter 0の判断材料
 

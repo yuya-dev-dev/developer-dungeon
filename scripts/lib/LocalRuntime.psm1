@@ -9,6 +9,57 @@ function Get-DockerExecutable {
     return $path
 }
 
+function Resolve-RequiredJavaHome {
+    [CmdletBinding()]
+    param([string[]]$CandidateHomes)
+    if (-not $PSBoundParameters.ContainsKey('CandidateHomes')) {
+        $candidates = [Collections.Generic.List[string]]::new()
+        foreach ($candidate in @(
+            $env:JAVA_HOME,
+            [Environment]::GetEnvironmentVariable('JAVA_HOME', 'User'),
+            [Environment]::GetEnvironmentVariable('JAVA_HOME', 'Machine')
+        )) {
+            if (-not [string]::IsNullOrWhiteSpace($candidate)) { $candidates.Add($candidate) }
+        }
+        $pathJava = Get-Command java.exe -CommandType Application -ErrorAction SilentlyContinue
+        if ($null -ne $pathJava) { $candidates.Add((Split-Path -Parent (Split-Path -Parent $pathJava.Source))) }
+        if ($env:ProgramFiles) { $candidates.Add((Join-Path $env:ProgramFiles 'Eclipse Adoptium\jdk-25.0.3.9-hotspot')) }
+        $CandidateHomes = $candidates.ToArray()
+    }
+    $seen = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    foreach ($candidate in $CandidateHomes) {
+        if ([string]::IsNullOrWhiteSpace($candidate)) { continue }
+        try { $home = [IO.Path]::GetFullPath($candidate.Trim()) } catch { continue }
+        if (-not $seen.Add($home) -or -not [IO.Path]::IsPathFullyQualified($home) -or -not (Test-Path -LiteralPath $home -PathType Container)) { continue }
+        $java = Join-Path $home 'bin\java.exe'
+        if (-not (Test-Path -LiteralPath $java -PathType Leaf)) { continue }
+        $version = (& $java -XshowSettings:properties -version 2>&1 | Out-String)
+        if ($LASTEXITCODE -eq 0 -and $version -match 'Temurin-25\.0\.3\+9' -and $version -match 'java\.vendor = Eclipse Adoptium' -and $version -match 'sun\.arch\.data\.model = 64') {
+            return $home.TrimEnd('\')
+        }
+    }
+    throw 'Eclipse Temurin 25.0.3+9 x64 is required.'
+}
+
+function Enter-LocalRuntimeLock {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$RuntimeDirectory)
+    New-Item -ItemType Directory -Force -Path $RuntimeDirectory | Out-Null
+    $lockPath = Join-Path $RuntimeDirectory 'local-runtime.lock'
+    if (Test-Path -LiteralPath $lockPath) {
+        $item = Get-Item -LiteralPath $lockPath -Force
+        if ($item.PSIsContainer -or (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0)) { throw 'Local runtime lock path is unsafe.' }
+    }
+    try {
+        $stream = [IO.File]::Open($lockPath, [IO.FileMode]::OpenOrCreate, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None)
+        $payload = [Text.Encoding]::UTF8.GetBytes("pid=$PID`nstarted=$([DateTimeOffset]::UtcNow.ToString('O'))`n")
+        $stream.SetLength(0); $stream.Write($payload, 0, $payload.Length); $stream.Flush($true)
+        return $stream
+    } catch [IO.IOException] {
+        throw 'Developer Dungeon is already running in this repository.'
+    }
+}
+
 function Test-MavenWrapperIntegrity {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$RepositoryRoot)
@@ -58,13 +109,7 @@ function Test-LocalRuntimePrerequisites {
     $platform = (& $dockerExecutable info --format '{{.OSType}}/{{.Architecture}}' 2>&1 | Out-String).Trim()
     if ($platform -notin @('linux/x86_64', 'linux/amd64')) { throw 'Linux amd64 Docker mode is required.' }
     if ($RequireJava) {
-        if (-not $env:JAVA_HOME) { throw 'JAVA_HOME is required.' }
-        $java = Join-Path $env:JAVA_HOME 'bin/java.exe'
-        if (-not (Test-Path -LiteralPath $java)) { throw 'JAVA_HOME does not contain java.exe.' }
-        $version = (& $java -XshowSettings:properties -version 2>&1 | Out-String)
-        if ($version -notmatch 'Temurin-25\.0\.3\+9' -or $version -notmatch 'java\.vendor = Eclipse Adoptium' -or $version -notmatch 'sun\.arch\.data\.model = 64') {
-            throw 'Eclipse Temurin 25.0.3+9 x64 is required.'
-        }
+        $env:JAVA_HOME = Resolve-RequiredJavaHome
     }
 }
 
@@ -217,4 +262,4 @@ function Get-ChallengeBuildFingerprint {
     return ([Security.Cryptography.SHA256]::HashData($bytes) | ForEach-Object ToString x2) -join ''
 }
 
-Export-ModuleMember -Function Get-DockerExecutable, Test-MavenWrapperIntegrity, Test-LocalRuntimePrerequisites, Get-ChallengeBuildFingerprint, New-RunnerToken, Initialize-DatabaseSecrets, Get-LocalRuntimeTiming, Get-ChildStopOutcome, Invoke-ChildStop
+Export-ModuleMember -Function Get-DockerExecutable, Resolve-RequiredJavaHome, Enter-LocalRuntimeLock, Test-MavenWrapperIntegrity, Test-LocalRuntimePrerequisites, Get-ChallengeBuildFingerprint, New-RunnerToken, Initialize-DatabaseSecrets, Get-LocalRuntimeTiming, Get-ChildStopOutcome, Invoke-ChildStop

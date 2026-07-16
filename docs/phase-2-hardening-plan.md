@@ -149,7 +149,7 @@ PowerShellのtestに外部moduleは追加しない。`scripts/lib/LocalRuntime.p
 - child起動、readiness待機、停止は小さなadapterに分離し、testではfake childと固定HTTP結果を渡す。
 - productionの`start-local.ps1`は実probeと実process adapterだけを渡す。testのための環境変数、隠しroute、production fallbackを追加しない。
 
-必須シナリオは、PowerShell/Windows/JDK/WSL/Docker/Linux mode不一致、wrapper manifest不一致、image artifact不正、stale image、Runner readiness timeout、app起動失敗、port競合、Ctrl+C相当、launcher例外、通常終了である。各失敗では「child起動前に停止」または「開始済みchildを逆順に1回だけ停止」のどちらかを明示して確認する。
+必須シナリオは、PowerShell/Windows/JDK/WSL/Docker/Linux mode不一致、古い`JAVA_HOME`からの固定JDK再解決、同一repositoryでの二重起動拒否、wrapper manifest不一致、image artifact不正、stale image、Runner readiness timeout、app起動失敗、port競合、Ctrl+C相当、launcher例外、通常終了である。二重起動はDB起動前のOS排他lockで拒否し、既存launcherのDBと子processへ触れない。各失敗では「child起動前に停止」または「開始済みchildを逆順に1回だけ停止」のどちらかを明示して確認する。
 
 fake child／fake probeを使うcontract testが証明するのは、adapterが失敗またはinterruptを通知した後のlauncher orchestration、cleanup順序、fail-closed判断である。実Windowsのconsole Ctrl+C、実port bind失敗、実Spring context停止を確認済みとは扱わない。port競合とSpring context失敗は対象限定process testを可能な範囲で自動化し、実Ctrl+Cはユーザーの最小手動確認として実行結果を別に記録する。
 

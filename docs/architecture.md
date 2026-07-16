@@ -2,7 +2,7 @@
 
 ## 文書情報
 
-- 状態: 既存ベースラインは承認・実装済み。Phase 5のWeb表示・状態継続改訂はバム・井上レビューPASS、未実装
+- 状態: 既存ベースラインとPhase 5改善単位1〜6は実装済み。改善単位7A・7B・7Cは実装前方針確定、未実装
 - 対象: Git編の1日縦切り版および安定版MVP
 - 上位文書: [`requirements.md`](requirements.md)、[`git-mvp-stages.md`](git-mvp-stages.md)、[`threat-model.md`](threat-model.md)
 - 関連文書: [`vertical-slice.md`](vertical-slice.md)、[`test-strategy.md`](test-strategy.md)
@@ -149,6 +149,8 @@ APIは`127.0.0.1`限定とし、起動時に共有したtokenでappを認証す�
 - appにも同tokenを要求するlauncher専用readiness operationを設ける。launcherはapp readinessの正常応答後だけlocal runtimeを起動成功と扱い、port競合、Spring context初期化失敗、早期process終了、timeoutでは`finally` cleanupへ移る。
 - appとRunnerは通常Web routeと分離したloopback限定の`internal shutdown` operationを持ち、同じtokenを必須とする。認証不要shutdown endpointは作らない。
 - launcherはpreflight、Runner起動、readiness待機、app起動、待機の全体を`try/finally`で囲む。通常終了、Ctrl+C、readiness timeout、app起動失敗、launcher例外のすべてで、app、Runnerの逆順に認証済みshutdownを要求する。shutdown HTTPを8秒待ち、応答後のprocess終了を5秒待って、開始から最大13秒以内に終了しない該当process treeだけを終了する。
+- launcherは継承した`JAVA_HOME`だけを信頼せず、`JAVA_HOME`、PATH、ユーザー／マシン設定、固定Temurin配置の候補を順に検証し、Eclipse Temurin 25.0.3+9 x64と完全一致するJDKだけを子processへ渡す。
+- launcherはDB起動より前にrepository固有のOS排他lockを取得し、同じrepositoryですでに起動中ならDB、Runner、appへ触れずに拒否する。起動前から稼働していた管理DBは当該launcherの所有とせず、後続の起動失敗または終了時に停止しない。
 - Runnerはshutdown開始をatomicな状態として記録し、開始後の新規workspace requestをDocker起動前に拒否する。所有containerを停止・削除してから終了する。
 - 強制終了でcleanupできなかったcontainerは、次回Runner起動時にローカル所有台帳とcontainer identityの完全一致を再検証して回収する。固定project／owner labelだけを根拠に削除しない。
 
@@ -336,24 +338,60 @@ MVPでは次を行わない。
 
 ### 12.1 画面
 
-- ステージ一覧
+- タイトル兼編選択画面
+- Git編ステージ選択画面
 - プレイ画面
 
 1日縦切り版ではプレイ画面だけを直接表示してよい。
 
-Phase 5開始時点では、`GET /`が固定のSTAGE-GIT-01〜05一覧をDB read-onlyで表示し、各固定URLの`GET /stages/{固定stage key}`がプレイ画面を表示する。command、hint、resetもstageごとの固定POST URLに分け、formから任意のstage keyを受け取らない。一覧は`CLEARED` attemptから導出した最高スターだけを読むため、閲覧時にRunner、workspace、attemptを作らない。未対応stage keyはrouteを定義せず404とする。
+改善単位7C以降は、`GET /`をタイトル兼編選択画面、`GET /git/stages`をGit編ステージ選択画面とする。`GET /`は固定のGit編catalogだけをserver-side renderし、DB、attempt、Runner、workspaceを参照しない。`GET /git/stages`は固定のSTAGE-GIT-01〜05とclear状態だけをDB read-onlyで表示し、最高スターをview modelへ載せない。既存の固定URLである`GET /stages/{固定stage key}`とstage別POST URLは変更せず、formから任意のstage keyを受け取らない。一覧閲覧ではRunner、workspace、attemptを作らず、未対応stage keyはrouteを定義せず404とする。
+
+入口画面は既存のSpring MVCとThymeleafで実装する。`title.html`は固定Git編card、`stages.html`は既存進捗queryを利用した5つの固定Stage行を描画し、画面ごとに専用のstatic CSSを持つ。参照画像は設計資料に限定し、本番画面では背景assetとsemantic HTMLを分離する。画像内の文字、button、Stage行をclick mapや透明overlayで代用しない。外部font、SPA framework、新しい本番依存関係は追加しない。
+
+入口画面のrouteと責務は次のとおりとする。
+
+| route | view | server依存 | 操作 |
+|---|---|---|---|
+| `GET /` | タイトル兼編選択 | 固定presentation catalogのみ | Git編を選び`/git/stages`へ移動 |
+| `GET /git/stages` | Git編ステージ選択 | clear進捗のDB read-only参照 | 固定Stage URLへ移動、`/`へ戻る |
+| `GET /stages/STAGE-GIT-01`〜`05` | プレイ画面 | 既存Stage lifecycle | attempt開始または再開 |
+
+将来編の追加を見越しても、MVPではedition table、汎用edition controller、`challenge_type`、plugin、共通Runner interfaceを導入しない。新しい編を承認した時点で、固定cardとrouteを追加するか、実装済みの複数編から共通化を判断する。既存sidebarの「ステージ一覧」は`/git/stages`へ向け、タイトル画面へ戻る導線はGit編ステージ選択画面にだけ置く。既存Stage URLへのbookmarkと直接アクセスは維持する。
+
+改善単位7Aでは読み取り専用の`GET /commands`を追加する。このrouteはpresentation用の固定catalogだけをserver-side renderし、DB、attempt、Runner、workspaceを参照しない。catalogは番号、command、用途を学習順に持つが、Runner allowlist、parser、security policyの正本にはせず、それらから動的生成もしない。Stage固有object ID、branch名、file名、正解操作順は登録しない。
 
 安定版MVPはrepository snapshotによる自動クリアを維持し、プレイヤーの復旧報告を待つ`report` routeは追加しない。クリア後の自己確認は、固定の問いと解説を表示するだけの非採点・非永続UIとし、POST、DB、Runner、attempt状態を追加しない。
 
 内部パイロット後の改善では全5ステージを`CONCEPT_ONLY`へ統一する。Stage 1・2・4の状態要約は既存の`BASIC`、Stage 3は`OFF`、Stage 5は`REDACTED_BRANCHES`を初期値とする。状態要約は案内量と独立させ、reflog entry、object ID、正解構文を先に漏らさない。これはview modelとtemplateの表示変更であり、command allowlist、parser、Runner contract、fixture、clear policyを変更しない。
 
-プレイ画面は固定resourceから会話をserver-side renderし、同梱した同一originの静的JavaScriptが会話の進行とskipだけをclient内で制御する。会話状態はDB、attempt、Runnerへ保存せず、通信も追加しない。inline script、inline event handler、任意HTML、`eval`を使わず、JavaScript無効時は全会話と技術条件を通常HTMLとして表示する。clear済みresponseではcommand formを描画せず、成功見出し、最終状態、自己確認、固定振り返りを最初のviewportへ配置する。最終状態要約はclearを確定したresponse内の信頼済みsnapshotからだけ作成し、再読込後の再現をMVP要件にしない。snapshot保存、`report` route、workspace保持は追加しない。
+プレイ画面は固定resourceから会話をserver-side renderし、同梱した同一originの静的JavaScriptが会話の進行とskipをclient内で制御する。改善単位7Aではactive画面を、4項目のsidebar、障害説明と目標を統合したheader、現在repository状態、workspaceへ整理する。独立した障害ticket、重複導入文、active/clear学習カード、概念chip、main領域下部のhint cardは描画しない。hintはsidebar button直下へ展開し、workspaceの通常表示はcommand入力、実行button、実行結果とする。resetは補助操作として残し、Stage 4限定editorは`stageKey=STAGE-GIT-04`、`mergeInProgress=true`、`cleared=false`をすべて満たす場合だけworkspace内へ追加する。
+
+会話状態はDB、attempt、Runnerへ保存しない。inline script、inline event handler、任意HTML、`eval`を使わず、JavaScript無効時は全会話、統合headerの技術条件、通常formを利用できる。clear済みresponseではcommand formとeditorを描画せず、成功見出し、最終状態、自己確認、固定解説、振り返りを最初のviewportへ配置する。最終状態要約はclearを確定したresponse内の信頼済みsnapshotからだけ作成し、再読込後の再現をMVP要件にしない。snapshot保存、`report` route、workspace保持は追加しない。
+
+#### 12.1.1 改善単位7Bの部分更新契約
+
+command、hint、reset、Stage 4 editor保存の既存POSTはfull HTMLを返す方式とCSRF protectionを維持する。JavaScript有効時だけsubmitを`fetch`で送信し、同一originの成功responseを`DOMParser`で解析して次の固定領域を更新する。
+
+| region | 内容 |
+|---|---|
+| `stage-header` | 障害説明、目標、ACTIVE／CLEAR状態 |
+| `stage-sidebar-state` | command数、hint level、star、sidebar内hint本文 |
+| `stage-repository` | 現在branch、HEAD、clean、Stage固有のredacted状態 |
+| `stage-workspace` | command form、実行結果、reset、条件付き限定editor、clear結果 |
+| `stage-clear-dialogue` | clear後の人物反応。active中は空containerを維持する |
+
+現在documentとresponse documentはrootの固定`data-stage-key`が一致し、各regionが両方にちょうど1件ずつ存在する場合だけ更新する。全region、response status、`Content-Type: text/html`、同一originを先に検証し、欠落、重複、stage key不一致、parse失敗では1領域も置換しない。検証後は1回の描画単位内でserver生成nodeを`importNode`して置換し、user由来文字列から`innerHTML`を組み立てない。response内のscriptは実行せず、event処理は現在documentへ登録した委譲listenerだけを使用する。
+
+各formは送信中の二重submitを無効化し、response不明時に自動retryしない。commandの`requestId`、editorの`requestId`と`versionToken`、全formのCSRF tokenは置換後のserver responseを正本とする。通信失敗または置換拒否時は「結果を確定できないため再送せず再読込する」導線を表示する。command、hint、reset、editor保存のfallback actionにはそれぞれworkspace、sidebar hint、workspace、editorのfragmentを付け、JavaScript無効時も通常POST後に対象付近へ戻れるようにする。
+
+通常更新はwindowとmonitor内のscroll位置をkey付きで保存・復元し、browser zoomを操作しない。更新通知は`aria-live`を使い、keyboard操作時のfocusはcommand結果、hint、editor結果へ`preventScroll`付きで戻す。clear成立時だけscrollを成功表示へ移し、clear見出しへfocusする。hint buttonは`aria-expanded`と`aria-controls`を持つ。
 
 ### 12.2 実装方式
 
 - Spring MVC
 - Thymeleaf
 - 通常form POST
+- 同梱した静的JavaScriptによるprogressive enhancement。SPA framework、WebSocket、専用JSON APIは使用しない
 - server-side validation
 - PRG patternを必要箇所で使用
 - sessionにはplayer識別ではなく、現在attemptの最小情報だけを保持

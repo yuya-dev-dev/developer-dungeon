@@ -2,7 +2,7 @@
 
 ## 文書情報
 
-- 状態: 既存ベースラインは承認・実装済み。Phase 5ゲーム体験改訂はバム・井上レビューPASS、未実装
+- 状態: 既存ベースラインは承認・実装済み。Phase 5改善単位7A・7B・7Cは実装前方針確定、未実装
 - 対象: Git編の1日縦切り版および安定版MVP
 - 上位ルール: [`../AGENTS.md`](../AGENTS.md)
 - 関連文書: [`game-design.md`](game-design.md)、[`git-mvp-stages.md`](git-mvp-stages.md)、[`threat-model.md`](threat-model.md)、[`architecture.md`](architecture.md)、[`phase-5-experience-improvement-plan.md`](phase-5-experience-improvement-plan.md)
@@ -89,14 +89,23 @@ Javaコードレビュー編、SQL編、Docker・CI/CD障害対応編は、同�
 | REQ-GAME-011 | コンフリクトステージでは、ステージが指定した通常ファイルだけを限定エディタで編集できる |
 | REQ-GAME-012 | Git出力に表示済みのfixture内objectの12桁IDを入力でき、システムが許可済み完全IDへ正規化する |
 | REQ-GAME-013 | 同一attemptのコマンド、リセット、判定、破棄を直列化し、同じrequestの再送でGit操作を二重実行しない |
-| REQ-GAME-014 | 安定版MVPでは信頼できるrepository snapshotから自動クリアし、クリア後に非採点・非永続の自己確認で復旧完了の根拠を考えてから解説を確認できる |
-| REQ-GAME-015 | ステージの案内量と読み取り専用状態要約を独立して設定でき、案内を減らすステージでは正確なコマンド構文を常時表示せずヒントレベル3以降で開示する |
+| REQ-GAME-014 | 安定版MVPでは信頼できるrepository snapshotから自動クリアし、クリア後に最終状態要約、非採点・非永続の自己確認、固定解説から復旧完了の根拠を確認できる。active中の選択カードや回答保存は必須としない |
+| REQ-GAME-015 | 読み取り専用repository状態と段階ヒントを独立して設定でき、正確なコマンド構文はworkspaceへ常時表示せずヒントレベル3以降で開示する |
 | REQ-GAME-016 | プレイ画面は明るい一人称オフィス、中央PC、PC外の人物会話を基本構成とし、狭い画面ではPCと技術条件を優先して表示する |
-| REQ-GAME-017 | 初回導入会話はスキップ可能とし、会話を読んでもスキップしても同じ技術目標、attempt、採点条件へ到達する。障害チケットだけでも発生事象、困っている関係者、守る条件、対応が必要な理由を理解できる |
+| REQ-GAME-017 | 初回導入会話はスキップ可能とし、会話を読んでもスキップしても同じ技術目標、attempt、採点条件へ到達する。中央headerへ統合した障害説明と目標だけでも、発生事象、困っている関係者、守る条件、対応が必要な理由を理解できる |
 | REQ-GAME-018 | 自動クリア後は最初のviewportで成功を明示し、command formを表示せず、最終状態、自己確認、振り返り、人物の反応へ移る |
 | REQ-GAME-019 | 入力拒否と通常のGitエラーでは同じworkspaceと論理attemptを継続し、明示resetまたは結果を安全に確定できないsystem recoveryだけがworkspaceを再生成する |
-| REQ-GAME-020 | 全ステージの常時案内は概念カテゴリに限定し、正確な構文はヒントレベル3、対象を含む具体手順はレベル4で開示する。server側のcommand allowlistは常に維持する |
+| REQ-GAME-020 | 全ステージで正確な構文をworkspaceへ常時表示せず、汎用的な用途はStage非依存のcommand参照、正確な構文はヒントレベル3、対象を含む具体手順はレベル4で開示する。server側のcommand allowlistは常に維持する |
 | REQ-GAME-021 | 採点は最終snapshotを正本とし、同じ安全な最終状態へ到達する複数の調査順序を許容する。固定コマンド列、最短手順、コマンド数を採点しない |
+| REQ-GAME-022 | active Stage画面は、4項目のsidebar、障害説明と目標を含む中央header、現在repository状態、workspaceを基本領域とし、同じ説明、常時概念chip、active中の証拠選択カード、main領域下部のhint cardを重複表示しない |
+| REQ-GAME-023 | sidebarの「コマンド」から、番号、コマンド、用途の3列でGitコマンドを学習順に確認できる読み取り専用ページへ移動できる。Stage固有object ID、branch名、file名、正解手順は掲載しない |
+| REQ-GAME-024 | sidebarの「ヒント」から現在Stageのヒントを段階開示でき、JavaScript有効時はcommand、hint、reset、限定editor保存の後もページ全体を再読込せず、画面位置、拡大状態、操作文脈を維持できる。JavaScript無効時も通常form POSTで同じ操作を完了できる |
+| REQ-GAME-025 | workspaceの通常表示はcommand入力、実行button、実行結果へ絞る。Stage 4の限定editorはmerge conflict中だけworkspace内へ追加し、Stage 4以外、競合前、clear後には表示しない |
+| REQ-GAME-026 | 現在repository状態は独立した横幅のある領域で表示し、完全HEAD object IDを等幅かつ折り返さず確認できる。狭い画面では当該領域内だけの横scrollを許容する |
+| REQ-GAME-027 | `/`はタイトル兼編選択画面とし、安定版MVPでは利用可能なGit編だけを表示する。閲覧時にDB、attempt、Runner、workspaceへアクセスしない |
+| REQ-GAME-028 | `/git/stages`は固定のSTAGE-GIT-01〜05を学習順に表示し、各行には番号、現場番号、題名、clear／未clear状態だけを表示する。最高スターは採点・永続化に残しても一覧には表示しない |
+| REQ-GAME-029 | タイトル画面とGit編ステージ選択画面は承認済み参照画像の明るいオフィス、研修カード、ホワイトボード型一覧、最小限の情報階層をHTML/CSSで再現し、画像内の文字や透明なclick領域へ操作を依存させない |
+| REQ-GAME-030 | 既存の固定Stage URLは維持し、直接アクセスを禁止しない。入口画面の閲覧だけでattemptやworkspaceを作成せず、Stage開始時に限って既存lifecycleを開始する |
 
 ## 6. 評価要件
 
@@ -140,7 +149,7 @@ Javaコードレビュー編、SQL編、Docker・CI/CD障害対応編は、同�
 | ID | 要件 |
 |---|---|
 | REQ-MVP-001 | `STAGE-GIT-01`から`STAGE-GIT-05`までの5ステージを提供する |
-| REQ-MVP-002 | ステージ一覧画面とプレイ画面の2つを主要画面とする |
+| REQ-MVP-002 | タイトル兼編選択画面、Git編ステージ選択画面、プレイ画面を主要画面とする |
 | REQ-MVP-003 | attemptごとに使い捨てのGit実行環境を生成し、終了時に破棄する |
 | REQ-MVP-004 | PostgreSQLへattempt、コマンド履歴、クリア進捗を保存する |
 | REQ-MVP-005 | Flywayで管理DBのschemaを管理する |
@@ -162,6 +171,7 @@ Javaコードレビュー編、SQL編、Docker・CI/CD障害対応編は、同�
 | NFR-TEST-001 | 入力許可、状態採点、各ステージ、Runner制限に対象限定の自動テストを持つ |
 | NFR-UX-001 | Gitの生出力とゲーム演出を分離し、物語を読まなくても技術条件を誤解しない |
 | NFR-UX-002 | 背景と会話演出は装飾または補助情報として実装し、keyboard操作、focus移動、contrast、reduced motion、JavaScript無効時の基本操作を損なわない |
+| NFR-UX-003 | 通常のStage更新では表示位置を不意に先頭へ戻さず、更新内容をaria-liveで通知し、keyboard focusを失わせない。clear成立時だけ成功表示を優先してfocusと表示位置を移す |
 | NFR-WEB-001 | Git出力、fixture、プレイヤー入力、エディタ内容、エラーを常にuntrusted plain textとしてescapeし、CSPでscript実行を制限する |
 | NFR-CON-001 | attempt単位の排他制御、状態機械、request ID、永続化の一意制約で並行要求と再送を安全に扱う |
 

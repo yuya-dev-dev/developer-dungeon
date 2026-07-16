@@ -2,7 +2,7 @@
 
 ## 文書情報
 
-- 状態: 既存ベースラインのテストは完了。Phase 5ゲーム体験改訂の検証観点はバム・井上レビューPASS、未実装
+- 状態: 既存ベースラインとPhase 5改善単位1〜6のテストは完了。改善単位7A・7B・7Cの検証方針確定、未実装
 - 上位文書: [`requirements.md`](requirements.md)、[`git-mvp-stages.md`](git-mvp-stages.md)、[`threat-model.md`](threat-model.md)、[`architecture.md`](architecture.md)
 - 関連文書: [`vertical-slice.md`](vertical-slice.md)、[`phase-5-experience-improvement-plan.md`](phase-5-experience-improvement-plan.md)、[`../AGENTS.md`](../AGENTS.md)
 
@@ -113,14 +113,26 @@ stage固有観点：
 - clear後のstarと振り返り表示
 - clear responseの最初のviewportに成功見出しがあり、command formが描画されない
 - 導入会話を進めてもskipしても同じstage、attempt、技術目標へ到達する
-- 会話skip後も障害チケットに発生事象、困っている関係者、守る条件、対応が必要な理由が残る
+- 会話skip後も中央headerに発生事象、困っている関係者、守る条件、対応が必要な理由が残る
 - JavaScript無効時も会話、技術目標、command form、clear結果を利用できる
 - PC幅ではオフィスと中央PC、スマートフォン相当幅ではPC優先と下部会話パネルになる
 - Stage 1・2でstage固有のclear scene、安全な理由、危険な代替案、成長beatが表示され、別stageの文言が混在しない
 - クリア後の自己確認が非採点・非永続で、POST、DB更新、Runner呼び出しを発生させない
-- `guidanceMode`と`incidentBoardMode`を独立して切り替え、4組合せで案内領域と状態要約領域が不可分になっていない
-- `CONCEPT_ONLY`では正確な構文を常時表示せず、ヒントレベル3以降だけで開示する
-- 全5ステージが`CONCEPT_ONLY`で、入力拒否応答が正確な許可構文一覧を代わりに開示しない
+- active／clearの学習選択カード、独立した障害ticket、重複導入文、概念chip、main領域下部hint cardが描画されない
+- active画面に`stage-header`、`stage-sidebar-state`、`stage-repository`、`stage-workspace`、`stage-clear-dialogue`が各1件あり、rootの固定stage keyと対応する
+- `GET /commands`がDB、attempt、Runnerを呼ばず、番号、command、用途の3列を学習順に表示する
+- command参照catalogにStage固有object ID、branch名、file名、具体的な解答順序が含まれない
+- Stage 4の`mergeInProgress=true`かつ未clear時だけ限定editor formを描画し、競合前、Stage 4以外、clear後には描画しない
+- hint buttonが`aria-expanded`と`aria-controls`を持ち、sidebar内hint regionだけを段階開示する
+- command、hint、reset、editor formの通常POST actionに、JavaScript無効時の復帰先fragmentがある
+- clear responseでは全固定regionを保ったままcommand formとeditor formがなく、成功見出しが存在する
+- `incidentBoardMode`に応じてrepository状態を表示し、Stage 5のredacted情報を維持する
+- workspaceに概念chipや正確な構文を常時表示せず、ヒントレベル3以降だけで正確な構文を開示する
+- 全5ステージの入力拒否応答が正確な許可構文一覧を代わりに開示しない
+- `GET /`が固定Git編cardだけを表示し、DB、attempt、Runnerを呼ばない
+- `GET /git/stages`が固定5Stageを学習順に表示し、番号、現場番号、題名、clear状態を含む一方、最高スターを表示しない
+- 入口画面のGit編card、戻る導線、各Stage行が通常linkでkeyboard操作でき、既存の固定Stage URLへ遷移する
+- 既存Stage URLへの直接GETが入口2画面化後も成立する
 - STAGE-GIT-04以外でeditor endpointを拒否
 
 Thymeleafの見た目そのものはunit testへ寄せすぎず、重要な要素と条件分岐だけを確認する。
@@ -260,14 +272,22 @@ PostgreSQL Testcontainersを使用し、次を確認する。
 8. 物語をskipしても技術条件が理解できることを確認する。
 9. Git outputと演出が混同されないことを確認する。
 10. 各stageのクリア後に、復旧完了の根拠を考えてから固定解説を開けることを確認する。
-11. Stage 3を最初に`CONCEPT_ONLY + OFF`で確認し、案内削減による詰まりを記録する。
-12. 状態把握不足が主要な詰まりの場合だけStage 3を`CONCEPT_ONLY + BASIC`で再確認し、ボード追加前後の行動差だけを記録する。
-13. Stage 5を`CONCEPT_ONLY + REDACTED_BRANCHES`で確認し、状態要約がbranch消失だけを伝えてreflog entry、object ID、正解構文を先に漏らさず、hint level 3・4で段階開示されることを確認する。
+11. Stage 3でrepository状態を表示しない場合も、workspaceと段階hintから進行できることを確認する。
+12. Stage 1・2・4のrepository状態が既存の`BASIC`相当、Stage 3が`OFF`相当で、main領域に概念chipや正確な構文を常時表示しないことを確認する。
+13. Stage 5のrepository状態が`REDACTED_BRANCHES`相当で、branch消失だけを伝えてreflog entry、object ID、正解構文を先に漏らさず、hint level 3・4で段階開示されることを確認する。
 14. 入力拒否と通常Gitエラーの後に、正しかった過去操作とworkspaceが維持され、明示reset時だけ初期状態へ戻ることを確認する。
 15. clear直後にスクロールせず成功を認識でき、command入力がなく、人物の反応と自己確認へ進めることを確認する。
 16. clear後の確認は最終snapshotの状態要約と自己確認で成立し、追加Gitコマンドを要求しないことを確認する。
 17. Stage 2の目標文が`feature/profile`、`feature/notification`、最後のcheckout状態を区別していることを確認する。
 18. Stage 1、2、5を外部支援なしで再確認し、常時案内だけで総当たりできないこと、ヒント3・4で行き止まりから回復できることを記録する。
+19. command、hint、reset、Stage 4 editor保存後に全画面遷移せず、windowとmonitor内のscroll位置、browser zoom、入力文脈が維持されることを確認する。clear成立時だけ成功表示へ移動する。
+20. 二重click中は再送できず、通信失敗または不正HTML responseでは自動retryも部分置換も行わず、再読込案内が出ることを確認する。
+21. JavaScript無効時にcommand、hint、reset、Stage 4 editor保存が通常form POSTで成立し、responseが対応するfragment付近を表示することを確認する。
+22. `/commands`の表をkeyboardと狭い画面で利用でき、表の閲覧だけでattemptやworkspaceが作られないことを確認する。
+23. PC幅でHEAD完全IDが折り返されず、狭幅ではrepository領域内だけを横scrollできることを確認する。
+24. `/`が承認済みタイトル参照画像の明るさと中央Git編cardを再現し、`/git/stages`がホワイトボード型の5行一覧を表示することをPC幅で確認する。
+25. 入口2画面をkeyboardだけで往復し、狭幅でも文字や操作対象が画像へ埋没せず再配置されることを確認する。
+26. `/`と`/git/stages`の閲覧前後でattempt、workspace、challenge containerが増えないことを確認する。
 
 ## 11. 要件traceability
 
@@ -285,11 +305,17 @@ PostgreSQL Testcontainersを使用し、次を確認する。
 | REQ-GAME-012 | TEST-CMD-008〜009、STAGE-GIT-01・02・05 integration |
 | REQ-GAME-013 | application concurrency test、TEST-SEC-017、persistence一意制約test |
 | REQ-GAME-014 | clear後の自己確認Web test、各stage manual play、DB／Runner非呼出しtest |
-| REQ-GAME-015 | 表示方針4組合せのWeb test、Stage 3段階手動確認、hint level test |
+| REQ-GAME-015 | repository表示Web test、Stage 3手動確認、hint level test |
 | REQ-GAME-016〜018 | responsive manual、会話skip Web test、clear response Web test、accessibility manual |
 | REQ-GAME-019 | application use case、error後のworkspace／generation継続test、manual |
 | REQ-GAME-020 | 全stage guidance Web test、hint level test、入力拒否表示test |
 | REQ-GAME-021 | clear policy unit、STAGE-GIT-05複数経路fixture integration、manual |
+| REQ-GAME-022 | Stage template Web test、PC／狭幅manual |
+| REQ-GAME-023 | command catalog Controller／template test、manual |
+| REQ-GAME-024 | stable region／tokenのtemplate Web test、通常form Web test、JavaScript有効／無効manual |
+| REQ-GAME-025 | Stage 4 template／Controller test、Stage 4 manual |
+| REQ-GAME-026 | template test、PC／狭幅manual |
+| REQ-GAME-027〜030 | title／stage-list Controller・template test、DB／Runner非呼出しtest、PC／狭幅・keyboard manual |
 | REQ-VS-001〜006 | vertical-slice unit／Docker integration／manual checklist、文書scope確認 |
 | REQ-MVP-001 | 5stage fixture integration、manual |
 | REQ-MVP-002 | Web route／view test、manual |
@@ -302,6 +328,7 @@ PostgreSQL Testcontainersを使用し、次を確認する。
 | NFR-TEST-001 | test inventoryと実行結果のcompletion audit |
 | NFR-UX-001 | Web test、manual play review |
 | NFR-UX-002 | keyboard-only manual、clear見出しfocus Web test、contrast manual、`prefers-reduced-motion` manual／CSS確認、JavaScript無効manual、PC幅・狭幅responsive manual |
+| NFR-UX-003 | partial update manual、aria-live／focus Web test、clear遷移manual |
 | NFR-WEB-001 | Web XSS／CSP／control-character test |
 | NFR-CON-001 | concurrency、request ID、generation、optimistic lock test |
 

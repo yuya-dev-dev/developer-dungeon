@@ -28,13 +28,6 @@ New-Item -ItemType Directory -Force -Path $runtimeTemp | Out-Null
 $ledgerPath = Join-Path $runtime 'runner-owned-containers.json'
 $timing = Get-LocalRuntimeTiming
 
-$token = New-RunnerToken
-$database = Initialize-DatabaseSecrets -RuntimeDirectory $runtime -DockerExecutable $dockerExecutable
-$databaseUrl = 'jdbc:postgresql://127.0.0.1:15432/developer_dungeon?currentSchema=developer_dungeon'
-$env:DEVELOPER_DUNGEON_DB_ADMIN_PASSWORD_FILE = $database.Paths.Admin
-$env:DEVELOPER_DUNGEON_DB_MIGRATOR_PASSWORD_FILE = $database.Paths.Migrator
-$env:DEVELOPER_DUNGEON_DB_APP_PASSWORD_FILE = $database.Paths.App
-
 function Start-JavaChild([IO.FileInfo]$jar, [hashtable]$variables) {
     $psi = [Diagnostics.ProcessStartInfo]::new((Join-Path $env:JAVA_HOME 'bin/java.exe'))
     $psi.UseShellExecute = $false
@@ -62,6 +55,7 @@ function Invoke-Ready([string]$url, [int]$seconds) {
     return $false
 }
 function Stop-Child($process, [string]$url) {
+    if ($null -eq $process -or $process.HasExited) { return 'AlreadyStopped' }
     return Invoke-ChildStop -Process $process -Url $url -Token $token -Timing $timing
 }
 function Assert-DatabaseOwnership {
@@ -97,6 +91,18 @@ function Start-Database {
         throw 'Management database ownership verification failed.'
     }
 }
+function Test-DatabaseRunning {
+    Assert-DatabaseOwnership
+    $id = ((& $dockerExecutable compose --project-name developer-dungeon --file (Join-Path $root 'compose.yaml') ps --status running --quiet postgres | Out-String).Trim())
+    if ($LASTEXITCODE -ne 0) { throw 'Management database running-state lookup failed.' }
+    if (-not $id) { return $false }
+    if ($id -notmatch '^[0-9a-f]{12,64}$') { throw 'Management database running identity is invalid.' }
+    $labels = (& $dockerExecutable container inspect --format '{{json .Config.Labels}}' $id).Trim()
+    if ($LASTEXITCODE -ne 0 -or $labels -notlike '*"com.docker.compose.project":"developer-dungeon"*' -or $labels -notlike '*"com.docker.compose.service":"postgres"*' -or $labels -notlike '*"io.developer-dungeon.owner":"local-runtime"*') {
+        throw 'Management database running ownership verification failed.'
+    }
+    return $true
+}
 function Stop-Database {
     Assert-DatabaseOwnership
     $id = (& $dockerExecutable compose --project-name developer-dungeon --file (Join-Path $root 'compose.yaml') ps --quiet postgres).Trim()
@@ -110,10 +116,17 @@ function Stop-Database {
     return 'Stopped'
 }
 
-$runner = $null; $app = $null; $databaseStarted = $false
+$runtimeLock = $null; $runner = $null; $app = $null; $databaseStarted = $false; $token = ''
 try {
+    $runtimeLock = Enter-LocalRuntimeLock -RuntimeDirectory $runtime
+    $token = New-RunnerToken
+    $database = Initialize-DatabaseSecrets -RuntimeDirectory $runtime -DockerExecutable $dockerExecutable
+    $databaseUrl = 'jdbc:postgresql://127.0.0.1:15432/developer_dungeon?currentSchema=developer_dungeon'
+    $env:DEVELOPER_DUNGEON_DB_ADMIN_PASSWORD_FILE = $database.Paths.Admin
+    $env:DEVELOPER_DUNGEON_DB_MIGRATOR_PASSWORD_FILE = $database.Paths.Migrator
+    $env:DEVELOPER_DUNGEON_DB_APP_PASSWORD_FILE = $database.Paths.App
+    $databaseStarted = -not (Test-DatabaseRunning)
     Start-Database
-    $databaseStarted = $true
     $migrator = Start-JavaChild $migratorJar @{ DEVELOPER_DUNGEON_MIGRATION_DB_URL=$databaseUrl; DEVELOPER_DUNGEON_MIGRATION_DB_USER='developer_dungeon_migrator'; DEVELOPER_DUNGEON_MIGRATION_DB_PASSWORD=$database.Values.Migrator }
     $migrator.WaitForExit()
     if ($migrator.ExitCode -ne 0) { throw 'Management database migration failed.' }
@@ -124,11 +137,15 @@ try {
     Write-Host 'Developer Dungeon is running at http://127.0.0.1:8080'
     $app.WaitForExit()
 } finally {
-    $appStop = Stop-Child $app 'http://127.0.0.1:8080/internal/shutdown'
-    $runnerStop = Stop-Child $runner 'http://127.0.0.1:18081/internal/shutdown'
-    $databaseStop = if ($databaseStarted) { Stop-Database } else { 'AlreadyStopped' }
-    $failedStops = @(@($appStop, $runnerStop, $databaseStop) | Where-Object { $_ -notin @('Stopped', 'AlreadyStopped') })
-    if ($failedStops.Count -gt 0) {
-        throw "Local shutdown was incomplete ($($failedStops -join ', ')); the next startup must perform recovery."
+    try {
+        $appStop = Stop-Child $app 'http://127.0.0.1:8080/internal/shutdown'
+        $runnerStop = Stop-Child $runner 'http://127.0.0.1:18081/internal/shutdown'
+        $databaseStop = if ($databaseStarted) { Stop-Database } else { 'AlreadyStopped' }
+        $failedStops = @(@($appStop, $runnerStop, $databaseStop) | Where-Object { $_ -notin @('Stopped', 'AlreadyStopped') })
+        if ($failedStops.Count -gt 0) {
+            throw "Local shutdown was incomplete ($($failedStops -join ', ')); the next startup must perform recovery."
+        }
+    } finally {
+        if ($null -ne $runtimeLock) { $runtimeLock.Dispose() }
     }
 }

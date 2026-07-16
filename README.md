@@ -6,7 +6,7 @@ Developer Dungeonは、新人エンジニアが複数の開発現場で技術的
 
 ## 現在の状態
 
-Phase 4までの企画・要件・全体設計と実装はユーザー承認済みです。安全な縦切り版、Git Runner hardening、PostgreSQLによるMVP基盤を経て、STAGE-GIT-01（revert）からSTAGE-GIT-05（reflog）までとゲームループ補完をmainへ反映しました。Phase 5ではGit初心者であるユーザー1名の初回内部パイロットを完了し、未実装のゲーム体験改訂はバムと井上の文書レビューを通過しました。
+Phase 4までの企画・要件・全体設計と実装はユーザー承認済みです。安全な縦切り版、Git Runner hardening、PostgreSQLによるMVP基盤を経て、STAGE-GIT-01（revert）からSTAGE-GIT-05（reflog）までとPhase 5改善単位1〜6をmainへ反映しました。第2回内部プレイで採用した画面情報設計の簡素化、同一画面内部分更新、タイトル兼編選択・Git編ステージ選択の入口2画面化は、改善単位7A・7B・7Cとして技術方針を確定し、未実装です。
 
 現在の1日縦切り版は、安全な使い捨てGit実行環境を含みます。player入力をhost上で直接実行せず、別processのGit Runnerとdisposable challenge containerを使用します。
 
@@ -25,8 +25,8 @@ Phase 4までの企画・要件・全体設計と実装はユーザー承認済�
 - 信頼済みsnapshotによる自動クリア後に、復旧完了の根拠を考える非採点・非永続の自己確認を行う
 - 4段階hintと累積3スターで、探索を罰せず自力判断を評価する
 - 安定版MVPはrevert、cherry-pick、stash、merge conflict、reflogの5stage
-- Phase 5改善では全5ステージの常時案内を概念カテゴリに限定し、正確な構文を段階ヒントへ移す
-- Stage 4では固定ファイルだけをversion token付き限定エディタで編集し、双方の要件と2親のmerge commitを状態採点する
+- Phase 5改善では正確な構文をworkspaceへ常時表示せず、Stage非依存のcommand参照と段階ヒントへ分離する
+- Stage 4ではmerge conflict中だけ固定ファイル用のversion token付き限定エディタを表示し、双方の要件と2親のmerge commitを状態採点する
 - Stage 5ではHEAD reflogに残る表示済みcommit IDだけを使い、削除済みbranchを元のcommitへ復旧できたかを状態採点する
 
 ## 現在の範囲

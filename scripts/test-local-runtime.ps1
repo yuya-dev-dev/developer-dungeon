@@ -7,6 +7,28 @@ $first = Get-ChallengeBuildFingerprint -RepositoryRoot $root
 $second = Get-ChallengeBuildFingerprint -RepositoryRoot $root
 if ($first -ne $second -or $first -notmatch '^[0-9a-f]{64}$') { throw 'Build fingerprint is not deterministic.' }
 Test-MavenWrapperIntegrity -RepositoryRoot $root
+$resolvedJavaHome = Resolve-RequiredJavaHome
+$recoveredJavaHome = Resolve-RequiredJavaHome -CandidateHomes @('C:\missing-developer-dungeon-jdk', $resolvedJavaHome)
+if ($recoveredJavaHome -ne $resolvedJavaHome) { throw 'Required Java home recovery contract failed.' }
+$lockTestDirectory = Join-Path ([IO.Path]::GetTempPath()) "developer-dungeon-runtime-lock-$([Guid]::NewGuid().ToString('N'))"
+$firstLock = $null; $thirdLock = $null
+try {
+    $firstLock = Enter-LocalRuntimeLock -RuntimeDirectory $lockTestDirectory
+    $secondRejected = $false
+    try {
+        $unexpectedLock = Enter-LocalRuntimeLock -RuntimeDirectory $lockTestDirectory
+        $unexpectedLock.Dispose()
+    } catch {
+        $secondRejected = $_.Exception.Message -eq 'Developer Dungeon is already running in this repository.'
+    }
+    if (-not $secondRejected) { throw 'Local runtime concurrent-start rejection contract failed.' }
+    $firstLock.Dispose(); $firstLock = $null
+    $thirdLock = Enter-LocalRuntimeLock -RuntimeDirectory $lockTestDirectory
+} finally {
+    if ($null -ne $thirdLock) { $thirdLock.Dispose() }
+    if ($null -ne $firstLock) { $firstLock.Dispose() }
+    if (Test-Path -LiteralPath $lockTestDirectory) { Remove-Item -LiteralPath $lockTestDirectory -Recurse -Force }
+}
 $tokens = 1..8 | ForEach-Object { New-RunnerToken }
 if (@($tokens | Sort-Object -Unique).Count -ne $tokens.Count -or @($tokens | Where-Object { $_ -notmatch '^[A-Za-z0-9_-]{43}$' }).Count -ne 0) { throw 'Runner token generation contract failed.' }
 $timing = Get-LocalRuntimeTiming
