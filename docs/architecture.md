@@ -186,11 +186,13 @@ RunnerがDocker CLI processを起動するときは親環境をそのまま継�
 
 Browserから受け取ったraw textはappでparseし、contractには含めない。Runnerは観察commandでobject IDを原則12桁表示に固定し、appはそのattemptで表示済みの12桁IDまたは完全IDだけをfixture内許可objectの完全IDへ正規化する。Runnerは完全IDが現在workspace内に存在しstage policyの許可objectと一致することを再検証してからargvを構築する。未表示・短すぎる・曖昧prefix、未知object、revision式は拒否する。
 
-STAGE-GIT-05では、標準入力構文`git reflog`、`git branch feature/payment-retry <object>`、`git switch feature/payment-retry`を、それぞれstage専用の`REFLOG_HEAD`、`CREATE_PAYMENT_RETRY_BRANCH`、`SWITCH_PAYMENT_RETRY`へ変換する。`REFLOG_HEAD`と`SWITCH_PAYMENT_RETRY`は引数を持たず、`CREATE_PAYMENT_RETRY_BRANCH`はappが表示済みIDから正規化した完全`C1`だけを持つ。branch名、reflog selector、revision式、optionをBrowser入力からcontractへ渡さない。
+改善単位7Dでは、既存のclear policyを変更せず、安全な第2経路だけを型付きcommandとして追加する。Stage 1の`REVERT_NO_COMMIT`は表示済み固定C2だけを持ち、`COMMIT_RESTORE_SETTINGS`は引数なしで固定messageへ変換する。Stage 3の`STASH_APPLY`と`STASH_DROP`、Stage 4の`COMMIT_ALL_NO_EDIT`は引数なしとする。Stage 5の`SWITCH_CREATE_PAYMENT_RETRY`は表示済み固定C1だけを持ち、branch名はRunner側で`feature/payment-retry`へ固定する。Stage 2は既存commandの順序自由化だけであり、新commandを追加しない。
 
-Runnerは`REFLOG_HEAD`を固定argv `git reflog show --format=%h%x09%gs --abbrev=12 --max-count=8 HEAD`、branch作成を固定名`feature/payment-retry`と完全`C1`、switchを固定名`feature/payment-retry`へ変換する。`show`は既存の安全な固定optionを使用する。appは許可済みの`log`または`reflog`がexit code 0かつ非truncatedで返した、`^[0-9a-f]{12}\t`または既存logの固定形式に一致する先頭12桁IDだけをattempt内の表示済み集合へ記録し、hint level 4で明示した`C1`も同じ集合へ追加する。error、truncated output、`show`本文、他commandのstdoutからIDを登録しない。appはこの表示済み集合を使って12／40桁入力を信頼済み完全IDへ正規化する。
+STAGE-GIT-05では、標準入力構文`git reflog`、`git branch feature/payment-retry <object>`、`git switch feature/payment-retry`、`git switch -c feature/payment-retry <object>`を、それぞれstage専用の`REFLOG_HEAD`、`CREATE_PAYMENT_RETRY_BRANCH`、`SWITCH_PAYMENT_RETRY`、`SWITCH_CREATE_PAYMENT_RETRY`へ変換する。`REFLOG_HEAD`と`SWITCH_PAYMENT_RETRY`は引数を持たず、objectを取る2 commandはappが表示済みIDから正規化した完全`C1`だけを持つ。branch名、reflog selector、revision式、任意optionをBrowser入力からcontractへ渡さない。
 
-Runnerは表示済み集合を保持しない。Runnerの責務は、appから受け取ったobject IDの40桁形式、workspace内でのcommit objectの存在とtype、Runner側の固定fixture allowlistとの一致、`CREATE_PAYMENT_RETRY_BRANCH`では固定`C1`との一致を再検証することである。表示provenanceのidempotencyとreset時破棄は既存どおりappのattempt stateが担当する。
+Runnerは`REFLOG_HEAD`を固定argv `git reflog show --format=%h%x09%gs --abbrev=12 --max-count=8 HEAD`、branch作成を固定名`feature/payment-retry`と完全`C1`、switchを固定名`feature/payment-retry`へ変換する。作成とswitchの同時実行も固定argv `git switch -c feature/payment-retry <完全C1>`へ変換する。`show`は既存の安全な固定optionを使用する。appは許可済みの`log`または`reflog`がexit code 0かつ非truncatedで返した、`^[0-9a-f]{12}\t`または既存logの固定形式に一致する先頭12桁IDだけをattempt内の表示済み集合へ記録し、hint level 4で明示した`C1`も同じ集合へ追加する。error、truncated output、`show`本文、他commandのstdoutからIDを登録しない。appはこの表示済み集合を使って12／40桁入力を信頼済み完全IDへ正規化する。
+
+Runnerは表示済み集合を保持しない。Runnerの責務は、appから受け取ったobject IDの40桁形式、workspace内でのcommit objectの存在とtype、Runner側の固定fixture allowlistとの一致、`CREATE_PAYMENT_RETRY_BRANCH`と`SWITCH_CREATE_PAYMENT_RETRY`では固定`C1`との一致を再検証することである。表示provenanceのidempotencyとreset時破棄は既存どおりappのattempt stateが担当する。
 
 ### 7.3 attemptの直列化とidempotency
 

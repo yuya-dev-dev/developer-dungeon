@@ -14,8 +14,10 @@ class RunnerCommandValidator {
                 || command.kind() == CommandKind.LOG_ONELINE_ALL_DECORATE || command.kind() == CommandKind.BRANCH
                 || command.kind() == CommandKind.DIFF || command.kind() == CommandKind.DIFF_STAGED
                 || command.kind() == CommandKind.STASH_PUSH || command.kind() == CommandKind.STASH_LIST || command.kind() == CommandKind.STASH_POP
+                || command.kind() == CommandKind.STASH_APPLY || command.kind() == CommandKind.STASH_DROP
                 || command.kind() == CommandKind.LOG_GRAPH_ALL || command.kind() == CommandKind.MERGE_PROFILE_MESSAGE
                 || command.kind() == CommandKind.ADD_PROFILE_MESSAGES || command.kind() == CommandKind.COMMIT_NO_EDIT
+                || command.kind() == CommandKind.COMMIT_RESTORE_SETTINGS || command.kind() == CommandKind.COMMIT_ALL_NO_EDIT
                 || command.kind() == CommandKind.REFLOG_HEAD || command.kind() == CommandKind.SWITCH_PAYMENT_RETRY) {
             if (objectId != null || branchName != null) throw new IllegalArgumentException("command target is not allowed");
             return;
@@ -27,8 +29,10 @@ class RunnerCommandValidator {
             return;
         }
         if ((command.kind() != CommandKind.SHOW && command.kind() != CommandKind.REVERT_NO_EDIT
+                && command.kind() != CommandKind.REVERT_NO_COMMIT
                 && command.kind() != CommandKind.CHERRY_PICK && command.kind() != CommandKind.RESET_HARD
-                && command.kind() != CommandKind.CREATE_PAYMENT_RETRY_BRANCH)
+                && command.kind() != CommandKind.CREATE_PAYMENT_RETRY_BRANCH
+                && command.kind() != CommandKind.SWITCH_CREATE_PAYMENT_RETRY)
                 || branchName != null || objectId == null || !objectId.matches("[0-9a-f]{40}")) {
             throw new IllegalArgumentException("invalid Git command");
         }

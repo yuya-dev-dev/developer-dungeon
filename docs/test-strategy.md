@@ -149,11 +149,11 @@ Thymeleafの見た目そのものはunit testへ寄せすぎず、重要な要�
 6. fixtureにhook、symlink、submodule、外部URL、秘密値がない。
 7. repository-local configが許可keyと期待valueの組だけである。
 8. `.gitattributes`、`.git/info/attributes`、`.gitmodules`、external diff、filter、custom merge driver、fsmonitor、credential helper、signing programを含むfixtureを拒否し、system attributesを無効化する。
-9. STAGE-GIT-05は、通常履歴を先に確認する経路とreflogを先に確認する経路の少なくとも2つで同じclear snapshotへ到達する。
+9. STAGE-GIT-05は、通常履歴を先に確認する経路とreflogを先に確認する経路に加え、branch作成後のswitchと`switch -c`の両方で同じclear snapshotへ到達する。
 
-複数の正しい手順を許可するstageでは、少なくとも2経路を用意する。ただしMVPのcommand allowlistが実質的に1経路しか許可しない場合は、その理由をstage testへ記録する。
+改善単位7DではSTAGE-GIT-01〜05の各Stageに2経路を用意し、各経路のDocker integration testを1本ずつ維持する。採点testはcommand履歴や順序ではなく最終snapshotの不変条件を確認する。
 
-STAGE-GIT-05の状態変更を伴う最小正解経路は、`reflog`で表示された`C1`へ固定名branchを作成してswitchする経路とする。観察順序は、A: `status`→通常履歴→`reflog`→branch作成→switch、B: `reflog`→`status`または通常履歴→branch作成→switchの2経路を確認する。`git show C1`は両経路へ追加できる任意の内容確認であり、2経路そのものやcommand history上のclear必須操作にしない。任意ref、revision式、reflog selector、別branch名を許可する別経路は増やさない。最低限、次を対象限定で確認する。
+STAGE-GIT-05の状態変更を伴う最小正解経路は、`reflog`で表示された`C1`へ固定名branchを作成してswitchする経路と、固定名branchを`switch -c`で作成・移動する経路とする。観察順序は採点しない。`git show C1`は任意の内容確認であり、command history上のclear必須操作にしない。任意ref、revision式、reflog selector、別branch名を許可する別経路は増やさない。最低限、次を対象限定で確認する。
 
 - 初期状態でlocal branchが`main`だけ、`main=C0`、`C1`は`log --all`に現れず、HEAD reflogの最大8件内に一意な12桁IDで現れる。
 - Runner側固定fixture定義の`C0`／`C1`／tree／reflog entryと実repositoryが一致し、initial snapshotがrefやstdoutではなく信頼済み`recoveryTargetId=C1`を返し、reset後もobject IDとreflog順序を再現する。

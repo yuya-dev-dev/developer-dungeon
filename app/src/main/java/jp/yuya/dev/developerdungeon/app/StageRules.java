@@ -203,7 +203,9 @@ class StageRules {
     GitCommand normalize(StageDefinition definition, GitCommand command, StageTargets targets, Set<String> displayed) {
         if (command.objectId() == null) return command;
         String normalized = exactAllowedObject(command.objectId(), targets, displayed);
-        if ("STAGE-GIT-01".equals(definition.key()) && command.kind() == CommandKind.REVERT_NO_EDIT && !normalized.equals(targets.primaryObjectId())) {
+        if ("STAGE-GIT-01".equals(definition.key())
+                && (command.kind() == CommandKind.REVERT_NO_EDIT || command.kind() == CommandKind.REVERT_NO_COMMIT)
+                && !normalized.equals(targets.primaryObjectId())) {
             throw new IllegalArgumentException("このステージで取り消せるcommitではありません。");
         }
         if ("STAGE-GIT-02".equals(definition.key())) {
@@ -214,7 +216,9 @@ class StageRules {
                 throw new IllegalArgumentException("profileは元のC0へだけ戻してください。");
             }
         }
-        if ("STAGE-GIT-05".equals(definition.key()) && command.kind() == CommandKind.CREATE_PAYMENT_RETRY_BRANCH
+        if ("STAGE-GIT-05".equals(definition.key())
+                && (command.kind() == CommandKind.CREATE_PAYMENT_RETRY_BRANCH
+                || command.kind() == CommandKind.SWITCH_CREATE_PAYMENT_RETRY)
                 && !normalized.equals(targets.primaryObjectId())) {
             throw new IllegalArgumentException("reflogで確認した復旧対象のcommitだけを指定してください。");
         }
@@ -243,39 +247,39 @@ class StageRules {
         if ("STAGE-GIT-01".equals(definition.key())) {
             if (hintLevel == 1) return List.of("まず履歴と作業ツリーを見比べ、どの変更の後から設定が消えたか確認しよう。");
             if (hintLevel == 2) return List.of("公開済みの履歴は消さず、対象の変更を打ち消す新しいcommitを積む方法を考えよう。");
-            if (hintLevel == 3) return List.of("git status、git log --oneline、git show <commit-id>で根拠を確認し、git revert --no-edit <commit-id>の形を使う。");
+            if (hintLevel == 3) return List.of("git status、git log --oneline、git show <commit-id>で根拠を確認する。復旧はgit revert --no-edit <commit-id>、またはgit revert --no-commit <commit-id>の後に固定messageでcommitする方法を選べる。");
             return List.of("取り消す対象は " + targets.primaryObjectId().substring(0, 12)
-                    + "。git show " + targets.primaryObjectId().substring(0, 12) + "で内容を確認し、git revert --no-edit "
-                    + targets.primaryObjectId().substring(0, 12) + "を実行しよう。");
+                    + "。git revert --no-edit " + targets.primaryObjectId().substring(0, 12)
+                    + "、またはgit revert --no-commit " + targets.primaryObjectId().substring(0, 12)
+                    + "の後にgit commit -m restore-required-settingsを実行すれば、どちらも共有履歴を残して復旧できる。");
         }
         if ("STAGE-GIT-03".equals(definition.key())) {
             if (hintLevel == 1) return List.of("まず作業ツリーとindexに、どの変更が残っているか観察しよう。");
             if (hintLevel == 2) return List.of("branchを切り替える前に、未commit変更を一時退避する方法を考えよう。");
-            if (hintLevel == 3) return List.of("git stash push、git switch <branch>、git stash popの形を順に使う。");
-            return List.of("git stash pushで退避し、git switch feature/searchへ移動してから、git stash popで検索機能の変更を戻そう。");
+            if (hintLevel == 3) return List.of("git stash pushで退避し、git switch feature/searchでbranchを移る。復元はgit stash pop、またはgit stash applyの後にgit stash dropでstashを空にする方法を選べる。");
+            return List.of("git stash pushで退避し、git switch feature/searchへ移動する。その後はgit stash pop、またはgit stash applyとgit stash dropで検索機能の変更を戻し、stashを空にしよう。");
         }
         if ("STAGE-GIT-04".equals(definition.key())) {
             if (hintLevel == 1) return List.of("現在の状態と差分から、競合中のファイルと双方の変更を確認しよう。");
             if (hintLevel == 2) return List.of("片方を選ぶのではなく、security settingsとpublic profileの両方を残す文言を考えよう。");
-            if (hintLevel == 3) return List.of("git merge <branch>で統合を始め、限定エディタで解消した後、git add <file>、git commit --no-editの形で確定する。");
-            return List.of("git merge feature/profile-messageの後、限定エディタへ `profile.description=Manage security settings and edit your public profile.` と入力し、git add "
-                    + STAGE_FOUR_PATH + "、git commit --no-editの順に実行しよう。");
+            if (hintLevel == 3) return List.of("git merge <branch>で統合を始め、限定エディタで解消する。その後はgit add <file>とgit commit --no-edit、またはgit commit -a --no-editで確定できる。");
+            return List.of("git merge feature/profile-messageの後、限定エディタへ `profile.description=Manage security settings and edit your public profile.` と入力する。git add "
+                    + STAGE_FOUR_PATH + "の後にgit commit --no-edit、またはgit commit -a --no-editで統合を確定しよう。");
         }
         if ("STAGE-GIT-05".equals(definition.key())) {
             if (hintLevel == 1) return List.of("通常の履歴に目的の変更がないことを確かめ、HEADが以前指していた操作履歴を調べよう。");
             if (hintLevel == 2) return List.of("branch名がなくても、以前HEADが指したcommitは操作履歴に残ることがあります。");
-            if (hintLevel == 3) return List.of("git reflog、git show <commit-id>で根拠を確認し、git branch <branch> <commit-id>、git switch <branch>の形で復旧する。");
+            if (hintLevel == 3) return List.of("git reflog、git show <commit-id>で根拠を確認する。復旧はgit branch <branch> <commit-id>の後にswitchするか、git switch -c <branch> <commit-id>で同時に行える。");
             return List.of("C1は " + targets.primaryObjectId().substring(0, 12)
                     + "。git branch feature/payment-retry " + targets.primaryObjectId().substring(0, 12)
-                    + " の後に、git switch feature/payment-retryを実行しよう。");
+                    + "の後にgit switch feature/payment-retry、またはgit switch -c feature/payment-retry "
+                    + targets.primaryObjectId().substring(0, 12) + "で復旧しよう。");
         }
         if (hintLevel == 1) return List.of("二つのbranchが現在どこを指し、どちらに通知機能の変更があるか比較しよう。");
         if (hintLevel == 2) return List.of("commitを移す操作と、未公開branchを元へ戻す操作を分けて考えよう。");
-        if (hintLevel == 3) return List.of("git switch <branch>、git cherry-pick <commit-id>、git reset --hard <commit-id>の形を、必要な変更を先に残す順で使う。");
+        if (hintLevel == 3) return List.of("git switch <branch>、git cherry-pick <commit-id>、git reset --hard <commit-id>を使う。C1を確認済みなら、変更を先に移す方法とprofileを先に戻す方法のどちらも選べる。");
         return List.of("C1は " + targets.primaryObjectId().substring(0, 12) + "、C0は " + targets.secondaryObjectId().substring(0, 12)
-                + "。git switch feature/notification、git cherry-pick " + targets.primaryObjectId().substring(0, 12)
-                + "、git switch feature/profile、git reset --hard " + targets.secondaryObjectId().substring(0, 12)
-                + "、git switch feature/notificationの順に進めよう。");
+                + "。C1をfeature/notificationへcherry-pickしてからfeature/profileをC0へ戻すか、C1を確認したままfeature/profileを先にC0へ戻してからfeature/notificationへcherry-pickしよう。最後はfeature/notificationにいることを確認する。");
     }
     StageGrade grade(StageDefinition definition, RepositorySnapshot snapshot, StageTargets targets, int highestHint, int playerResets) {
         boolean cleared;
@@ -339,6 +343,8 @@ class StageRules {
         if ("git log --oneline".equals(raw)) return new GitCommand(CommandKind.LOG_ONELINE);
         if (raw.matches("git show " + OBJECT_ID.pattern())) return new GitCommand(CommandKind.SHOW, raw.substring(9));
         if (raw.matches("git revert --no-edit " + OBJECT_ID.pattern())) return new GitCommand(CommandKind.REVERT_NO_EDIT, raw.substring(21));
+        if (raw.matches("git revert --no-commit " + OBJECT_ID.pattern())) return new GitCommand(CommandKind.REVERT_NO_COMMIT, raw.substring(23));
+        if ("git commit -m restore-required-settings".equals(raw)) return new GitCommand(CommandKind.COMMIT_RESTORE_SETTINGS);
         throw unsupportedSyntax();
     }
     private GitCommand parseStageTwo(String raw) {
@@ -360,6 +366,8 @@ class StageRules {
         if ("git stash list".equals(raw)) return new GitCommand(CommandKind.STASH_LIST);
         if ("git switch feature/search".equals(raw)) return GitCommand.switchTo("feature/search");
         if ("git stash pop".equals(raw)) return new GitCommand(CommandKind.STASH_POP);
+        if ("git stash apply".equals(raw)) return new GitCommand(CommandKind.STASH_APPLY);
+        if ("git stash drop".equals(raw)) return new GitCommand(CommandKind.STASH_DROP);
         throw unsupportedSyntax();
     }
     private GitCommand parseStageFour(String raw) {
@@ -370,6 +378,7 @@ class StageRules {
         if ("git merge feature/profile-message".equals(raw)) return new GitCommand(CommandKind.MERGE_PROFILE_MESSAGE);
         if (("git add " + STAGE_FOUR_PATH).equals(raw)) return new GitCommand(CommandKind.ADD_PROFILE_MESSAGES);
         if ("git commit --no-edit".equals(raw)) return new GitCommand(CommandKind.COMMIT_NO_EDIT);
+        if ("git commit -a --no-edit".equals(raw)) return new GitCommand(CommandKind.COMMIT_ALL_NO_EDIT);
         throw unsupportedSyntax();
     }
     private GitCommand parseStageFive(String raw) {
@@ -381,6 +390,10 @@ class StageRules {
             return new GitCommand(CommandKind.CREATE_PAYMENT_RETRY_BRANCH, raw.substring("git branch feature/payment-retry ".length()));
         }
         if ("git switch feature/payment-retry".equals(raw)) return new GitCommand(CommandKind.SWITCH_PAYMENT_RETRY);
+        if (raw.matches("git switch -c feature/payment-retry " + OBJECT_ID.pattern())) {
+            return new GitCommand(CommandKind.SWITCH_CREATE_PAYMENT_RETRY,
+                    raw.substring("git switch -c feature/payment-retry ".length()));
+        }
         throw unsupportedSyntax();
     }
     private void rejectUnsafeRaw(String raw) {

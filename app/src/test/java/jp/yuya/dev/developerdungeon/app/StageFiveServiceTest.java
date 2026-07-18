@@ -68,6 +68,24 @@ class StageFiveServiceTest {
         assertThat(commands.getAllValues().get(3).command().objectId()).isEqualTo(C1);
     }
 
+    @Test void alsoRecoversByCreatingAndSwitchingTheBranchInOneCommand() {
+        RunnerClient runner = mock(RunnerClient.class);
+        when(runner.create(any())).thenReturn(new WorkspaceResponse("11111111-1111-1111-1111-111111111111", 0, initial()));
+        when(runner.execute(any())).thenReturn(response(reflogOutput(), initial()), response("", cleared()));
+        StageService service = new StageService(runner, new StageRules(), new OutputSanitizer());
+
+        service.open("STAGE-GIT-05");
+        service.execute("STAGE-GIT-05", "git reflog", id(20));
+        StageView result = service.execute("STAGE-GIT-05", "git switch -c feature/payment-retry " + C1.substring(0, 12), id(21));
+
+        assertThat(result.cleared()).isTrue();
+        var commands = org.mockito.ArgumentCaptor.forClass(ExecuteRequest.class);
+        verify(runner, times(2)).execute(commands.capture());
+        assertThat(commands.getAllValues().stream().map(request -> request.command().kind()))
+                .containsExactly(CommandKind.REFLOG_HEAD, CommandKind.SWITCH_CREATE_PAYMENT_RETRY);
+        assertThat(commands.getAllValues().get(1).command().objectId()).isEqualTo(C1);
+    }
+
     @Test void doesNotAuthorizeAnIdFromFailedOrTruncatedReflogOutput() {
         RunnerClient runner = mock(RunnerClient.class);
         when(runner.create(any())).thenReturn(new WorkspaceResponse("11111111-1111-1111-1111-111111111111", 0, initial()));

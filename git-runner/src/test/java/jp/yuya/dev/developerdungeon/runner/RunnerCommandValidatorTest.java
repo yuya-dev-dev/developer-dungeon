@@ -14,17 +14,25 @@ class RunnerCommandValidatorTest {
         assertThatCode(() -> validator.validate(new GitCommand(CommandKind.STASH_PUSH))).doesNotThrowAnyException();
         assertThatCode(() -> validator.validate(new GitCommand(CommandKind.STASH_LIST))).doesNotThrowAnyException();
         assertThatCode(() -> validator.validate(new GitCommand(CommandKind.STASH_POP))).doesNotThrowAnyException();
+        assertThatCode(() -> validator.validate(new GitCommand(CommandKind.STASH_APPLY))).doesNotThrowAnyException();
+        assertThatCode(() -> validator.validate(new GitCommand(CommandKind.STASH_DROP))).doesNotThrowAnyException();
         assertThatCode(() -> validator.validate(new GitCommand(CommandKind.LOG_GRAPH_ALL))).doesNotThrowAnyException();
         assertThatCode(() -> validator.validate(new GitCommand(CommandKind.MERGE_PROFILE_MESSAGE))).doesNotThrowAnyException();
         assertThatCode(() -> validator.validate(new GitCommand(CommandKind.ADD_PROFILE_MESSAGES))).doesNotThrowAnyException();
         assertThatCode(() -> validator.validate(new GitCommand(CommandKind.COMMIT_NO_EDIT))).doesNotThrowAnyException();
+        assertThatCode(() -> validator.validate(new GitCommand(CommandKind.COMMIT_RESTORE_SETTINGS))).doesNotThrowAnyException();
+        assertThatCode(() -> validator.validate(new GitCommand(CommandKind.COMMIT_ALL_NO_EDIT))).doesNotThrowAnyException();
         assertThatCode(() -> validator.validate(new GitCommand(CommandKind.REFLOG_HEAD))).doesNotThrowAnyException();
         assertThatCode(() -> validator.validate(new GitCommand(CommandKind.SWITCH_PAYMENT_RETRY))).doesNotThrowAnyException();
         assertThatCode(() -> validator.validate(new GitCommand(CommandKind.CREATE_PAYMENT_RETRY_BRANCH, "a".repeat(40)))).doesNotThrowAnyException();
+        assertThatCode(() -> validator.validate(new GitCommand(CommandKind.REVERT_NO_COMMIT, "a".repeat(40)))).doesNotThrowAnyException();
+        assertThatCode(() -> validator.validate(new GitCommand(CommandKind.SWITCH_CREATE_PAYMENT_RETRY, "a".repeat(40)))).doesNotThrowAnyException();
     }
     @Test void rejectsRevisionSyntaxAndShortIds() {
         assertThatThrownBy(() -> validator.validate(new GitCommand(CommandKind.SHOW, "HEAD^"))).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> validator.validate(new GitCommand(CommandKind.REVERT_NO_EDIT, "a".repeat(12)))).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> validator.validate(new GitCommand(CommandKind.REVERT_NO_COMMIT, "a".repeat(12)))).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> validator.validate(new GitCommand(CommandKind.SWITCH_CREATE_PAYMENT_RETRY, "a".repeat(12)))).isInstanceOf(IllegalArgumentException.class);
     }
     @Test void keepsBranchTargetsSeparateFromObjectTargets() {
         assertThatCode(() -> validator.validate(GitCommand.switchTo("feature/notification"))).doesNotThrowAnyException();

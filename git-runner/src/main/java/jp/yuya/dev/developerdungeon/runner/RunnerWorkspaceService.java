@@ -446,18 +446,24 @@ class RunnerWorkspaceService {
             case CHERRY_PICK -> { arguments.add("cherry-pick"); arguments.add(command.objectId()); }
             case RESET_HARD -> { arguments.addAll(List.of("reset", "--hard")); arguments.add(command.objectId()); }
             case REVERT_NO_EDIT -> { arguments.addAll(List.of("revert", "--no-edit")); arguments.add(command.objectId()); }
+            case REVERT_NO_COMMIT -> { arguments.addAll(List.of("revert", "--no-commit")); arguments.add(command.objectId()); }
+            case COMMIT_RESTORE_SETTINGS -> arguments.addAll(List.of("commit", "-m", "restore-required-settings"));
             case DIFF -> arguments.addAll(List.of("diff", "--no-ext-diff", "--no-textconv", "--"));
             case DIFF_STAGED -> arguments.addAll(List.of("diff", "--staged", "--no-ext-diff", "--no-textconv", "--"));
             case STASH_PUSH -> arguments.addAll(List.of("stash", "push"));
             case STASH_LIST -> arguments.addAll(List.of("stash", "list"));
             case STASH_POP -> arguments.addAll(List.of("stash", "pop"));
+            case STASH_APPLY -> arguments.addAll(List.of("stash", "apply"));
+            case STASH_DROP -> arguments.addAll(List.of("stash", "drop"));
             case LOG_GRAPH_ALL -> arguments.addAll(List.of("log", "--oneline", "--all", "--decorate", "--graph", "--abbrev=12"));
             case MERGE_PROFILE_MESSAGE -> arguments.addAll(List.of("merge", "--no-edit", "feature/profile-message"));
             case ADD_PROFILE_MESSAGES -> arguments.addAll(List.of("add", "--", STAGE_FOUR_PATH));
             case COMMIT_NO_EDIT -> arguments.addAll(List.of("commit", "--no-edit"));
+            case COMMIT_ALL_NO_EDIT -> arguments.addAll(List.of("commit", "-a", "--no-edit"));
             case REFLOG_HEAD -> arguments.addAll(List.of("reflog", "show", "--format=%h%x09%gs", "--abbrev=12", "--max-count=8", "HEAD"));
             case CREATE_PAYMENT_RETRY_BRANCH -> arguments.addAll(List.of("branch", "feature/payment-retry", command.objectId()));
             case SWITCH_PAYMENT_RETRY -> arguments.addAll(List.of("switch", "feature/payment-retry"));
+            case SWITCH_CREATE_PAYMENT_RETRY -> { arguments.addAll(List.of("switch", "-c", "feature/payment-retry")); arguments.add(command.objectId()); }
         }
         return arguments;
     }
@@ -536,7 +542,8 @@ class RunnerWorkspaceService {
             throw new IllegalArgumentException("object is not a commit");
         }
         StageTargets targets = stageTargets.get(workspace.workspaceId());
-        if (command.kind() == CommandKind.REVERT_NO_EDIT && !command.objectId().equals(targets.revertTarget())) {
+        if ((command.kind() == CommandKind.REVERT_NO_EDIT || command.kind() == CommandKind.REVERT_NO_COMMIT)
+                && !command.objectId().equals(targets.revertTarget())) {
             throw new IllegalArgumentException("only the stage's accidental commit can be reverted");
         }
     }
@@ -544,7 +551,9 @@ class RunnerWorkspaceService {
         StageTargets targets = stageTargets.get(workspace.workspaceId());
         if ("STAGE-GIT-01".equals(workspace.stageKey())) {
             if (command.kind() != CommandKind.STATUS && command.kind() != CommandKind.LOG_ONELINE
-                    && command.kind() != CommandKind.SHOW && command.kind() != CommandKind.REVERT_NO_EDIT) {
+                    && command.kind() != CommandKind.SHOW && command.kind() != CommandKind.REVERT_NO_EDIT
+                    && command.kind() != CommandKind.REVERT_NO_COMMIT
+                    && command.kind() != CommandKind.COMMIT_RESTORE_SETTINGS) {
                 throw new IllegalArgumentException("command is not allowed for this stage");
             }
             return;
@@ -553,7 +562,7 @@ class RunnerWorkspaceService {
             if (command.kind() != CommandKind.STATUS && command.kind() != CommandKind.LOG_GRAPH_ALL
                     && command.kind() != CommandKind.DIFF && command.kind() != CommandKind.BRANCH
                     && command.kind() != CommandKind.MERGE_PROFILE_MESSAGE && command.kind() != CommandKind.ADD_PROFILE_MESSAGES
-                    && command.kind() != CommandKind.COMMIT_NO_EDIT) {
+                    && command.kind() != CommandKind.COMMIT_NO_EDIT && command.kind() != CommandKind.COMMIT_ALL_NO_EDIT) {
                 throw new IllegalArgumentException("command is not allowed for this stage");
             }
             return;
@@ -562,10 +571,12 @@ class RunnerWorkspaceService {
             if (command.kind() != CommandKind.STATUS && command.kind() != CommandKind.LOG_ONELINE_ALL_DECORATE
                     && command.kind() != CommandKind.REFLOG_HEAD && command.kind() != CommandKind.SHOW
                     && command.kind() != CommandKind.CREATE_PAYMENT_RETRY_BRANCH
-                    && command.kind() != CommandKind.SWITCH_PAYMENT_RETRY) {
+                    && command.kind() != CommandKind.SWITCH_PAYMENT_RETRY
+                    && command.kind() != CommandKind.SWITCH_CREATE_PAYMENT_RETRY) {
                 throw new IllegalArgumentException("command is not allowed for this stage");
             }
-            if (command.kind() == CommandKind.CREATE_PAYMENT_RETRY_BRANCH
+            if ((command.kind() == CommandKind.CREATE_PAYMENT_RETRY_BRANCH
+                    || command.kind() == CommandKind.SWITCH_CREATE_PAYMENT_RETRY)
                     && !command.objectId().equals(targets.recoveryTarget())) {
                 throw new IllegalArgumentException("only the reflog recovery commit can be used");
             }
@@ -574,7 +585,8 @@ class RunnerWorkspaceService {
         if ("STAGE-GIT-03".equals(workspace.stageKey())) {
             if (command.kind() != CommandKind.STATUS && command.kind() != CommandKind.DIFF && command.kind() != CommandKind.DIFF_STAGED
                     && command.kind() != CommandKind.BRANCH && command.kind() != CommandKind.STASH_PUSH && command.kind() != CommandKind.STASH_LIST
-                    && command.kind() != CommandKind.STASH_POP && command.kind() != CommandKind.SWITCH) {
+                    && command.kind() != CommandKind.STASH_POP && command.kind() != CommandKind.STASH_APPLY
+                    && command.kind() != CommandKind.STASH_DROP && command.kind() != CommandKind.SWITCH) {
                 throw new IllegalArgumentException("command is not allowed for this stage");
             }
             if (command.kind() == CommandKind.SWITCH && !"feature/search".equals(command.branchName())) {
