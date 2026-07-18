@@ -21,15 +21,21 @@ class StageController {
             new CommandReference(4, "git show <commit-id>", "特定commitの内容を確認する"),
             new CommandReference(5, "git switch <branch>", "作業するbranchを切り替える"),
             new CommandReference(6, "git stash push", "未commitの変更を一時退避する"),
-            new CommandReference(7, "git stash pop", "一時退避した変更を現在のbranchへ戻す"),
-            new CommandReference(8, "git revert --no-edit <commit-id>", "共有履歴を残したまま変更を打ち消す"),
-            new CommandReference(9, "git cherry-pick <commit-id>", "特定commitの変更を現在のbranchへ適用する"),
-            new CommandReference(10, "git reset --hard <commit-id>", "未共有のbranchを指定commitの状態へ戻す"),
-            new CommandReference(11, "git merge <branch>", "別branchの変更を現在のbranchへ統合する"),
-            new CommandReference(12, "git add <file>", "解消したファイルをstageする"),
-            new CommandReference(13, "git commit --no-edit", "用意されたmessageで途中の操作を確定する"),
-            new CommandReference(14, "git reflog", "HEADが過去に指していた履歴を確認する"),
-            new CommandReference(15, "git branch <branch> <commit-id>", "指定commitを指すbranchを作成する"));
+            new CommandReference(7, "git stash pop", "一時退避した変更を適用してstashから削除する"),
+            new CommandReference(8, "git stash apply", "一時退避した変更を適用し、stashにも残す"),
+            new CommandReference(9, "git stash drop", "適用済みのstashを削除する"),
+            new CommandReference(10, "git revert --no-edit <commit-id>", "共有履歴を残したまま変更を打ち消す"),
+            new CommandReference(11, "git revert --no-commit <commit-id>", "打ち消す変更をcommitせずにstageする"),
+            new CommandReference(12, "git commit -m restore-required-settings", "stage済みの復旧内容を固定messageでcommitする"),
+            new CommandReference(13, "git cherry-pick <commit-id>", "特定commitの変更を現在のbranchへ適用する"),
+            new CommandReference(14, "git reset --hard <commit-id>", "未共有のbranchを指定commitの状態へ戻す"),
+            new CommandReference(15, "git merge <branch>", "別branchの変更を現在のbranchへ統合する"),
+            new CommandReference(16, "git add <file>", "解消したファイルをstageする"),
+            new CommandReference(17, "git commit --no-edit", "用意されたmessageで途中の操作を確定する"),
+            new CommandReference(18, "git commit -a --no-edit", "追跡中の変更をstageして途中の操作を確定する"),
+            new CommandReference(19, "git reflog", "HEADが過去に指していた履歴を確認する"),
+            new CommandReference(20, "git branch <branch> <commit-id>", "指定commitを指すbranchを作成する"),
+            new CommandReference(21, "git switch -c <branch> <commit-id>", "指定commitからbranchを作成して切り替える"));
     private final StageService stages;
     StageController(StageService stages) { this.stages = stages; }
 

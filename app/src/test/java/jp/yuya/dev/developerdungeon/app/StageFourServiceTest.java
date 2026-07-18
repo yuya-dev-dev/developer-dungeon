@@ -62,6 +62,26 @@ class StageFourServiceTest {
         assertThat(writes.getValue().content()).isEqualTo("profile.description=Manage security settings and edit your public profile.\n");
     }
 
+    @Test void alsoClearsWhenCommitAllStagesTheResolvedTrackedFile() {
+        RunnerClient runner = mock(RunnerClient.class);
+        when(runner.create(any())).thenReturn(new WorkspaceResponse("11111111-1111-1111-1111-111111111111", 0, initial()));
+        when(runner.execute(any())).thenReturn(command(1, conflicted()), command(0, cleared()));
+        when(runner.writeFile(any())).thenReturn(new WriteFileResponse(true, "b".repeat(64), edited()));
+        StageService service = new StageService(runner, new StageRules(), new OutputSanitizer());
+
+        service.open("STAGE-GIT-04");
+        service.execute("STAGE-GIT-04", "git merge feature/profile-message", id(30));
+        service.edit("STAGE-GIT-04", "profile.description=Manage security settings and edit your public profile.\n",
+                "a".repeat(64), id(31));
+        StageView result = service.execute("STAGE-GIT-04", "git commit -a --no-edit", id(32));
+
+        assertThat(result.cleared()).isTrue();
+        var commands = org.mockito.ArgumentCaptor.forClass(ExecuteRequest.class);
+        verify(runner, times(2)).execute(commands.capture());
+        assertThat(commands.getAllValues().stream().map(request -> request.command().kind()))
+                .containsExactly(CommandKind.MERGE_PROFILE_MESSAGE, CommandKind.COMMIT_ALL_NO_EDIT);
+    }
+
     @Test void issuesSeparateReadAndWriteRequestIds() {
         RunnerClient runner = mock(RunnerClient.class);
         when(runner.create(any())).thenReturn(new WorkspaceResponse("11111111-1111-1111-1111-111111111111", 0, initial()));

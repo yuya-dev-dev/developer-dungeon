@@ -12,6 +12,35 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 class StageOneServiceTest {
+    @Test void clearsThroughNoCommitRevertAndTheFixedCommit() {
+        RunnerClient runner = mock(RunnerClient.class);
+        String parent = "a".repeat(40);
+        String target = "b".repeat(40);
+        String restored = "c".repeat(40);
+        String safeTree = "d".repeat(40);
+        String badTree = "e".repeat(40);
+        var initial = new RepositorySnapshot(target, badTree, safeTree, List.of(parent), true, false, List.of(target, parent));
+        var staged = new RepositorySnapshot(target, safeTree, safeTree, List.of(parent), false, false, List.of(target, parent));
+        var cleared = new RepositorySnapshot(restored, safeTree, safeTree, List.of(target), true, false, List.of(restored, target, parent));
+        when(runner.create(any())).thenReturn(new WorkspaceResponse("11111111-1111-1111-1111-111111111111", 0, initial));
+        when(runner.execute(any())).thenReturn(new CommandResponse(0, "", "", false, 1, staged),
+                new CommandResponse(0, "", "", false, 2, cleared));
+        var service = new StageService(runner, new StageRules(), new OutputSanitizer());
+
+        service.open("STAGE-GIT-01");
+        service.hint("STAGE-GIT-01"); service.hint("STAGE-GIT-01");
+        service.hint("STAGE-GIT-01"); service.hint("STAGE-GIT-01");
+        service.execute("STAGE-GIT-01", "git revert --no-commit " + target.substring(0, 12), "00000000-0000-0000-0000-000000000001");
+        var result = service.execute("STAGE-GIT-01", "git commit -m restore-required-settings", "00000000-0000-0000-0000-000000000002");
+
+        assertThat(result.cleared()).isTrue();
+        var requests = ArgumentCaptor.forClass(ExecuteRequest.class);
+        verify(runner, times(2)).execute(requests.capture());
+        assertThat(requests.getAllValues().stream().map(request -> request.command().kind()))
+                .containsExactly(CommandKind.REVERT_NO_COMMIT, CommandKind.COMMIT_RESTORE_SETTINGS);
+        assertThat(requests.getAllValues().getFirst().command().objectId()).isEqualTo(target);
+    }
+
     @Test void progressReadsPersistedStarsWithoutStartingAWorkspace() {
         RunnerClient runner = mock(RunnerClient.class);
         StagePersistence persistence = mock(StagePersistence.class);

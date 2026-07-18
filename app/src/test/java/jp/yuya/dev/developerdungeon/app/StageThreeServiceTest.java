@@ -38,6 +38,26 @@ class StageThreeServiceTest {
                 .containsExactly(CommandKind.STASH_PUSH, CommandKind.SWITCH, CommandKind.STASH_POP);
     }
 
+    @Test void alsoClearsWhenTheStashIsAppliedAndThenDropped() {
+        RunnerClient runner = mock(RunnerClient.class);
+        when(runner.create(any())).thenReturn(new WorkspaceResponse("11111111-1111-1111-1111-111111111111", 0, initial()));
+        when(runner.execute(any())).thenReturn(response(stashed()), response(onSearchWithStash()),
+                response(appliedWithStash()), response(finalState()));
+        StageService service = new StageService(runner, new StageRules(), new OutputSanitizer());
+
+        service.open("STAGE-GIT-03");
+        service.execute("STAGE-GIT-03", "git stash push", id(10));
+        service.execute("STAGE-GIT-03", "git switch feature/search", id(11));
+        service.execute("STAGE-GIT-03", "git stash apply", id(12));
+        var cleared = service.execute("STAGE-GIT-03", "git stash drop", id(13));
+
+        assertThat(cleared.cleared()).isTrue();
+        var commands = org.mockito.ArgumentCaptor.forClass(ExecuteRequest.class);
+        verify(runner, org.mockito.Mockito.times(4)).execute(commands.capture());
+        assertThat(commands.getAllValues().stream().map(request -> request.command().kind()))
+                .containsExactly(CommandKind.STASH_PUSH, CommandKind.SWITCH, CommandKind.STASH_APPLY, CommandKind.STASH_DROP);
+    }
+
     @Test void rejectsStashOptionsBeforeCallingRunner() {
         RunnerClient runner = mock(RunnerClient.class);
         when(runner.create(any())).thenReturn(new WorkspaceResponse("11111111-1111-1111-1111-111111111111", 0, initial()));
@@ -66,13 +86,15 @@ class StageThreeServiceTest {
         StageRules.StageTargets targets = rules.capture(definition, initial());
 
         assertThat(rules.hints(definition, 2, targets).toString()).doesNotContain("git stash push");
-        assertThat(rules.hints(definition, 3, targets).getFirst()).contains("git stash push", "git switch <branch>", "git stash pop");
+        assertThat(rules.hints(definition, 3, targets).getFirst())
+                .contains("git stash push", "git switch feature/search", "git stash pop", "git stash apply", "git stash drop");
     }
 
     private static CommandResponse response(RepositorySnapshot snapshot) { return new CommandResponse(0, "", "", false, 1, snapshot); }
     private static RepositorySnapshot initial() { return snapshot(C0, "main", false, INITIAL_BLOB, List.of("search.txt"), List.of()); }
     private static RepositorySnapshot stashed() { return snapshot(C0, "main", true, "c".repeat(40), List.of(), List.of("d".repeat(40))); }
     private static RepositorySnapshot onSearchWithStash() { return snapshot(C1, "feature/search", true, "e".repeat(40), List.of(), List.of("d".repeat(40))); }
+    private static RepositorySnapshot appliedWithStash() { return snapshot(C1, "feature/search", false, FINAL_BLOB, List.of("search.txt"), List.of("d".repeat(40))); }
     private static RepositorySnapshot finalState() { return snapshot(C1, "feature/search", false, FINAL_BLOB, List.of("search.txt"), List.of()); }
     private static RepositorySnapshot withState(RepositorySnapshot source, boolean merge, boolean rebase) {
         return new RepositorySnapshot(source.headObjectId(), source.headTreeId(), source.firstParentTreeId(), source.headParents(), source.clean(), source.revertInProgress(),

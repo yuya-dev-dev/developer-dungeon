@@ -20,6 +20,27 @@ class StageTwoServiceTest {
     private static final String BASE_TREE = "d".repeat(40);
     private static final String NOTIFICATION_TREE = "e".repeat(40);
 
+    @Test void alsoClearsWhenProfileIsResetBeforeTheCommitIsMoved() {
+        RunnerClient runner = mock(RunnerClient.class);
+        when(runner.create(any())).thenReturn(new WorkspaceResponse("11111111-1111-1111-1111-111111111111", 0, profileSnapshot(C1, C0, C1)));
+        when(runner.execute(any())).thenReturn(response(profileSnapshot(C0, C0, C0)),
+                response(notificationSnapshot(C0, C0, C0)), response(notificationSnapshot(PICKED, C0, PICKED)));
+        StageService service = new StageService(runner, new StageRules(), new OutputSanitizer());
+
+        service.open("STAGE-GIT-02");
+        service.hint("STAGE-GIT-02"); service.hint("STAGE-GIT-02");
+        service.hint("STAGE-GIT-02"); service.hint("STAGE-GIT-02");
+        service.execute("STAGE-GIT-02", "git reset --hard " + C0.substring(0, 12), id(10));
+        service.execute("STAGE-GIT-02", "git switch feature/notification", id(11));
+        var cleared = service.execute("STAGE-GIT-02", "git cherry-pick " + C1.substring(0, 12), id(12));
+
+        assertThat(cleared.cleared()).isTrue();
+        var requests = org.mockito.ArgumentCaptor.forClass(ExecuteRequest.class);
+        verify(runner, times(3)).execute(requests.capture());
+        assertThat(requests.getAllValues().stream().map(request -> request.command().kind()))
+                .containsExactly(CommandKind.RESET_HARD, CommandKind.SWITCH, CommandKind.CHERRY_PICK);
+    }
+
     @Test void hintFourMakesFixedC0AndC1UsableWithoutRunningLog() {
         RunnerClient runner = mock(RunnerClient.class);
         when(runner.create(any())).thenReturn(new WorkspaceResponse("11111111-1111-1111-1111-111111111111", 0, profileSnapshot(C1, C0, C1)));

@@ -2,8 +2,8 @@
 
 ## 文書情報
 
-- 状態: 改善単位1〜6はmain反映済み。第2回内部プレイ所見を反映した改善単位7A・7Bと、承認済み参照画像による入口2画面化7Cは実装前方針確定、未実装
-- レビュー結果: 従来案はバム・井上`PASS`（2026-07-14）。改善単位7A・7Bは物語変更を含まないためバム対象外、井上の実装前レビューはP1なし、P2を本文へ反映して`CONDITIONAL`（2026-07-16）。7Cはユーザー承認済み参照画像と既存境界に基づき、ユーザーの明示指示により井上レビューを省略した（2026-07-17）
+- 状態: 改善単位1〜7Cはmain反映済み。改善単位7D「最終状態ベースの別解対応」は実装・レビュー・対象限定テスト完了
+- レビュー結果: 従来案はバム・井上`PASS`（2026-07-14）。改善単位7A・7Bは物語変更を含まないためバム対象外、井上の実装前レビューはP1なし、P2を本文へ反映して`CONDITIONAL`（2026-07-16）。7Cはユーザー承認済み参照画像と既存境界に基づき、ユーザーの明示指示により井上レビューを省略した（2026-07-17）。7Dは井上の実装前レビューと実装後再レビューで重大な指摘なし、いずれも`PASS`（2026-07-18）
 - 対象: `STAGE-GIT-01`〜`STAGE-GIT-05`
 - 根拠: 2026-07-14にGit初心者のユーザー1名が全5ステージをプレイした内部パイロット
 - 上位文書: [`requirements.md`](requirements.md)、[`game-design.md`](game-design.md)
@@ -167,8 +167,9 @@ branch作成前に対象object IDがそのattemptで安全に表示済みであ�
 7. **画面情報設計の簡素化（7A）**: active画面をsidebar、統合header、repository状態、workspaceへ整理し、学習カード、重複ticket、概念chip、下部hintを撤去する。`GET /commands`の参照表、sidebar内hint、Stage 4のmerge conflict中だけ表示する限定editorを追加する。Runner、DB、fixture、採点を変更しない。
 8. **同一画面内の部分更新（7B）**: 7Aで固定した領域を前提に、既存POSTと通常form fallbackを保ったprogressive enhancementを追加する。新JSON API、SPA framework、WebSocket、Runner contract、attempt lifecycleは追加しない。
 9. **入口2画面化（7C）**: `/`をタイトル兼編選択画面、`/git/stages`をGit編ステージ選択画面とし、承認済み参照画像の明るいオフィスとホワイトボード構成をHTML/CSSで再現する。Git編だけを有効表示し、Stage一覧は番号、現場番号、題名、clear状態に絞る。既存Stage URL、採点、スター永続化、Runner、attempt lifecycleを変更しない。
+10. **最終状態ベースの別解対応（7D）**: [`phase-5-7d-alternative-solutions-plan.md`](phase-5-7d-alternative-solutions-plan.md)に従い、Stage固有の最終不変条件を維持した安全な第2経路を全5Stageへ用意する。固定コマンド列、最短手順、コマンド数を採点せず、任意Git実行は許可しない。
 
-7A、7B、7Cは別PRを基本とする。7Bは7Aの固定領域とfallbackがmainへ反映された後に着手する。7Cは既存プレイ画面の内部構成へ依存しないが、差分と手動確認を分離するため7A・7Bと混在させない。いずれも前段のUIだけでRunner、DB、fixtureを先回りして変更しない。
+7A、7B、7Cはmain反映済みとする。7DはApp、Runner contract、Runner、DB constraintへまたがるため独立PRとし、Stage固有の最終不変条件と安全境界をレビューしてから実装する。
 
 ## 9. 受け入れ条件
 

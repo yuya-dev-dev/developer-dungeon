@@ -2,7 +2,7 @@
 
 ## 文書情報
 
-- 状態: 既存STAGE-GIT-01〜05は実装・対象限定テスト完了。Phase 5の表示・文言・複数経路改訂はバム・井上レビューPASS、未実装
+- 状態: 既存STAGE-GIT-01〜05とPhase 5の表示・文言は実装済み。改善単位7Dの安全な複数解法対応も実装・対象限定テスト完了
 - 上位文書: [`requirements.md`](requirements.md)、[`game-design.md`](game-design.md)
 - 関連文書: [`threat-model.md`](threat-model.md)、[`architecture.md`](architecture.md)、[`test-strategy.md`](test-strategy.md)
 
@@ -79,6 +79,10 @@ fixture内の具体的な文章、コミットメッセージ、object IDは実�
 - `git log --oneline`
 - `git show <fixture内で表示済みの12桁IDまたは完全ID>`
 - `git revert --no-edit <C2の表示済み12桁IDまたは完全ID>`
+- `git revert --no-commit <C2の表示済み12桁IDまたは完全ID>`
+- `git commit -m restore-required-settings`
+
+復旧は`revert --no-edit`で一度に確定する方法と、`revert --no-commit`で変更を確認してから固定messageでcommitする方法の両方を許可する。
 
 ### クリア条件
 
@@ -99,8 +103,8 @@ fixture内の具体的な文章、コミットメッセージ、object IDは実�
 
 1. `main`の直近履歴と、削除されたファイルを確認する。
 2. 公開済みcommitは、消すより打ち消す方法を検討する。
-3. `git revert --no-edit <commit>`の形を示す。
-4. fixtureの`C2`に対応するobject IDを含む具体的な入力を示す。
+3. `git revert --no-edit <commit>`と`git revert --no-commit <commit>`の形を示す。
+4. fixtureの`C2`に対応するobject IDと、後者を確定する固定commit commandを示す。
 
 ### クリア後の物語
 
@@ -139,6 +143,8 @@ fixture内の具体的な文章、コミットメッセージ、object IDは実�
 
 `reset --hard`はこのステージだけに許可し、対象を`C0`へ固定する。
 
+通知commitを先に正しいbranchへ適用する順序と、表示済みC1を保持したまま誤branchを先にC0へ戻す順序の両方を許可する。採点は順序ではなく、下記の最終branch位置とtreeを確認する。
+
 ### クリア条件
 
 - `feature/notification`が、`C0`へ`C1`相当の変更を適用した新しいcommitを指す。
@@ -160,8 +166,8 @@ fixture内の具体的な文章、コミットメッセージ、object IDは実�
 
 1. `--all --decorate`で2つのbranch位置を比較する。
 2. 既存commitを別branchへ適用する操作と、未公開branchを戻す操作を分けて考える。
-3. `switch`、`cherry-pick`、`reset --hard`の順序例をプレースホルダー付きで示す。
-4. fixtureのbranch名とobject IDを含む具体的な手順を示す。
+3. `switch`、`cherry-pick`、`reset --hard`の形を示し、単一の順序へ固定しない。
+4. fixtureのbranch名とobject IDを含む2つの安全な順序を示す。
 
 ### クリア後の物語
 
@@ -198,6 +204,10 @@ fixture内の具体的な文章、コミットメッセージ、object IDは実�
 - `git stash list`
 - `git switch feature/search`
 - `git stash pop`
+- `git stash apply`
+- `git stash drop`
+
+復元は`stash pop`で適用と削除を同時に行う方法と、`stash apply`後に`stash drop`する方法の両方を許可する。stash selectorは許可しない。
 
 ### クリア条件
 
@@ -221,8 +231,8 @@ fixture内の具体的な文章、コミットメッセージ、object IDは実�
 
 1. `status`と2種類の`diff`で、保存したい変更を確認する。
 2. branchを切り替える前に、working treeを一時退避できる。
-3. `stash push`、`switch`、`stash pop`の形を示す。
-4. 対象branchを含む具体的な手順を示す。
+3. `stash push`、`switch`と、`stash pop`または`stash apply`／`stash drop`の形を示す。
+4. 対象branchを含む2つの具体的な復元方法を示す。
 
 ### クリア後の物語
 
@@ -258,9 +268,12 @@ fixture内の具体的な文章、コミットメッセージ、object IDは実�
 - `git merge feature/profile-message`
 - `git add src/main/resources/messages.properties`
 - `git commit --no-edit`
+- `git commit -a --no-edit`
 - 限定エディタによる`src/main/resources/messages.properties`の編集
 
 限定エディタは`.git`、他ファイル、symlinkを読み書きできない。
+
+限定エディタで競合内容を解消した後は、固定pathを`add`して`commit --no-edit`する方法と、追跡中の変更だけを対象に`commit -a --no-edit`する方法の両方を許可する。
 
 ### クリア条件
 
@@ -326,8 +339,9 @@ fixture内の具体的な文章、コミットメッセージ、object IDは実�
 - `git show <このattemptで表示済みの12桁IDまたは対応する完全ID>`
 - `git branch feature/payment-retry <C1の表示済み12桁IDまたは対応する完全ID>`
 - `git switch feature/payment-retry`
+- `git switch -c feature/payment-retry <C1の表示済み12桁IDまたは対応する完全ID>`
 
-入力上は上記の標準構文を使うが、Runner contractでは`git reflog`を引数なしの`REFLOG_HEAD`、branch作成を固定名と正規化済み完全`C1`だけを持つ`CREATE_PAYMENT_RETRY_BRANCH`、switchを引数なしの`SWITCH_PAYMENT_RETRY`として扱う。Browser由来のbranch名、reflog selector、revision式、任意optionをRunnerへ渡さない。
+入力上は上記の標準構文を使うが、Runner contractでは`git reflog`を引数なしの`REFLOG_HEAD`、branch作成を固定名と正規化済み完全`C1`だけを持つ`CREATE_PAYMENT_RETRY_BRANCH`、switchを引数なしの`SWITCH_PAYMENT_RETRY`、作成とswitchの同時実行を固定名と完全`C1`だけを持つ`SWITCH_CREATE_PAYMENT_RETRY`として扱う。Browser由来のbranch名、reflog selector、revision式、任意optionをRunnerへ渡さない。
 
 `REFLOG_HEAD`はRunnerが固定argv `git reflog show --format=%h%x09%gs --abbrev=12 --max-count=8 HEAD`へ変換する。`--all`、`show HEAD@{n}`、`delete`、`expire`、`gc`は許可しない。reflogとlogのstdoutは採点へ使用せず、plain text escapeと既存の出力上限を適用する。
 
@@ -359,8 +373,8 @@ fixture内の具体的な文章、コミットメッセージ、object IDは実�
 
 1. 通常の`log --all`にない操作履歴を確認する。
 2. branch名がなくても、以前HEADが指していたcommitを探せる。
-3. `git reflog`でobject IDを探し、`git show <object>`で内容を確認してから`git branch <name> <object>`を使う形を示す。
-4. `C1`の12桁IDを開示し、`git branch feature/payment-retry <C1>`、`git switch feature/payment-retry`の具体的な手順を示す。
+3. `git reflog`でobject IDを探し、`git show <object>`で内容を確認してからbranchを復旧する形を示す。
+4. `C1`の12桁IDを開示し、branch作成後にswitchする方法と`git switch -c feature/payment-retry <C1>`で同時に行う方法を示す。
 
 ### クリア後の振り返り
 

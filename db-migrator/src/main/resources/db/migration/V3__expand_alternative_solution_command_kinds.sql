@@ -1,0 +1,14 @@
+ALTER TABLE command_history
+    DROP CONSTRAINT command_history_command_kind_check;
+
+ALTER TABLE command_history
+    ADD CONSTRAINT command_history_command_kind_check CHECK (
+        command_kind IN (
+            'STATUS', 'LOG_ONELINE', 'LOG_ONELINE_ALL_DECORATE', 'BRANCH', 'SHOW', 'SWITCH',
+            'CHERRY_PICK', 'RESET_HARD', 'REVERT_NO_EDIT', 'REVERT_NO_COMMIT',
+            'COMMIT_RESTORE_SETTINGS', 'DIFF', 'DIFF_STAGED', 'STASH_PUSH', 'STASH_LIST',
+            'STASH_POP', 'STASH_APPLY', 'STASH_DROP', 'LOG_GRAPH_ALL', 'MERGE_PROFILE_MESSAGE',
+            'ADD_PROFILE_MESSAGES', 'COMMIT_NO_EDIT', 'COMMIT_ALL_NO_EDIT', 'REFLOG_HEAD',
+            'CREATE_PAYMENT_RETRY_BRANCH', 'SWITCH_PAYMENT_RETRY', 'SWITCH_CREATE_PAYMENT_RETRY'
+        )
+    );

@@ -22,8 +22,10 @@ class CommandReferenceTemplateTest {
         String rendered = mvc.perform(get("/commands")).andReturn().getResponse().getContentAsString();
 
         assertThat(rendered).contains("番号", "コマンド", "用途", "git status", "git revert --no-edit &lt;commit-id&gt;",
-                "git branch &lt;branch&gt; &lt;commit-id&gt;", "href=\"/git/stages\"");
-        assertThat(rendered.split("<tr>", -1)).hasSize(17);
+                "git revert --no-commit &lt;commit-id&gt;", "git stash apply", "git commit -a --no-edit",
+                "git commit -m restore-required-settings", "git switch -c &lt;branch&gt; &lt;commit-id&gt;",
+                "href=\"/git/stages\"");
+        assertThat(rendered.split("<tr>", -1)).hasSize(23);
         verifyNoInteractions(stages);
     }
 

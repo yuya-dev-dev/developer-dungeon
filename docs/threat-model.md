@@ -160,7 +160,8 @@ Runnerは継承環境を原則破棄し、必要な値だけを設定する。
 ### STAGE-GIT-01
 
 - `revert`対象をfixtureの`C2`へ限定する。
-- editorを起動しない`--no-edit`だけを許可する。
+- 一括確定はeditorを起動しない`--no-edit`だけを許可する。別経路では固定C2への`--no-commit`と、引数なしの`COMMIT_RESTORE_SETTINGS`だけを許可し、Runnerが固定argv `git commit -m restore-required-settings`へ変換する。
+- Browser由来のcommit message、任意option、revision式、別objectをRunnerへ渡さない。
 
 ### STAGE-GIT-02
 
@@ -170,12 +171,14 @@ Runnerは継承環境を原則破棄し、必要な値だけを設定する。
 ### STAGE-GIT-03
 
 - stash message、pathspec、include-untrackedなどの追加optionをMVPでは許可しない。
+- `stash apply`と`stash drop`は引数なしだけを許可し、stash selectorや任意revisionをRunnerへ渡さない。
 
 ### STAGE-GIT-04
 
 - 編集可能pathを1ファイルへ固定する。
 - `.git`配下、絶対path、`..`、symlink、hard linkの扱いを拒否する。
 - ファイルサイズと文字encodingを固定する。
+- `COMMIT_ALL_NO_EDIT`はStage 4だけの引数なしcommandとし、Runnerが固定argv `git commit -a --no-edit`へ変換する。clear policyは固定file内容、merge parent、clean状態、unmerged／untracked空を引き続き検証する。
 
 ### STAGE-GIT-05
 
@@ -183,6 +186,7 @@ Runnerは継承環境を原則破棄し、必要な値だけを設定する。
 - appは`show`とbranch作成のobject IDを、Runnerのinitial snapshotが返した`C0`／`C1`かつattempt内で表示済みのものへ限定する。未表示、短すぎる、曖昧prefix、未知40桁ID、revision式をGit実行前に拒否する。
 - Runnerは表示履歴を保持せず、受け取った完全IDの40桁形式、commit objectの存在とtype、固定fixture allowlistを再検証する。branch作成はstage専用commandとし、branch名を`feature/payment-retry`、targetをRunner側固定fixture定義の完全`C1`へ固定する。Browser由来branch名をRunnerへ渡さず、`C0`や別objectをtargetにできないようにする。
 - switch先も`feature/payment-retry`へ固定し、detached HEAD用checkoutや任意branch switchを許可しない。
+- `SWITCH_CREATE_PAYMENT_RETRY`は固定名`feature/payment-retry`と表示済み完全`C1`だけを持つstage専用commandとし、Runnerが固定argv `git switch -c feature/payment-retry <C1>`へ変換する。`C0`、別object、別branch名、任意optionを拒否する。
 - fixture buildとworkspace生成時に`C1`のobject type、parent、tree、refからの到達不能、HEAD reflog内の期待entryを検証する。`C0`／`C1`の`rev-parse --short=12`がちょうど12桁で完全IDのprefixと一致し、相互に異なることを必須とする。13桁化、prefix衝突、reflog固定行形式不一致ではworkspaceを公開しない。reflogを改変・expire・gcするcommandを許可しないため、attempt中のobject保持をGitの期限任せにしない。
 - refから到達不能なC1の完全IDはplayer向けreflog stdoutから導出せず、検証済みchallenge imageとRunner側固定fixture定義からStage 5専用initial snapshotへ格納する。appとRunnerはこの信頼済みC1をhint、正規化、allowlist、clear判定へ使用する。
 - reflog、show、logの出力はuntrusted plain textとしてescapeし、固定件数に加えて既存の64 KiB出力上限とtimeoutを適用する。出力を採点へ使用しない。
