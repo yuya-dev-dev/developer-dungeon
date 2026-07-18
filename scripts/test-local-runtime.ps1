@@ -32,7 +32,7 @@ try {
 $tokens = 1..8 | ForEach-Object { New-RunnerToken }
 if (@($tokens | Sort-Object -Unique).Count -ne $tokens.Count -or @($tokens | Where-Object { $_ -notmatch '^[A-Za-z0-9_-]{43}$' }).Count -ne 0) { throw 'Runner token generation contract failed.' }
 $timing = Get-LocalRuntimeTiming
-if ($timing.RunnerReadySeconds -ne 45 -or $timing.AppReadySeconds -gt $timing.RunnerReadySeconds -or $timing.ShutdownHttpSeconds -ne 8 -or $timing.ProcessExitSeconds -ne 5 -or $timing.RunnerCleanupSeconds -ne 6) {
+if ($timing.RunnerReadySeconds -ne 45 -or $timing.AppReadySeconds -ne 30 -or $timing.AppReadySeconds -gt $timing.RunnerReadySeconds -or $timing.ShutdownHttpSeconds -ne 8 -or $timing.ProcessExitSeconds -ne 5 -or $timing.RunnerCleanupSeconds -ne 6) {
     throw 'Local runtime timing contract failed.'
 }
 $normalStop = Get-ChildStopOutcome -HttpSucceeded $true -ExitedBeforeDeadline $true

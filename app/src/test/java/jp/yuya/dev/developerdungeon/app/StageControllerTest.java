@@ -9,19 +9,44 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.web.servlet.view.InternalResourceView;
 
 class StageControllerTest {
-    @Test void indexReadsOnlyProgressForBothFixedStages() throws Exception {
+    @Test void indexRendersTheFixedTitleWithoutCallingTheService() throws Exception {
+        StageService stages = mock(StageService.class);
+        MockMvc mvc = MockMvcBuilders.standaloneSetup(new StageController(stages))
+                .setSingleView(new InternalResourceView("/WEB-INF/test.html")).build();
+
+        mvc.perform(get("/")).andExpect(status().isOk()).andExpect(view().name("title"));
+
+        verifyNoInteractions(stages);
+    }
+
+    @Test void gitStageListReadsProgressAndExposesOnlyTheListFields() throws Exception {
         StageService stages = mock(StageService.class);
         var progress = List.of(new StageProgress("STAGE-GIT-01", "公開済み変更を取り消す", "summary", 3),
                 new StageProgress("STAGE-GIT-02", "間違ったbranchのcommitを移す", "summary", 0));
         when(stages.progresses()).thenReturn(progress);
-        MockMvc mvc = MockMvcBuilders.standaloneSetup(new StageController(stages)).build();
+        MockMvc mvc = MockMvcBuilders.standaloneSetup(new StageController(stages))
+                .setSingleView(new InternalResourceView("/WEB-INF/test.html")).build();
 
-        mvc.perform(get("/")).andExpect(status().isOk()).andExpect(view().name("stages")).andExpect(model().attribute("stages", progress));
+        mvc.perform(get("/git/stages")).andExpect(status().isOk()).andExpect(view().name("stages"))
+                .andExpect(model().attribute("stages", List.of(
+                        new StageController.StageListItem(1, "STAGE-GIT-01", "公開済み変更を取り消す", true),
+                        new StageController.StageListItem(2, "STAGE-GIT-02", "間違ったbranchのcommitを移す", false))));
 
         verify(stages).progresses();
         verifyNoMoreInteractions(stages);
+    }
+    @Test void commandReferenceUsesTheFixedCatalogWithoutCallingTheService() throws Exception {
+        StageService stages = mock(StageService.class);
+        MockMvc mvc = MockMvcBuilders.standaloneSetup(new StageController(stages))
+                .setSingleView(new InternalResourceView("/WEB-INF/test.html")).build();
+
+        mvc.perform(get("/commands")).andExpect(status().isOk()).andExpect(view().name("commands"))
+                .andExpect(model().attributeExists("commands"));
+
+        verifyNoInteractions(stages);
     }
     @Test void fixedStageRouteOpensOnlyItsOwnPlayScreen() throws Exception {
         StageService stages = mock(StageService.class);

@@ -187,7 +187,7 @@ function Get-LocalRuntimeTiming {
     param()
     [pscustomobject]@{
         RunnerReadySeconds = 45
-        AppReadySeconds = 15
+        AppReadySeconds = 30
         ShutdownHttpSeconds = 8
         ProcessExitSeconds = 5
         RunnerCleanupSeconds = 6

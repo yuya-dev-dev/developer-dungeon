@@ -90,7 +90,7 @@ class StageService {
         StageDefinition definition = rules.definition(stageKey);
         Attempt attempt = attempts.get(stageKey);
         if (attempt == null) attempt = openAttempt(definition);
-        if (attempt.closed) return null;
+        if (attempt.closed || attempt.snapshot == null || !attempt.snapshot.mergeInProgress()) return null;
         String readRequestId = UUID.randomUUID().toString();
         var response = runner.readFile(new jp.yuya.dev.developerdungeon.contract.ReadFileRequest(attempt.attemptId,
                 readRequestId, attempt.workspaceId, attempt.generation,
@@ -114,6 +114,9 @@ class StageService {
         long sequence = attempt.commandSequence + 1;
         String normalized;
         try {
+            if (attempt.snapshot == null || !attempt.snapshot.mergeInProgress()) {
+                throw new StageInputException("限定エディタはmerge conflictの解消中だけ使用できます。", "EDITOR_NOT_AVAILABLE");
+            }
             normalized = StageEditorContentPolicy.normalize(content);
             if (versionToken == null || !versionToken.matches("[0-9a-f]{64}")) throw new IllegalArgumentException("ファイルのversion tokenが不正です。");
         } catch (IllegalArgumentException exception) {

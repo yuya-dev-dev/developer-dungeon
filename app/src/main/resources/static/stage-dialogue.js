@@ -92,11 +92,11 @@
       }
     }));
     skip.addEventListener("click", safeHandler(closeDialogue));
-    replay.addEventListener("click", safeHandler(function () {
+    scene.replayDialogue = safeHandler(function () {
       scene.hidden = false;
       showBeat(0);
       next.focus();
-    }));
+    });
 
     scene.classList.add("dialogue-enhanced");
     controls.hidden = false;
@@ -125,6 +125,17 @@
       if (controls && fallback && replay) {
         failOpen(scene, beats, controls, fallback, replay, progress);
       }
+    }
+  });
+
+  document.addEventListener("click", function (event) {
+    var replay = event.target.closest("[data-dialogue-replay]");
+    if (!replay) {
+      return;
+    }
+    var scene = document.querySelector("[data-dialogue-scene]");
+    if (scene && typeof scene.replayDialogue === "function") {
+      scene.replayDialogue(event);
     }
   });
 }());

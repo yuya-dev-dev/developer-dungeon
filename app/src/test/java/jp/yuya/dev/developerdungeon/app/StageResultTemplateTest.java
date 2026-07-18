@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import jp.yuya.dev.developerdungeon.contract.RepositorySnapshot;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -61,13 +62,13 @@ class StageResultTemplateTest {
         String cleared = render("STAGE-GIT-04", true, 2);
         String active = render("STAGE-GIT-04", false, 2);
 
-        assertThat(cleared.indexOf("id=\"clear-heading\"")).isLessThan(cleared.indexOf("class=\"ticket\""));
+        assertThat(cleared.indexOf("id=\"stage-header\"")).isLessThan(cleared.indexOf("id=\"clear-heading\""));
         assertThat(cleared).contains("role=\"status\"", "aria-live=\"polite\"", "aria-labelledby=\"clear-heading\"",
-                "id=\"clear-heading\" tabindex=\"-1\" autofocus", "action=\"/stages/STAGE-GIT-04/reset\"")
+                "id=\"clear-heading\" tabindex=\"-1\" autofocus", "action=\"/stages/STAGE-GIT-04/reset#stage-workspace\"")
                 .doesNotContain("action=\"/stages/STAGE-GIT-04/commands\"", "action=\"/stages/STAGE-GIT-04/hint\"",
                         "action=\"/stages/STAGE-GIT-04/editor\"", "name=\"command\"", "name=\"content\"", "<h2>ヒント</h2>");
-        assertThat(active).contains("action=\"/stages/STAGE-GIT-04/commands\"", "action=\"/stages/STAGE-GIT-04/hint\"",
-                "action=\"/stages/STAGE-GIT-04/editor\"", "action=\"/stages/STAGE-GIT-04/reset\"", "<h2>ヒント</h2>")
+        assertThat(active).contains("action=\"/stages/STAGE-GIT-04/commands#stage-workspace\"", "action=\"/stages/STAGE-GIT-04/hint#stage-sidebar-hint\"",
+                "action=\"/stages/STAGE-GIT-04/editor#stage-editor\"", "action=\"/stages/STAGE-GIT-04/reset#stage-workspace\"")
                 .doesNotContain("id=\"clear-heading\"", "aria-labelledby=\"clear-heading\"");
     }
 
@@ -116,7 +117,7 @@ class StageResultTemplateTest {
                 .doesNotContain("主人公が復旧根拠を運用担当へ説明すると");
     }
 
-    @Test void rendersNonPersistentLearningCardsForAllStages() {
+    @Test void rendersTheSimplifiedActiveLayoutAndStablePartialUpdateContract() {
         String stageOne = render("STAGE-GIT-01", false);
         String stageTwo = render("STAGE-GIT-02", false);
         String stageThree = render("STAGE-GIT-03", false);
@@ -124,29 +125,25 @@ class StageResultTemplateTest {
         String stageFive = render("STAGE-GIT-05", false);
 
         for (String html : List.of(stageOne, stageTwo, stageThree, stageFour, stageFive)) {
-            assertThat(html).contains("class=\"learning-card active-learning-card\"", "EVIDENCE CHECK",
-                    "証拠から次の判断を考える", "name=\"learningDecision\"", "回答は送信されず")
-                    .doesNotContain("復旧結果を報告する", "name=\"learningReport\"");
-            String card = html.substring(html.indexOf("class=\"learning-card active-learning-card\""), html.indexOf("<section class=\"console\""));
-            assertThat(card).doesNotContain("<form", "action=", "method=\"post\"");
+            assertThat(html).contains("src=\"/stage-partial-update.js\"", "data-stage-key=\"STAGE-GIT-",
+                    "id=\"stage-header\"", "id=\"stage-sidebar-state\"", "id=\"stage-repository\"",
+                    "id=\"stage-workspace\"", "id=\"stage-clear-dialogue\"", "href=\"/commands\"",
+                    "現在のリポジトリ状況", "Gitコマンドを入力", "実行結果")
+                    .doesNotContain("learning-card", "EVIDENCE CHECK", "name=\"learningDecision\"", "調査・対応の観点", "concept-chip");
+            for (String region : List.of("stage-header", "stage-sidebar-state", "stage-repository", "stage-workspace", "stage-clear-dialogue")) {
+                assertThat(html).containsOnlyOnce("id=\"" + region + "\"");
+            }
         }
-        assertThat(stageOne).contains("公開履歴の直近変更と、削除された設定の内容を確認する");
-        assertThat(stageTwo).contains("2つのbranchの位置と、通知機能commitがどこにあるかを比較する");
-        assertThat(stageThree).contains("mainの未commit変更、index、移動先branch、stashの状態を確認する");
-        assertThat(stageFour).contains("競合箇所と、運用チーム・機能チームそれぞれの受入条件を確認する");
-        assertThat(stageFive).contains("通常のbranch一覧にない作業の痕跡と、操作履歴に残る候補の内容を確認する")
-                .doesNotContain("39194dda957695ace62387ecdc5f77fcd5ee81ea");
+        assertThat(stageOne).contains("ヒントを見る <span>0</span>/4", "id=\"stage-sidebar-hint\"", "hidden=\"hidden\"");
+        assertThat(stageFour).contains("限定エディタ");
     }
 
-    @Test void separatesClearReportCardFromActiveEvidenceCard() {
+    @Test void doesNotRenderTheRemovedLearningAndReportCards() {
         String cleared = render("STAGE-GIT-05", true);
         String active = render("STAGE-GIT-05", false);
 
-        assertThat(cleared).contains("class=\"learning-card clear-learning-card\"", "復旧結果を報告する",
-                "name=\"learningReport\"", "この確認は採点・保存されません")
-                .doesNotContain("class=\"learning-card active-learning-card\"");
-        assertThat(active).contains("class=\"learning-card active-learning-card\"")
-                .doesNotContain("class=\"learning-card clear-learning-card\"", "復旧結果を報告する", "name=\"learningReport\"");
+        assertThat(cleared).doesNotContain("learning-card", "復旧結果を報告する", "name=\"learningReport\"");
+        assertThat(active).doesNotContain("learning-card", "復旧結果を報告する", "name=\"learningReport\"");
     }
 
     private String render(String stageKey, boolean cleared) {
@@ -156,7 +153,8 @@ class StageResultTemplateTest {
     private String render(String stageKey, boolean cleared, int hintLevel) {
         StageService stages = mock(StageService.class);
         StageDefinition definition = new StageRules().definition(stageKey);
-        StageView view = new StageView("request", "output", null, null, hintLevel, 0, 0, 0, cleared, cleared ? 3 : 0,
+        RepositorySnapshot snapshot = "STAGE-GIT-04".equals(stageKey) && !cleared ? conflictedSnapshot() : null;
+        StageView view = new StageView("request", "output", null, snapshot, hintLevel, 0, 0, 0, cleared, cleared ? 3 : 0,
                 cleared ? "復旧しました。" : "未復旧", hintLevel > 0 ? List.of("段階ヒント") : List.of());
         when(stages.open(stageKey)).thenReturn(view);
         when(stages.definition(stageKey)).thenReturn(definition);
@@ -177,6 +175,15 @@ class StageResultTemplateTest {
         } catch (Exception exception) {
             throw new AssertionError("stage result template did not render", exception);
         }
+    }
+
+    private RepositorySnapshot conflictedSnapshot() {
+        String c0 = "0".repeat(40), c1 = "1".repeat(40), c2 = "2".repeat(40), tree = "3".repeat(40);
+        return new RepositorySnapshot(c1, tree, tree, List.of(c0), false, false, List.of(c1, c0), "main", "", "", false, true,
+                false, RepositorySnapshot.StageThreeState.empty(),
+                new RepositorySnapshot.StageFourState(c1, c0, c2, c0, tree, tree, "4".repeat(40),
+                        List.of("src/main/resources/messages.properties"), List.of(),
+                        List.of("src/main/resources/messages.properties"), List.of()));
     }
 
     private ThymeleafViewResolver viewResolver() {

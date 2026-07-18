@@ -6,7 +6,7 @@ Developer Dungeonは、新人エンジニアが複数の開発現場で技術的
 
 ## 現在の状態
 
-Phase 4までの企画・要件・全体設計と実装はユーザー承認済みです。安全な縦切り版、Git Runner hardening、PostgreSQLによるMVP基盤を経て、STAGE-GIT-01（revert）からSTAGE-GIT-05（reflog）までとPhase 5改善単位1〜6をmainへ反映しました。第2回内部プレイで採用した画面情報設計の簡素化、同一画面内部分更新、タイトル兼編選択・Git編ステージ選択の入口2画面化は、改善単位7A・7B・7Cとして技術方針を確定し、未実装です。
+Phase 4までの企画・要件・全体設計と実装はユーザー承認済みです。安全な縦切り版、Git Runner hardening、PostgreSQLによるMVP基盤を経て、STAGE-GIT-01（revert）からSTAGE-GIT-05（reflog）までとPhase 5改善単位1〜7Cを実装しました。改善単位7A〜7Cでは、画面情報設計の簡素化、同一画面内部分更新、タイトル兼編選択・Git編ステージ選択の入口2画面化を反映しています。
 
 現在の1日縦切り版は、安全な使い捨てGit実行環境を含みます。player入力をhost上で直接実行せず、別processのGit Runnerとdisposable challenge containerを使用します。
 
@@ -15,6 +15,16 @@ Phase 4までの企画・要件・全体設計と実装はユーザー承認済�
 正式なlocal起動はPowerShell 7.6.3 LTS x64の`scripts/start-local.ps1`へ一本化します。JDK、Docker Desktop、WSL、Maven Wrapper、challenge image IDのpreflightに失敗した場合は、app／Runnerを起動しません。
 
 進捗と次段階への条件は[`roadmap.md`](roadmap.md)を参照してください。
+
+## 画面
+
+| タイトル・編選択 | Git編ステージ選択 |
+|---|---|
+| ![タイトル・編選択画面](docs/assets/screenshots/title-screen.png) | ![Git編ステージ選択画面](docs/assets/screenshots/git-stage-list.png) |
+
+| ステージ画面 | Gitコマンド一覧 |
+|---|---|
+| ![第1現場のステージ画面](docs/assets/screenshots/stage-git-01.png) | ![Gitコマンド一覧](docs/assets/screenshots/command-reference.png) |
 
 ## ゲームの中心
 

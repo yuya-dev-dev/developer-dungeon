@@ -366,6 +366,8 @@ MVPでは次を行わない。
 
 プレイ画面は固定resourceから会話をserver-side renderし、同梱した同一originの静的JavaScriptが会話の進行とskipをclient内で制御する。改善単位7Aではactive画面を、4項目のsidebar、障害説明と目標を統合したheader、現在repository状態、workspaceへ整理する。独立した障害ticket、重複導入文、active/clear学習カード、概念chip、main領域下部のhint cardは描画しない。hintはsidebar button直下へ展開し、workspaceの通常表示はcommand入力、実行button、実行結果とする。resetは補助操作として残し、Stage 4限定editorは`stageKey=STAGE-GIT-04`、`mergeInProgress=true`、`cleared=false`をすべて満たす場合だけworkspace内へ追加する。
 
+Stage 4限定editorの条件は表示制御だけに依存させない。Controllerは信頼済みsnapshotがmerge中の場合だけeditor内容を取得し、Serviceはread／writeの双方で同じmerge中条件を確認する。競合前、clear後、他Stageからの直接requestはRunnerのreadFile／writeFileを呼ばず、既存の入力拒否表示へ戻す。
+
 会話状態はDB、attempt、Runnerへ保存しない。inline script、inline event handler、任意HTML、`eval`を使わず、JavaScript無効時は全会話、統合headerの技術条件、通常formを利用できる。clear済みresponseではcommand formとeditorを描画せず、成功見出し、最終状態、自己確認、固定解説、振り返りを最初のviewportへ配置する。最終状態要約はclearを確定したresponse内の信頼済みsnapshotからだけ作成し、再読込後の再現をMVP要件にしない。snapshot保存、`report` route、workspace保持は追加しない。
 
 #### 12.1.1 改善単位7Bの部分更新契約
