@@ -1,5 +1,6 @@
 package jp.yuya.dev.developerdungeon.app;
 
+import java.util.List;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -13,10 +14,34 @@ class StageController {
     private static final String STAGE_THREE = "STAGE-GIT-03";
     private static final String STAGE_FOUR = "STAGE-GIT-04";
     private static final String STAGE_FIVE = "STAGE-GIT-05";
+    private static final List<CommandReference> COMMANDS = List.of(
+            new CommandReference(1, "git status", "現在のbranchと作業ツリーの状態を確認する"),
+            new CommandReference(2, "git diff", "未stageの変更内容を確認する"),
+            new CommandReference(3, "git log --oneline", "commit履歴を短い形式で確認する"),
+            new CommandReference(4, "git show <commit-id>", "特定commitの内容を確認する"),
+            new CommandReference(5, "git switch <branch>", "作業するbranchを切り替える"),
+            new CommandReference(6, "git stash push", "未commitの変更を一時退避する"),
+            new CommandReference(7, "git stash pop", "一時退避した変更を現在のbranchへ戻す"),
+            new CommandReference(8, "git revert --no-edit <commit-id>", "共有履歴を残したまま変更を打ち消す"),
+            new CommandReference(9, "git cherry-pick <commit-id>", "特定commitの変更を現在のbranchへ適用する"),
+            new CommandReference(10, "git reset --hard <commit-id>", "未共有のbranchを指定commitの状態へ戻す"),
+            new CommandReference(11, "git merge <branch>", "別branchの変更を現在のbranchへ統合する"),
+            new CommandReference(12, "git add <file>", "解消したファイルをstageする"),
+            new CommandReference(13, "git commit --no-edit", "用意されたmessageで途中の操作を確定する"),
+            new CommandReference(14, "git reflog", "HEADが過去に指していた履歴を確認する"),
+            new CommandReference(15, "git branch <branch> <commit-id>", "指定commitを指すbranchを作成する"));
     private final StageService stages;
     StageController(StageService stages) { this.stages = stages; }
 
-    @GetMapping("/") String index(Model model) { model.addAttribute("stages", stages.progresses()); return "stages"; }
+    @GetMapping("/") String index() { return "title"; }
+    @GetMapping("/git/stages") String stageList(Model model) {
+        model.addAttribute("stages", stages.progresses().stream()
+                .map(progress -> new StageListItem(Integer.parseInt(progress.stageKey().substring(progress.stageKey().length() - 2)),
+                        progress.stageKey(), progress.title(), progress.isCleared()))
+                .toList());
+        return "stages";
+    }
+    @GetMapping("/commands") String commandList(Model model) { model.addAttribute("commands", COMMANDS); return "commands"; }
     @GetMapping("/stages/STAGE-GIT-01") String stageOne(Model model) { add(model, STAGE_ONE, stages.open(STAGE_ONE)); return "stage"; }
     @GetMapping("/stages/STAGE-GIT-02") String stageTwo(Model model) { add(model, STAGE_TWO, stages.open(STAGE_TWO)); return "stage"; }
     @GetMapping("/stages/STAGE-GIT-03") String stageThree(Model model) { add(model, STAGE_THREE, stages.open(STAGE_THREE)); return "stage"; }
@@ -45,10 +70,16 @@ class StageController {
         StageDefinition stage = stages.definition(stageKey);
         model.addAttribute("stage", stage);
         model.addAttribute("presentation", StagePresentationView.from(stage, view.snapshot()));
-        model.addAttribute("editor", STAGE_FOUR.equals(stageKey) && !view.cleared() ? stages.editor(stageKey) : null);
-        model.addAttribute("actions", new StageActions("/stages/" + stageKey + "/commands", "/stages/" + stageKey + "/hint",
-                "/stages/" + stageKey + "/reset", STAGE_FOUR.equals(stageKey) ? "/stages/STAGE-GIT-04/editor" : null));
+        boolean editorAvailable = STAGE_FOUR.equals(stageKey) && !view.cleared() && view.snapshot() != null
+                && view.snapshot().mergeInProgress();
+        model.addAttribute("editor", editorAvailable ? stages.editor(stageKey) : null);
+        model.addAttribute("actions", new StageActions("/stages/" + stageKey + "/commands#stage-workspace",
+                "/stages/" + stageKey + "/hint#stage-sidebar-hint",
+                "/stages/" + stageKey + "/reset#stage-workspace",
+                STAGE_FOUR.equals(stageKey) ? "/stages/STAGE-GIT-04/editor#stage-editor" : null));
     }
 
     record StageActions(String commandPath, String hintPath, String resetPath, String editorPath) { }
+    record CommandReference(int number, String command, String purpose) { }
+    record StageListItem(int number, String stageKey, String title, boolean cleared) { }
 }

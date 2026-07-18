@@ -10,6 +10,7 @@ import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 
 import java.time.Clock;
@@ -64,10 +65,12 @@ class StageFourServiceTest {
     @Test void issuesSeparateReadAndWriteRequestIds() {
         RunnerClient runner = mock(RunnerClient.class);
         when(runner.create(any())).thenReturn(new WorkspaceResponse("11111111-1111-1111-1111-111111111111", 0, initial()));
+        when(runner.execute(any())).thenReturn(command(1, conflicted()));
         when(runner.readFile(any())).thenReturn(new FileContentResponse("profile.description=Manage security settings.\n", "a".repeat(64)));
         StageService service = new StageService(runner, new StageRules(), new OutputSanitizer());
 
         StageView commandView = service.open("STAGE-GIT-04");
+        service.execute("STAGE-GIT-04", "git merge feature/profile-message", id(20));
         StageEditorView editor = service.editor("STAGE-GIT-04");
 
         assertThat(editor.requestId()).isNotEqualTo(commandView.requestId());
@@ -79,16 +82,34 @@ class StageFourServiceTest {
     @Test void reportsAStaleEditorVersionAsAnEditConflictInsteadOfAGitError() {
         RunnerClient runner = mock(RunnerClient.class);
         when(runner.create(any())).thenReturn(new WorkspaceResponse("11111111-1111-1111-1111-111111111111", 0, initial()));
+        when(runner.execute(any())).thenReturn(command(1, conflicted()));
         when(runner.writeFile(any())).thenReturn(new WriteFileResponse(false, "b".repeat(64), initial()));
         StagePersistence persistence = mock(StagePersistence.class, delegatesTo(new MemoryStagePersistence()));
         StageService service = new StageService(runner, new StageRules(), new OutputSanitizer(), persistence, Clock.systemUTC());
 
+        service.open("STAGE-GIT-04");
+        service.execute("STAGE-GIT-04", "git merge feature/profile-message", id(21));
         StageView result = service.edit("STAGE-GIT-04", "profile.description=Manage security settings and edit your public profile.\n",
                 "a".repeat(64), id(10));
 
         assertThat(result.feedbackKind()).isEqualTo(StageFeedbackKind.EDIT_CONFLICT);
         assertThat(result.output()).contains("別の操作でファイルが更新されました");
-        verify(persistence).finishCommand(any(UUID.class), anyLong(), any(UUID.class), eq("GIT_ERROR"), eq(1), anyLong(), isNull(), isNull());
+        verify(persistence, times(2)).finishCommand(any(UUID.class), anyLong(), any(UUID.class), eq("GIT_ERROR"), eq(1), anyLong(), isNull(), isNull());
+    }
+
+    @Test void rejectsEditorReadAndWriteBeforeTheMergeConflictWithoutCallingRunner() {
+        RunnerClient runner = mock(RunnerClient.class);
+        when(runner.create(any())).thenReturn(new WorkspaceResponse("11111111-1111-1111-1111-111111111111", 0, initial()));
+        StageService service = new StageService(runner, new StageRules(), new OutputSanitizer());
+
+        service.open("STAGE-GIT-04");
+        assertThat(service.editor("STAGE-GIT-04")).isNull();
+        StageView rejected = service.edit("STAGE-GIT-04", "profile.description=value\n", "a".repeat(64), id(22));
+
+        assertThat(rejected.feedbackKind()).isEqualTo(StageFeedbackKind.INPUT_REJECTED);
+        assertThat(rejected.output()).contains("merge conflictの解消中だけ");
+        verify(runner, never()).readFile(any());
+        verify(runner, never()).writeFile(any());
     }
 
     @Test void rejectsInvalidEditorTextBeforeCallingRunner() {
