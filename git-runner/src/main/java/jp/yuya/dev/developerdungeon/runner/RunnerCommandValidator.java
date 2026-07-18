@@ -18,7 +18,14 @@ class RunnerCommandValidator {
                 || command.kind() == CommandKind.LOG_GRAPH_ALL || command.kind() == CommandKind.MERGE_PROFILE_MESSAGE
                 || command.kind() == CommandKind.ADD_PROFILE_MESSAGES || command.kind() == CommandKind.COMMIT_NO_EDIT
                 || command.kind() == CommandKind.COMMIT_RESTORE_SETTINGS || command.kind() == CommandKind.COMMIT_ALL_NO_EDIT
-                || command.kind() == CommandKind.REFLOG_HEAD || command.kind() == CommandKind.SWITCH_PAYMENT_RETRY) {
+                || command.kind() == CommandKind.REFLOG_HEAD || command.kind() == CommandKind.SWITCH_PAYMENT_RETRY
+                || command.kind() == CommandKind.ADD_TRAINING_INTRO || command.kind() == CommandKind.COMMIT_TRAINING_ONE
+                || command.kind() == CommandKind.UNSTAGE_TRAINING_REPORT || command.kind() == CommandKind.ADD_TRAINING_IGNORE
+                || command.kind() == CommandKind.ADD_TRAINING_CONFIG || command.kind() == CommandKind.COMMIT_TRAINING_TWO
+                || command.kind() == CommandKind.SWITCH_CREATE_TRAINING_BRANCH
+                || command.kind() == CommandKind.SWITCH_TRAINING_BRANCH
+                || command.kind() == CommandKind.ADD_TRAINING_HANDOFF
+                || command.kind() == CommandKind.COMMIT_TRAINING_THREE) {
             if (objectId != null || branchName != null) throw new IllegalArgumentException("command target is not allowed");
             return;
         }

@@ -191,6 +191,15 @@ Runnerは継承環境を原則破棄し、必要な値だけを設定する。
 - refから到達不能なC1の完全IDはplayer向けreflog stdoutから導出せず、検証済みchallenge imageとRunner側固定fixture定義からStage 5専用initial snapshotへ格納する。appとRunnerはこの信頼済みC1をhint、正規化、allowlist、clear判定へ使用する。
 - reflog、show、logの出力はuntrusted plain textとしてescapeし、固定件数に加えて既存の64 KiB出力上限とtimeoutを適用する。出力を採点へ使用しない。
 
+### TRAINING-GIT-01〜03
+
+- Chapter 0でも任意のpath、branch、commit message、revision式を許可しない。変更operationは[`chapter-0-training.md`](chapter-0-training.md)の固定raw構文をAppが専用`CommandKind`へ変換し、Runnerが定数argvを構築する。
+- `add`と`restore --staged`は`--`でoption境界を固定する。`switch`は`feature/onboarding`だけ、`commit`は研修別固定messageだけを許可する。
+- 確認commandはStage別allowlistへ含めるが、`show`対象はAppが表示またはhintで開示した固定repository内object IDだけに限定する。
+- TRAINING 2の`.gitignore`はfixtureの固定内容とし、player入力patternや任意editorを追加しない。生成reportはworkspace外へ出さず、ignore、HEAD、indexの状態をsnapshotで検証する。
+- TRAINING 3は`main` tip不変と固定branchの親子関係を検証し、任意branch作成を拒否する。
+- 既存のnetwork無効化、resource制限、hook／symlink／local config検証、cleanup、idempotencyをChapter 0でも省略しない。
+
 ## 10. Runner controllerの権限
 
 Runner controllerはDocker daemonを操作できるため、高権限componentとして扱う。

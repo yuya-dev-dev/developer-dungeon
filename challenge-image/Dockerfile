@@ -3,7 +3,7 @@ FROM alpine:3.23.3@sha256:59855d3dceb3ae53991193bd03301e082b2a7faa56a514b03527ae
 RUN apk add --no-cache git=2.52.0-r0 \
  && addgroup -S -g 10001 challenge \
  && adduser -S -D -H -u 10001 -G challenge challenge \
- && mkdir -p /opt/fixtures/stage-git-01 /opt/fixtures/stage-git-02 /opt/fixtures/stage-git-03 /opt/fixtures/stage-git-04 /opt/fixtures/stage-git-05 /opt/empty-hooks \
+ && mkdir -p /opt/fixtures/stage-git-01 /opt/fixtures/stage-git-02 /opt/fixtures/stage-git-03 /opt/fixtures/stage-git-04 /opt/fixtures/stage-git-05 /opt/fixtures/training-git-01 /opt/fixtures/training-git-02 /opt/fixtures/training-git-03 /opt/empty-hooks \
  && git init --initial-branch=main /opt/fixtures/stage-git-01 \
  && rm -rf /opt/fixtures/stage-git-01/.git/hooks \
  && mkdir -p /opt/fixtures/stage-git-01/.git/hooks \
@@ -61,6 +61,31 @@ RUN apk add --no-cache git=2.52.0-r0 \
  && GIT_AUTHOR_DATE='2026-01-05T00:01:00Z' GIT_COMMITTER_DATE='2026-01-05T00:01:00Z' git -C /opt/fixtures/stage-git-05 -c user.name='Developer Dungeon' -c user.email='fixture@example.invalid' commit -m "C1: payment retry" \
  && GIT_COMMITTER_DATE='2026-01-05T00:01:30Z' git -C /opt/fixtures/stage-git-05 switch main \
  && GIT_COMMITTER_DATE='2026-01-05T00:02:00Z' git -C /opt/fixtures/stage-git-05 branch -D feature/payment-retry \
+ && git init --initial-branch=main /opt/fixtures/training-git-01 \
+ && rm -rf /opt/fixtures/training-git-01/.git/hooks \
+ && mkdir -p /opt/fixtures/training-git-01/.git/hooks /opt/fixtures/training-git-01/onboarding \
+ && printf 'welcome=before-training\n' > /opt/fixtures/training-git-01/onboarding/intro.txt \
+ && git -C /opt/fixtures/training-git-01 add onboarding/intro.txt \
+ && GIT_AUTHOR_DATE='2026-01-06T00:00:00Z' GIT_COMMITTER_DATE='2026-01-06T00:00:00Z' git -C /opt/fixtures/training-git-01 -c user.name='Developer Dungeon' -c user.email='fixture@example.invalid' commit -m "training base" \
+ && printf 'welcome=developer-dungeon\n' > /opt/fixtures/training-git-01/onboarding/intro.txt \
+ && git init --initial-branch=main /opt/fixtures/training-git-02 \
+ && rm -rf /opt/fixtures/training-git-02/.git/hooks \
+ && mkdir -p /opt/fixtures/training-git-02/.git/hooks /opt/fixtures/training-git-02/config /opt/fixtures/training-git-02/build \
+ && printf '# generated files\n' > /opt/fixtures/training-git-02/.gitignore \
+ && printf 'training.mode=off\n' > /opt/fixtures/training-git-02/config/application-training.properties \
+ && git -C /opt/fixtures/training-git-02 add .gitignore config/application-training.properties \
+ && GIT_AUTHOR_DATE='2026-01-07T00:00:00Z' GIT_COMMITTER_DATE='2026-01-07T00:00:00Z' git -C /opt/fixtures/training-git-02 -c user.name='Developer Dungeon' -c user.email='fixture@example.invalid' commit -m "training base" \
+ && printf '# generated files\nbuild/\n' > /opt/fixtures/training-git-02/.gitignore \
+ && printf 'training.mode=guided\n' > /opt/fixtures/training-git-02/config/application-training.properties \
+ && printf 'generated=true\n' > /opt/fixtures/training-git-02/build/training-report.txt \
+ && git -C /opt/fixtures/training-git-02 add -f build/training-report.txt \
+ && git init --initial-branch=main /opt/fixtures/training-git-03 \
+ && rm -rf /opt/fixtures/training-git-03/.git/hooks \
+ && mkdir -p /opt/fixtures/training-git-03/.git/hooks /opt/fixtures/training-git-03/docs \
+ && printf 'handoff.status=draft\n' > /opt/fixtures/training-git-03/docs/handoff.md \
+ && git -C /opt/fixtures/training-git-03 add docs/handoff.md \
+ && GIT_AUTHOR_DATE='2026-01-08T00:00:00Z' GIT_COMMITTER_DATE='2026-01-08T00:00:00Z' git -C /opt/fixtures/training-git-03 -c user.name='Developer Dungeon' -c user.email='fixture@example.invalid' commit -m "training base" \
+ && printf 'handoff.status=ready\n' > /opt/fixtures/training-git-03/docs/handoff.md \
  && chown -R challenge:challenge /opt/fixtures /opt/empty-hooks \
  && chmod -R a-w /opt/fixtures /opt/empty-hooks
 

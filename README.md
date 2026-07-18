@@ -6,7 +6,7 @@ Developer Dungeonは、新人エンジニアが複数の開発現場で技術的
 
 ## 現在の状態
 
-Phase 4までの企画・要件・全体設計と実装はユーザー承認済みです。安全な縦切り版、Git Runner hardening、PostgreSQLによるMVP基盤を経て、STAGE-GIT-01（revert）からSTAGE-GIT-05（reflog）までとPhase 5改善単位1〜7Cを実装しました。改善単位7A〜7Cでは、画面情報設計の簡素化、同一画面内部分更新、タイトル兼編選択・Git編ステージ選択の入口2画面化を反映しています。
+Phase 4までの企画・要件・全体設計と実装はユーザー承認済みです。安全な縦切り版、Git Runner hardening、PostgreSQLによるMVP基盤を経て、Chapter 1のSTAGE-GIT-01（revert）からSTAGE-GIT-05（reflog）までとPhase 5改善単位1〜7Dを実装しました。Gitの基本を広く浅く復習するChapter 0のTRAINING-GIT-01〜03も実装し、App／Runner／Docker／PostgreSQLの対象限定テストに成功しています。
 
 現在の1日縦切り版は、安全な使い捨てGit実行環境を含みます。player入力をhost上で直接実行せず、別processのGit Runnerとdisposable challenge containerを使用します。
 
@@ -34,7 +34,7 @@ Phase 4までの企画・要件・全体設計と実装はユーザー承認済�
 - 状態の観察、仮説、安全な操作、振り返りを1つのgame loopにする
 - 信頼済みsnapshotによる自動クリア後に、復旧完了の根拠を考える非採点・非永続の自己確認を行う
 - 4段階hintと累積3スターで、探索を罰せず自力判断を評価する
-- 安定版MVPはrevert、cherry-pick、stash、merge conflict、reflogの5stage
+- 安定版MVPはGit基礎研修3件と、revert、cherry-pick、stash、merge conflict、reflogを扱う事故対応5stage
 - Phase 5改善では正確な構文をworkspaceへ常時表示せず、Stage非依存のcommand参照と段階ヒントへ分離する
 - Stage 4ではmerge conflict中だけ固定ファイル用のversion token付き限定エディタを表示し、双方の要件と2親のmerge commitを状態採点する
 - Stage 5ではHEAD reflogに残る表示済みcommit IDだけを使い、削除済みbranchを元のcommitへ復旧できたかを状態採点する
@@ -44,7 +44,7 @@ Phase 4までの企画・要件・全体設計と実装はユーザー承認済�
 含む：
 
 - Git編の1日縦切り版
-- Git編の安定版MVP 5stage
+- Git編の安定版MVP（Chapter 0の基礎研修3件＋Chapter 1の事故対応5stage）
 - Java / Spring Boot / Thymeleaf
 - Git専用Runner
 - attemptごとの使い捨てDocker container
@@ -82,7 +82,8 @@ player入力から実Gitを動かす機能は、通常のWeb入力より高い�
 | [`AGENTS.md`](AGENTS.md) | 作業ルール、Git分担、井上・中谷・バムの役割 |
 | [`docs/requirements.md`](docs/requirements.md) | 確定要件、MVP範囲、完成条件 |
 | [`docs/game-design.md`](docs/game-design.md) | 世界観、game loop、hint、3スター |
-| [`docs/git-mvp-stages.md`](docs/git-mvp-stages.md) | Git編5stageの状態と採点仕様 |
+| [`docs/chapter-0-training.md`](docs/chapter-0-training.md) | Chapter 0のGit基礎研修3件の操作、fixture、採点仕様 |
+| [`docs/git-mvp-stages.md`](docs/git-mvp-stages.md) | Chapter 1のGit事故対応5stageの状態と採点仕様 |
 | [`docs/threat-model.md`](docs/threat-model.md) | 信頼境界、脅威、必須security制御 |
 | [`docs/architecture.md`](docs/architecture.md) | component、module、Runner、DB、Docker境界 |
 | [`docs/vertical-slice.md`](docs/vertical-slice.md) | 1日縦切り版の範囲と完成条件 |
@@ -108,9 +109,8 @@ Dockerを伴う検証の実行許可後、次の順で起動します。
 
 ```powershell
 .\scripts\build-challenge-image.ps1
-$env:JAVA_HOME = 'C:\Program Files\Eclipse Adoptium\jdk-25.0.3.9-hotspot'
-.\mvnw.cmd package
+.\scripts\invoke-maven.ps1 package
 .\scripts\start-local.ps1
 ```
 
-Browserで`http://127.0.0.1:8080`を開きます。Dockerを起動しない単体テストは` .\mvnw.cmd test`で実行します。
+Browserで`http://127.0.0.1:8080`を開きます。Dockerを起動しない単体テストは`.\scripts\invoke-maven.ps1 test`で実行します。このlauncherは、Codexやterminalが古い`JAVA_HOME`を継承していても、必須のEclipse Temurin 25.0.3+9 x64を検出して、そのMaven processにだけ適用します。

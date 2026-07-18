@@ -242,6 +242,7 @@ class StageService {
         return new StageProgress(definition.key(), definition.title(), definition.summary(), persistence.highestStars(definition.key()));
     }
     java.util.List<StageProgress> progresses() { return rules.definitions().stream().map(definition -> progress(definition.key())).toList(); }
+    java.util.List<StageProgress> trainingProgresses() { return rules.trainingDefinitions().stream().map(definition -> progress(definition.key())).toList(); }
     StageDefinition definition(String stageKey) { return rules.definition(stageKey); }
 
     private Attempt openAttempt(StageDefinition definition) {

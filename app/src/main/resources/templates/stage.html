@@ -18,6 +18,19 @@
         <p class="dialogue-progress" data-dialogue-progress aria-live="polite" hidden><span data-dialogue-current>1</span> / <span data-dialogue-total>3</span></p>
       </div>
       <ol class="dialogue-list" th:switch="${stage.key}">
+        <th:block th:case="'TRAINING-GIT-01'">
+          <li class="dialogue-beat"><span class="speaker-avatar avatar-senior" aria-hidden="true">研</span><div><strong>研修担当</strong><p>最初は、用意された案内文がどこで変わっているか確認しましょう。確認できた変更だけを履歴へ記録してください。</p></div></li>
+          <li class="dialogue-beat protagonist"><span class="speaker-avatar avatar-player" aria-hidden="true">私</span><div><strong>主人公</strong><p>working tree、index、HEADの違いを見ながら、最初のcommitを作ります。</p></div></li>
+        </th:block>
+        <th:block th:case="'TRAINING-GIT-02'">
+          <li class="dialogue-beat"><span class="speaker-avatar avatar-peer" aria-hidden="true">同</span><div><strong>同期</strong><p>build reportもstageされているけど、これも成果物として残すのかな。</p></div></li>
+          <li class="dialogue-beat"><span class="speaker-avatar avatar-senior" aria-hidden="true">研</span><div><strong>研修担当</strong><p>同じ手順で再生成できるものと、届ける設定を分けて考えてみてください。</p></div></li>
+          <li class="dialogue-beat protagonist"><span class="speaker-avatar avatar-player" aria-hidden="true">私</span><div><strong>主人公</strong><p>stage済みの内容も確認して、commitへ含めるものを選び直します。</p></div></li>
+        </th:block>
+        <th:block th:case="'TRAINING-GIT-03'">
+          <li class="dialogue-beat"><span class="speaker-avatar avatar-senior" aria-hidden="true">研</span><div><strong>研修担当</strong><p>最後は仮配属前の模擬タスクです。mainにある途中の変更を、作業branchへ分けて記録してください。</p></div></li>
+          <li class="dialogue-beat protagonist"><span class="speaker-avatar avatar-player" aria-hidden="true">私</span><div><strong>主人公</strong><p>今の変更を失わずにbranchを作り、mainを動かさず引き継げる状態にします。</p></div></li>
+        </th:block>
         <th:block th:case="'STAGE-GIT-01'">
           <li class="dialogue-beat" data-dialogue-beat><span class="speaker-avatar avatar-operations" aria-hidden="true">運</span><div><strong>運用担当</strong><p>公開済みの設定に問題が見つかり、次のリリース確認を止めています。確認を再開できる安全な状態へ戻したいです。</p></div></li>
           <li class="dialogue-beat" data-dialogue-beat><span class="speaker-avatar avatar-senior" aria-hidden="true">先</span><div><strong>先輩</strong><p>共有済みの履歴は、都合よく消していいものじゃない。何が変わり、何を残すべきか、まず証拠から確かめよう。</p></div></li>
@@ -75,7 +88,7 @@
           <div class="sidebar-progress">
             <p class="progress-label">進行記録</p>
             <strong><span th:text="${view.commandSequence}">0</span><small> commands</small></strong>
-            <p th:text="${view.cleared ? '復旧完了' : '復旧対応中'}">復旧対応中</p>
+            <p th:text="${training ? (view.cleared ? '研修完了' : '研修中') : (view.cleared ? '復旧完了' : '復旧対応中')}">進行中</p>
           </div>
         </section>
       </aside>
@@ -90,7 +103,7 @@
           </div>
           <div class="stage-badges" aria-label="ステージ状態">
             <button class="dialogue-replay" type="button" th:unless="${view.cleared}" data-dialogue-replay hidden>会話を見る</button>
-            <span th:text="${view.cleared ? 'CLEAR' : 'ACTIVE'}">ACTIVE</span>
+            <span th:text="${view.cleared ? (training ? 'COMPLETE' : 'CLEAR') : (training ? 'TRAINING' : 'ACTIVE')}">ACTIVE</span>
           </div>
         </header>
 
@@ -114,19 +127,20 @@
 
         <section id="stage-workspace" class="workspace" data-stage-region="stage-workspace">
           <section class="result" th:if="${view.cleared}" role="status" aria-live="polite" aria-labelledby="clear-heading">
-            <h2 id="clear-heading" tabindex="-1" autofocus>復旧完了: <span th:text="${view.stars}">3</span> ★</h2>
+            <h2 id="clear-heading" tabindex="-1" autofocus th:if="${training}">研修完了</h2>
+            <h2 id="clear-heading" tabindex="-1" autofocus th:unless="${training}">復旧完了: <span th:text="${view.stars}">3</span> ★</h2>
             <p th:text="${view.gradeMessage}"></p>
             <section class="self-check">
-              <h3>復旧根拠を確認する</h3>
+              <h3 th:text="${training ? '記録された状態を確認する' : '復旧根拠を確認する'}">復旧根拠を確認する</h3>
               <p th:text="${stage.outcome.selfCheckPrompt}">何を確認できたから復旧完了と言えるでしょうか？</p>
               <details><summary>根拠と解説を開く</summary><p th:text="${stage.outcome.selfCheckExplanation}">解説</p></details>
             </section>
             <section class="reflection">
               <h3>振り返り</h3>
               <dl>
-                <dt>何が壊れていたか</dt><dd th:text="${stage.outcome.incident}">事故の内容</dd>
-                <dt>修復後どうなったか</dt><dd th:text="${stage.outcome.repairedState}">修復後の状態</dd>
-                <dt>なぜこの方法が安全か</dt><dd th:text="${stage.outcome.safeReason}">安全な理由</dd>
+                <dt th:text="${training ? '開始時の状態' : '何が壊れていたか'}">何が壊れていたか</dt><dd th:text="${stage.outcome.incident}">事故の内容</dd>
+                <dt th:text="${training ? '完了後の状態' : '修復後どうなったか'}">修復後どうなったか</dt><dd th:text="${stage.outcome.repairedState}">修復後の状態</dd>
+                <dt th:text="${training ? '今回学んだこと' : 'なぜこの方法が安全か'}">なぜこの方法が安全か</dt><dd th:text="${stage.outcome.safeReason}">安全な理由</dd>
                 <dt>避けるべき選択</dt><dd th:text="${stage.outcome.unsafeAlternative}">危険な代替案</dd>
               </dl>
               <p class="growth-beat" th:text="${stage.outcome.growthBeat}">主人公の成長</p>
@@ -177,8 +191,18 @@
   <div id="stage-clear-dialogue" data-stage-region="stage-clear-dialogue">
   <section class="dialogue-scene clear-dialogue" th:if="${view.cleared}" aria-labelledby="clear-dialogue-heading">
     <div class="dialogue-card">
-      <div class="dialogue-heading-row"><div><p class="dialogue-kicker">RECOVERY COMPLETE</p><h2 id="clear-dialogue-heading">現場からの反応</h2></div></div>
+      <div class="dialogue-heading-row"><div><p class="dialogue-kicker" th:text="${training ? 'TRAINING COMPLETE' : 'RECOVERY COMPLETE'}">RECOVERY COMPLETE</p><h2 id="clear-dialogue-heading" th:text="${training ? '研修担当からの反応' : '現場からの反応'}">現場からの反応</h2></div></div>
       <ol class="dialogue-list" th:switch="${stage.key}">
+        <th:block th:case="'TRAINING-GIT-01'">
+          <li class="dialogue-beat"><span class="speaker-avatar avatar-senior" aria-hidden="true">研</span><div><strong>研修担当</strong><p>最初の研修commitを確認できました。次は、何を含めるかも自分で選んでみましょう。</p></div></li>
+        </th:block>
+        <th:block th:case="'TRAINING-GIT-02'">
+          <li class="dialogue-beat"><span class="speaker-avatar avatar-peer" aria-hidden="true">同</span><div><strong>同期</strong><p>成果物と再生成できるfileを分ける理由が分かったよ。</p></div></li>
+          <li class="dialogue-beat"><span class="speaker-avatar avatar-senior" aria-hidden="true">研</span><div><strong>研修担当</strong><p>stage済みでも点検して選び直せました。最後は作業場所を自分で作ります。</p></div></li>
+        </th:block>
+        <th:block th:case="'TRAINING-GIT-03'">
+          <li class="dialogue-beat"><span class="speaker-avatar avatar-senior" aria-hidden="true">研</span><div><strong>研修担当</strong><p>mainを守ったまま、引き継げる作業branchを作れました。仮配属の準備は完了です。</p></div></li>
+        </th:block>
         <th:block th:case="'STAGE-GIT-01'">
           <li class="dialogue-beat"><span class="speaker-avatar avatar-operations" aria-hidden="true">運</span><div><strong>運用担当</strong><p>設定の復旧を確認できました。これで次のリリース確認へ戻れます。</p></div></li>
           <li class="dialogue-beat"><span class="speaker-avatar avatar-senior" aria-hidden="true">先</span><div><strong>先輩</strong><p>共有履歴を守る判断ができたね。</p></div></li>

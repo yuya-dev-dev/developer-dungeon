@@ -119,9 +119,49 @@ class StageRules {
                     "元の成果物をbranchとして復旧し、mainを変えていないことと作業ツリーの状態を確認できた。",
                     "運用担当へ、元の成果物だと説明する根拠は何か？",
                     List.of("操作履歴・内容・復旧後のbranch位置をつなげて説明する", "同じような内容になったとだけ説明する")));
+    private static final StageDefinition TRAINING_ONE = new StageDefinition("TRAINING-GIT-01", "Git基礎研修 / 1", "最初の変更を記録する",
+            "変更を観察し、次のcommitへ含めてlocal履歴へ記録する。", "入社初日の研修repositoryで、用意された案内文の変更を確認します。",
+            "案内文の変更内容を確認し、最初の研修commitとして記録すること。", "変更をcommitし、mainの作業ツリーをcleanにする。",
+            "状態確認 / 差分確認 / commit対象の選択 / 記録確認",
+            new StageOutcome("案内文の変更がworking treeにあり、まだ履歴へ記録されていませんでした。",
+                    "変更が初期mainの次のcommitとして記録され、working treeとindexがcleanになりました。",
+                    "commit前にworking treeとindexを確認すると、何を履歴へ記録するかを自分で確かめられます。",
+                    "確認せずに変更をまとめてstageすると、意図しない内容を履歴へ含めるおそれがあります。",
+                    "working tree、index、HEADのどこが変わったと説明できますか？",
+                    "変更はworking treeからindexへ選ばれ、commitによってHEADが新しい記録を指しました。",
+                    "研修担当は最初のcommitを確認し、次は内容の選別も任せると伝えた。",
+                    "主人公は、最初の研修commitを自分で確認して記録した。"),
+            StagePresentationPolicy.conceptOnlyBasic("状態確認", "差分確認", "stage", "commit"));
+    private static final StageDefinition TRAINING_TWO = new StageDefinition("TRAINING-GIT-02", "Git基礎研修 / 2", "commitに含めるものを選ぶ",
+            "成果物だけをcommitし、再生成できるreportを履歴から除外する。", "同期と一緒に、研修成果物と生成物の違いを確認します。",
+            "設定fileとignore規則は届ける。再生成できるbuild reportはcommitせず、workspaceには残すこと。", "設定とignore規則だけをcommitし、build reportをignoreする。",
+            "状態確認 / staged差分 / stage解除 / commit対象の選択",
+            new StageOutcome("再生成できるbuild reportまでindexへ入っていました。",
+                    "設定とignore規則だけがcommitされ、build reportはworkspaceに残ったままignoreされました。",
+                    "commit前にindexを点検すれば、成果物と一時生成物を分けて履歴を保てます。",
+                    "stage済みという理由だけで全てcommitすると、再生成物が履歴へ蓄積します。",
+                    "どのfileをHEADへ記録し、どのfileをworkspaceだけへ残しましたか？",
+                    "設定とignore規則をHEADへ記録し、reportはignore対象としてworkspaceだけへ残しました。",
+                    "同期は判断理由を理解し、次の模擬タスクの準備を主人公へ任せた。",
+                    "主人公は、stage済みの内容も点検して選び直せるようになった。"),
+            StagePresentationPolicy.conceptOnlyBasic("状態確認", "index確認", "stage解除", "選択commit"));
+    private static final StageDefinition TRAINING_THREE = new StageDefinition("TRAINING-GIT-03", "Git基礎研修 / 3", "作業branchで変更する",
+            "main上の未commit変更を失わず、作業branchへ移して記録する。", "仮配属前の模擬タスクで、main上の引継ぎ文書を作業branchへ移します。",
+            "mainを動かさず、未commitの引継ぎ文書をfeature/onboardingへ移してcommitすること。", "feature/onboardingに変更を記録し、mainを初期位置のまま保つ。",
+            "状態確認 / branch確認 / 作業branch作成 / commit",
+            new StageOutcome("引継ぎ文書の未commit変更がmain上に残っていました。",
+                    "mainを動かさず、feature/onboardingに変更を持つ新しいcommitを作成できました。",
+                    "未commit変更を保ったまま作業branchを作ると、mainを汚さず作業単位を分けられます。",
+                    "mainへ直接commitすると、仮配属先でレビューする作業境界が曖昧になります。",
+                    "mainとfeature/onboardingは最終的にどの位置を指していますか？",
+                    "mainは初期tipのまま、feature/onboardingはその直接の子commitを指しています。",
+                    "研修担当は仮配属の準備が整ったと告げ、引継ぎ連絡を主人公へ渡した。",
+                    "主人公は、mainを守る作業境界を自分で作れるようになった。"),
+            StagePresentationPolicy.conceptOnlyBasic("状態確認", "branch確認", "branch作成", "commit"));
     private static final Map<String, StageDefinition> DEFINITIONS = Map.of(
             STAGE_ONE.key(), STAGE_ONE, STAGE_TWO.key(), STAGE_TWO, STAGE_THREE.key(), STAGE_THREE, STAGE_FOUR.key(), STAGE_FOUR,
-            STAGE_FIVE.key(), STAGE_FIVE);
+            STAGE_FIVE.key(), STAGE_FIVE, TRAINING_ONE.key(), TRAINING_ONE, TRAINING_TWO.key(), TRAINING_TWO,
+            TRAINING_THREE.key(), TRAINING_THREE);
 
     private static StageLearningCard learningCard(String evidence, String decisionPrompt, List<String> decisionOptions,
                                                    String result, String reportPrompt, List<String> reportOptions) {
@@ -129,6 +169,7 @@ class StageRules {
     }
 
     List<StageDefinition> definitions() { return List.of(STAGE_ONE, STAGE_TWO, STAGE_THREE, STAGE_FOUR, STAGE_FIVE); }
+    List<StageDefinition> trainingDefinitions() { return List.of(TRAINING_ONE, TRAINING_TWO, TRAINING_THREE); }
     StageDefinition definition(String stageKey) {
         StageDefinition definition = DEFINITIONS.get(stageKey);
         if (definition == null) throw new IllegalArgumentException("unknown stage");
@@ -142,10 +183,37 @@ class StageRules {
             case "STAGE-GIT-03" -> parseStageThree(raw);
             case "STAGE-GIT-04" -> parseStageFour(raw);
             case "STAGE-GIT-05" -> parseStageFive(raw);
+            case "TRAINING-GIT-01" -> parseTrainingOne(raw);
+            case "TRAINING-GIT-02" -> parseTrainingTwo(raw);
+            case "TRAINING-GIT-03" -> parseTrainingThree(raw);
             default -> throw new IllegalArgumentException("unknown stage");
         };
     }
     StageTargets capture(StageDefinition definition, RepositorySnapshot snapshot) {
+        if (definition.key().startsWith("TRAINING-GIT-")) {
+            var state = snapshot.training();
+            boolean common = "main".equals(snapshot.currentBranch()) && snapshot.headObjectId().equals(state.mainTip())
+                    && state.trainingBranchTip() == null && snapshot.headParents().isEmpty() && !snapshot.clean()
+                    && state.untrackedPaths().isEmpty() && !snapshot.revertInProgress()
+                    && !snapshot.cherryPickInProgress() && !snapshot.mergeInProgress() && !snapshot.rebaseInProgress();
+            boolean valid = switch (definition.key()) {
+                case "TRAINING-GIT-01" -> common && state.headPaths().equals(List.of("onboarding/intro.txt"))
+                        && state.workingTreePaths().equals(List.of("onboarding/intro.txt")) && state.indexPaths().isEmpty()
+                        && state.ignoredPaths().isEmpty() && !state.introBlobId().isBlank();
+                case "TRAINING-GIT-02" -> common
+                        && state.headPaths().equals(List.of(".gitignore", "config/application-training.properties"))
+                        && state.workingTreePaths().equals(List.of(".gitignore", "config/application-training.properties"))
+                        && state.indexPaths().equals(List.of("build/training-report.txt")) && state.ignoredPaths().isEmpty()
+                        && state.reportExists() && !state.ignoreBlobId().isBlank() && !state.configBlobId().isBlank()
+                        && !state.reportBlobId().isBlank();
+                case "TRAINING-GIT-03" -> common && state.headPaths().equals(List.of("docs/handoff.md"))
+                        && state.workingTreePaths().equals(List.of("docs/handoff.md")) && state.indexPaths().isEmpty()
+                        && state.ignoredPaths().isEmpty() && !state.handoffBlobId().isBlank();
+                default -> false;
+            };
+            if (!valid) throw new IllegalStateException("invalid training fixture");
+            return new StageTargets(state.mainTip(), null, null, Set.of(state.mainTip()), state);
+        }
         if ("STAGE-GIT-01".equals(definition.key())) {
             if (snapshot.headParents().isEmpty()) throw new IllegalStateException("invalid stage fixture");
             return new StageTargets(snapshot.headObjectId(), null, snapshot.firstParentTreeId(), Set.copyOf(snapshot.ancestorObjectIds()));
@@ -244,6 +312,24 @@ class StageRules {
     }
     List<String> hints(StageDefinition definition, int hintLevel, StageTargets targets) {
         if (hintLevel == 0) return List.of();
+        if ("TRAINING-GIT-01".equals(definition.key())) {
+            if (hintLevel == 1) return List.of("working treeとindexの状態を確認し、案内文の差分を見てみよう。");
+            if (hintLevel == 2) return List.of("変更を履歴へ記録する前に、次のcommitへ含める対象としてstageします。");
+            if (hintLevel == 3) return List.of("git status、git diff、git add <file>、git diff --staged、git commit -m <message>、git log --onelineを使います。");
+            return List.of("git add onboarding/intro.txt の後、git commit -m complete-training-01 を実行し、記録を確認しよう。");
+        }
+        if ("TRAINING-GIT-02".equals(definition.key())) {
+            if (hintLevel == 1) return List.of("working treeとindexを比べ、成果物と再生成できるreportを分けよう。");
+            if (hintLevel == 2) return List.of("誤ってstageしたfileはindexから外せます。.gitignoreと設定fileだけを選び直します。");
+            if (hintLevel == 3) return List.of("git restore --staged <file>、git add <file>、git commit -m <message>を使います。");
+            return List.of("git restore --staged build/training-report.txt の後、.gitignore と config/application-training.properties をaddし、git commit -m complete-training-02 を実行しよう。");
+        }
+        if ("TRAINING-GIT-03".equals(definition.key())) {
+            if (hintLevel == 1) return List.of("現在branchと未commit変更を確認し、mainを動かさず作業場所を分けよう。");
+            if (hintLevel == 2) return List.of("未commit変更は保持したまま、新しい作業branchを作成できます。");
+            if (hintLevel == 3) return List.of("git switch -c <branch>、git add <file>、git commit -m <message>を使います。");
+            return List.of("git switch -c feature/onboarding の後、docs/handoff.md をaddし、git commit -m complete-training-03 を実行しよう。");
+        }
         if ("STAGE-GIT-01".equals(definition.key())) {
             if (hintLevel == 1) return List.of("まず履歴と作業ツリーを見比べ、どの変更の後から設定が消えたか確認しよう。");
             if (hintLevel == 2) return List.of("公開済みの履歴は消さず、対象の変更を打ち消す新しいcommitを積む方法を考えよう。");
@@ -283,6 +369,35 @@ class StageRules {
     }
     StageGrade grade(StageDefinition definition, RepositorySnapshot snapshot, StageTargets targets, int highestHint, int playerResets) {
         boolean cleared;
+        if (definition.key().startsWith("TRAINING-GIT-")) {
+            var initial = targets.training();
+            var state = snapshot.training();
+            boolean common = snapshot.clean() && !snapshot.revertInProgress() && !snapshot.cherryPickInProgress()
+                    && !snapshot.mergeInProgress() && !snapshot.rebaseInProgress()
+                    && state.workingTreePaths().isEmpty() && state.indexPaths().isEmpty() && state.untrackedPaths().isEmpty();
+            cleared = switch (definition.key()) {
+                case "TRAINING-GIT-01" -> common && "main".equals(snapshot.currentBranch())
+                        && snapshot.headParents().equals(List.of(initial.mainTip()))
+                        && snapshot.headObjectId().equals(state.mainTip())
+                        && state.trainingBranchTip() == null && state.headPaths().equals(List.of("onboarding/intro.txt"))
+                        && initial.introBlobId().equals(state.introBlobId()) && state.ignoredPaths().isEmpty();
+                case "TRAINING-GIT-02" -> common && "main".equals(snapshot.currentBranch())
+                        && snapshot.headParents().equals(List.of(initial.mainTip()))
+                        && snapshot.headObjectId().equals(state.mainTip()) && state.trainingBranchTip() == null
+                        && state.headPaths().equals(List.of(".gitignore", "config/application-training.properties"))
+                        && initial.ignoreBlobId().equals(state.ignoreBlobId()) && initial.configBlobId().equals(state.configBlobId())
+                        && initial.reportBlobId().equals(state.reportBlobId()) && state.reportExists()
+                        && state.ignoredPaths().equals(List.of("build/training-report.txt"));
+                case "TRAINING-GIT-03" -> common && "feature/onboarding".equals(snapshot.currentBranch())
+                        && initial.mainTip().equals(state.mainTip()) && snapshot.headParents().equals(List.of(initial.mainTip()))
+                        && snapshot.headObjectId().equals(state.trainingBranchTip())
+                        && state.headPaths().equals(List.of("docs/handoff.md"))
+                        && initial.handoffBlobId().equals(state.handoffBlobId()) && state.ignoredPaths().isEmpty();
+                default -> false;
+            };
+            if (!cleared) return new StageGrade(false, 0, "研修の完了条件はまだ満たしていません。");
+            return new StageGrade(true, 1, "研修目標のrepository状態へ到達しました。");
+        }
         if ("STAGE-GIT-01".equals(definition.key())) {
             cleared = snapshot.clean() && !snapshot.revertInProgress()
                     && snapshot.ancestorObjectIds().contains(targets.primaryObjectId())
@@ -396,6 +511,39 @@ class StageRules {
         }
         throw unsupportedSyntax();
     }
+    private GitCommand parseTrainingOne(String raw) {
+        GitCommand observation = parseTrainingObservation(raw, false);
+        if (observation != null) return observation;
+        if ("git add onboarding/intro.txt".equals(raw)) return new GitCommand(CommandKind.ADD_TRAINING_INTRO);
+        if ("git commit -m complete-training-01".equals(raw)) return new GitCommand(CommandKind.COMMIT_TRAINING_ONE);
+        throw unsupportedSyntax();
+    }
+    private GitCommand parseTrainingTwo(String raw) {
+        GitCommand observation = parseTrainingObservation(raw, false);
+        if (observation != null) return observation;
+        if ("git restore --staged build/training-report.txt".equals(raw)) return new GitCommand(CommandKind.UNSTAGE_TRAINING_REPORT);
+        if ("git add .gitignore".equals(raw)) return new GitCommand(CommandKind.ADD_TRAINING_IGNORE);
+        if ("git add config/application-training.properties".equals(raw)) return new GitCommand(CommandKind.ADD_TRAINING_CONFIG);
+        if ("git commit -m complete-training-02".equals(raw)) return new GitCommand(CommandKind.COMMIT_TRAINING_TWO);
+        throw unsupportedSyntax();
+    }
+    private GitCommand parseTrainingThree(String raw) {
+        GitCommand observation = parseTrainingObservation(raw, true);
+        if (observation != null) return observation;
+        if ("git switch -c feature/onboarding".equals(raw)) return new GitCommand(CommandKind.SWITCH_CREATE_TRAINING_BRANCH);
+        if ("git switch feature/onboarding".equals(raw)) return new GitCommand(CommandKind.SWITCH_TRAINING_BRANCH);
+        if ("git add docs/handoff.md".equals(raw)) return new GitCommand(CommandKind.ADD_TRAINING_HANDOFF);
+        if ("git commit -m complete-training-03".equals(raw)) return new GitCommand(CommandKind.COMMIT_TRAINING_THREE);
+        throw unsupportedSyntax();
+    }
+    private GitCommand parseTrainingObservation(String raw, boolean branchAllowed) {
+        if ("git status".equals(raw)) return new GitCommand(CommandKind.STATUS);
+        if ("git diff".equals(raw)) return new GitCommand(CommandKind.DIFF);
+        if ("git diff --staged".equals(raw)) return new GitCommand(CommandKind.DIFF_STAGED);
+        if ("git log --oneline".equals(raw)) return new GitCommand(CommandKind.LOG_ONELINE);
+        if (branchAllowed && "git branch".equals(raw)) return new GitCommand(CommandKind.BRANCH);
+        return null;
+    }
     private void rejectUnsafeRaw(String raw) {
         if (raw == null || raw.length() > 512 || raw.indexOf('\n') >= 0 || raw.indexOf('\r') >= 0
                 || raw.matches(".*[;|&<>`].*") || raw.contains("$()") || raw.contains("\"") || raw.contains("'")) {
@@ -417,7 +565,11 @@ class StageRules {
     }
     private int stars(int highestHint, int playerResets) { return highestHint >= 3 ? 1 : playerResets > 0 ? 2 : 3; }
 
-    record StageTargets(String primaryObjectId, String secondaryObjectId, String expectedTreeId, Set<String> allowedObjects) {
+    record StageTargets(String primaryObjectId, String secondaryObjectId, String expectedTreeId, Set<String> allowedObjects,
+                        RepositorySnapshot.TrainingState training) {
+        StageTargets(String primaryObjectId, String secondaryObjectId, String expectedTreeId, Set<String> allowedObjects) {
+            this(primaryObjectId, secondaryObjectId, expectedTreeId, allowedObjects, RepositorySnapshot.TrainingState.empty());
+        }
         StageTargets { allowedObjects = Set.copyOf(new LinkedHashSet<>(allowedObjects)); }
     }
 }

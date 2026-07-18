@@ -22,7 +22,7 @@ if ($LASTEXITCODE -ne 0 -or $gitVersion -ne 'git version 2.52.0') { throw 'Chall
 $runnerJar = Get-ChildItem (Join-Path $root 'git-runner/target/git-runner-*.jar') | Where-Object Name -notmatch 'original' | Select-Object -First 1
 $migratorJar = Get-ChildItem (Join-Path $root 'db-migrator/target/db-migrator-*.jar') | Where-Object Name -notmatch 'original' | Select-Object -First 1
 $appJar = Get-ChildItem (Join-Path $root 'app/target/app-*.jar') | Where-Object Name -notmatch 'original' | Select-Object -First 1
-if (-not $runnerJar -or -not $migratorJar -or -not $appJar) { throw 'Build the application with .\mvnw.cmd package first.' }
+if (-not $runnerJar -or -not $migratorJar -or -not $appJar) { throw 'Build the application with .\scripts\invoke-maven.ps1 package first.' }
 $runtimeTemp = Join-Path $runtime 'tmp'
 New-Item -ItemType Directory -Force -Path $runtimeTemp | Out-Null
 $ledgerPath = Join-Path $runtime 'runner-owned-containers.json'

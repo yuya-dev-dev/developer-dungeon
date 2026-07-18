@@ -2,13 +2,13 @@
 
 ## 文書情報
 
-- 状態: 既存ベースラインとPhase 5改善単位1〜6のテストは完了。改善単位7A・7B・7Cの検証方針確定、未実装
+- 状態: Chapter 1の5ステージとPhase 5改善単位1〜7Dの対象限定テストは完了。Chapter 0の3研修もApp／Runner／Docker／PostgreSQLの対象限定テスト完了
 - 上位文書: [`requirements.md`](requirements.md)、[`git-mvp-stages.md`](git-mvp-stages.md)、[`threat-model.md`](threat-model.md)、[`architecture.md`](architecture.md)
 - 関連文書: [`vertical-slice.md`](vertical-slice.md)、[`phase-5-experience-improvement-plan.md`](phase-5-experience-improvement-plan.md)、[`../AGENTS.md`](../AGENTS.md)
 
 ## 1. この文書が決めること
 
-この文書は、Git編の要件、5ステージ、Runner隔離、永続化、Web操作をどのテストで検証するかを定める。
+この文書は、Git編の要件、Chapter 0の3研修、Chapter 1の5ステージ、Runner隔離、永続化、Web操作をどのテストで検証するかを定める。
 
 テストは変更内容を確認できる最小範囲から実行し、設定を確認せずに一律のfull suite、coverage、performance測定を行わない。
 
@@ -130,7 +130,7 @@ stage固有観点：
 - workspaceに概念chipや正確な構文を常時表示せず、ヒントレベル3以降だけで正確な構文を開示する
 - 全5ステージの入力拒否応答が正確な許可構文一覧を代わりに開示しない
 - `GET /`が固定Git編cardだけを表示し、DB、attempt、Runnerを呼ばない
-- `GET /git/stages`が固定5Stageを学習順に表示し、番号、現場番号、題名、clear状態を含む一方、最高スターを表示しない
+- `GET /git/stages`が固定3研修と固定5Stageを章別・学習順に表示し、番号、題名、完了状態を含む一方、最高スターを表示しない
 - 入口画面のGit編card、戻る導線、各Stage行が通常linkでkeyboard操作でき、既存の固定Stage URLへ遷移する
 - 既存Stage URLへの直接GETが入口2画面化後も成立する
 - STAGE-GIT-04以外でeditor endpointを拒否
@@ -150,8 +150,13 @@ Thymeleafの見た目そのものはunit testへ寄せすぎず、重要な要�
 7. repository-local configが許可keyと期待valueの組だけである。
 8. `.gitattributes`、`.git/info/attributes`、`.gitmodules`、external diff、filter、custom merge driver、fsmonitor、credential helper、signing programを含むfixtureを拒否し、system attributesを無効化する。
 9. STAGE-GIT-05は、通常履歴を先に確認する経路とreflogを先に確認する経路に加え、branch作成後のswitchと`switch -c`の両方で同じclear snapshotへ到達する。
+10. TRAINING-GIT-01〜03は、fixture初期状態、固定変更command、代表的な観察順序の違い、最終snapshot、reset後再現性を確認する。
+11. TRAINING-GIT-02は生成reportがworkspaceに存在したままignoreされ、HEADとindexに含まれないことを確認する。
+12. TRAINING-GIT-03は`main` tip不変、固定branchの直接親、期待tree、current branch、clean状態を確認する。
 
 改善単位7DではSTAGE-GIT-01〜05の各Stageに2経路を用意し、各経路のDocker integration testを1本ずつ維持する。採点testはcommand履歴や順序ではなく最終snapshotの不変条件を確認する。
+
+Chapter 0のApp unit testでは、固定raw構文と専用`CommandKind`の対応、近似構文と別Stage commandの拒否、研修別clear／近似不正解、hint・resetに依存しない内部stars=`1`、Chapter別progress／routeを確認する。Runner unit testでは固定argvとStage別allowlistを確認し、DB integration testでは新stage key、新旧operation kind、progress永続化と既存attempt lifecycleを確認する。
 
 STAGE-GIT-05の状態変更を伴う最小正解経路は、`reflog`で表示された`C1`へ固定名branchを作成してswitchする経路と、固定名branchを`switch -c`で作成・移動する経路とする。観察順序は採点しない。`git show C1`は任意の内容確認であり、command history上のclear必須操作にしない。任意ref、revision式、reflog selector、別branch名を許可する別経路は増やさない。最低限、次を対象限定で確認する。
 
@@ -262,9 +267,9 @@ PostgreSQL Testcontainersを使用し、次を確認する。
 
 ### 安定版MVP
 
-1. 5stageを1スター以上でclearする。
-2. hint level 1〜4を開示し、starへ反映されることを確認する。
-3. 各stageをresetする。
+1. Chapter 0の3研修を完了し、Chapter 1の5stageを1スター以上でclearする。
+2. Chapter 0の完了状態と、Chapter 1でhint level 1〜4を開示した際のstar反映を確認する。
+3. 各研修と各stageをresetする。
 4. 入力拒否、Git error、timeout、Runner unavailableを確認する。
 5. app再起動後にprogressを確認する。
 6. STAGE-GIT-04で指定外fileを編集できないことを確認する。
@@ -285,7 +290,7 @@ PostgreSQL Testcontainersを使用し、次を確認する。
 21. JavaScript無効時にcommand、hint、reset、Stage 4 editor保存が通常form POSTで成立し、responseが対応するfragment付近を表示することを確認する。
 22. `/commands`の表をkeyboardと狭い画面で利用でき、表の閲覧だけでattemptやworkspaceが作られないことを確認する。
 23. PC幅でHEAD完全IDが折り返されず、狭幅ではrepository領域内だけを横scrollできることを確認する。
-24. `/`が承認済みタイトル参照画像の明るさと中央Git編cardを再現し、`/git/stages`がホワイトボード型の5行一覧を表示することをPC幅で確認する。
+24. `/`が承認済みタイトル参照画像の明るさと中央Git編cardを再現し、`/git/stages`がホワイトボード型のChapter 0研修3行とChapter 1現場5行を表示することをPC幅で確認する。
 25. 入口2画面をkeyboardだけで往復し、狭幅でも文字や操作対象が画像へ埋没せず再配置されることを確認する。
 26. `/`と`/git/stages`の閲覧前後でattempt、workspace、challenge containerが増えないことを確認する。
 
@@ -293,7 +298,7 @@ PostgreSQL Testcontainersを使用し、次を確認する。
 
 | 要件 | 主な検証 |
 |---|---|
-| REQ-PROD-001〜005 | 5stage manual play、MVP対象者による未知fixture検証、説明確認 |
+| REQ-PROD-001〜005 | Chapter 0の3研修とChapter 1の5stage manual play、MVP対象者による未知fixture検証、説明確認 |
 | REQ-GAME-001 | Web test、全stage manual play |
 | REQ-GAME-002〜004 | TEST-CMD-001〜009、Web XSS test、Git fixture integration |
 | REQ-GAME-005〜006 | star unit test、reset use case test、Web test、manual |
@@ -317,7 +322,7 @@ PostgreSQL Testcontainersを使用し、次を確認する。
 | REQ-GAME-026 | template test、PC／狭幅manual |
 | REQ-GAME-027〜030 | title／stage-list Controller・template test、DB／Runner非呼出しtest、PC／狭幅・keyboard manual |
 | REQ-VS-001〜006 | vertical-slice unit／Docker integration／manual checklist、文書scope確認 |
-| REQ-MVP-001 | 5stage fixture integration、manual |
+| REQ-MVP-001 | Chapter 0の3研修とChapter 1の5stage fixture integration、manual |
 | REQ-MVP-002 | Web route／view test、manual |
 | REQ-MVP-003 / 006 | TEST-LAUNCH-001〜013、TEST-SEC-001〜023、process境界のmanual確認 |
 | REQ-MVP-004 / 005 | PostgreSQL／Flyway persistence integration |
@@ -375,9 +380,9 @@ PostgreSQL Testcontainersを使用し、次を確認する。
 実際の`pom.xml`とmodule名に基づき、変更範囲へ対応する正確なcommandを提示する。基本形式は次のとおりとする。
 
 ```powershell
-.\mvnw.cmd -pl app "-Dtest=対象TestClass" test
-.\mvnw.cmd -pl git-runner "-Dtest=対象TestClass" test
-.\mvnw.cmd test
+.\scripts\invoke-maven.ps1 -pl app "-Dtest=対象TestClass" test
+.\scripts\invoke-maven.ps1 -pl git-runner "-Dtest=対象TestClass" test
+.\scripts\invoke-maven.ps1 test
 ```
 
 `clean test`、`clean verify`、coverage、performance測定を一律に実行しない。
@@ -394,7 +399,7 @@ PostgreSQL Testcontainersを使用し、次を確認する。
 
 ## 15. MVPテスト完了条件
 
-- Unit、Web、5stage fixture、Runner security、persistence integrationの必要項目が成功している。
+- Unit、Web、Chapter 0の3研修とChapter 1の5stage fixture、Runner security、persistence integrationの必要項目が成功している。
 - 代表E2Eと手動確認が完了している。
 - 実行しなかったtestと未確認範囲が明記されている。
 - security受け入れ条件をmockだけでなく実containerで確認している。

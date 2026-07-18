@@ -321,6 +321,16 @@ clear policyはreflog stdoutやcommand historyを採点へ使わない。信頼�
 
 stageの文章、hint、許可command kind、fixture ID、clear policy IDをappの固定resourceまたはJava定義で管理する。
 
+### 11.1 Chapter 0の明示的拡張
+
+Chapter 0は汎用Stage engineを導入せず、現行Stage定義へ`TRAINING-GIT-01`〜`03`を明示追加する。正本は[`chapter-0-training.md`](chapter-0-training.md)とする。
+
+- `/git/stages`のview modelはtraining key集合とChapter 1 key集合を別属性で渡し、画面上も章別sectionとして表示する。`/git/training`は同画面の研修sectionへ戻す補助URLとする。各研修は`/training/{trainingKey}`とし、既存`/stages/{stageKey}`の契約を変更しない。
+- 研修clear時はDB互換のためstars=`1`を保存するが、研修用presentationではstarと復旧表現を表示しない。
+- `RepositorySnapshot`へ専用の型付きtraining stateを追加し、初期main tip、path状態、固定branch、ignore成立を取得する。曖昧な汎用mapは追加しない。
+- 変更commandは研修用途ごとの`CommandKind`と固定argvを使用し、raw入力からpath、branch、messageをRunner argvへ渡さない。
+- `V4` migrationでstage keyとcommand kindのcheck constraintを拡張し、`EDIT_PROFILE_MESSAGES`を含む現行operation集合を欠落させない。
+
 表示上の案内量と読み取り専用状態要約は、stageの技術定義から分離したdeveloper管理の固定表示方針で扱う。初期MVPでは少なくとも次の2軸を独立させる。
 
 - `guidanceMode`: `FULL_SYNTAX` / `CONCEPT_ONLY`
@@ -346,7 +356,7 @@ MVPでは次を行わない。
 
 1日縦切り版ではプレイ画面だけを直接表示してよい。
 
-改善単位7C以降は、`GET /`をタイトル兼編選択画面、`GET /git/stages`をGit編ステージ選択画面とする。`GET /`は固定のGit編catalogだけをserver-side renderし、DB、attempt、Runner、workspaceを参照しない。`GET /git/stages`は固定のSTAGE-GIT-01〜05とclear状態だけをDB read-onlyで表示し、最高スターをview modelへ載せない。既存の固定URLである`GET /stages/{固定stage key}`とstage別POST URLは変更せず、formから任意のstage keyを受け取らない。一覧閲覧ではRunner、workspace、attemptを作らず、未対応stage keyはrouteを定義せず404とする。
+改善単位7C以降は、`GET /`をタイトル兼編選択画面、`GET /git/stages`をGit編ステージ選択画面とする。`GET /`は固定のGit編catalogだけをserver-side renderし、DB、attempt、Runner、workspaceを参照しない。`GET /git/stages`は固定のTRAINING-GIT-01〜03とSTAGE-GIT-01〜05を章別に、完了状態だけDB read-onlyで表示し、最高スターをview modelへ載せない。既存の固定URLである`GET /stages/{固定stage key}`とstage別POST URLは変更せず、研修には固定の`GET /training/{固定training key}`と対応POSTを追加し、formから任意のkeyを受け取らない。一覧閲覧ではRunner、workspace、attemptを作らず、未対応keyはrouteを定義せず404とする。
 
 入口画面は既存のSpring MVCとThymeleafで実装する。`title.html`は固定Git編card、`stages.html`は既存進捗queryを利用した5つの固定Stage行を描画し、画面ごとに専用のstatic CSSを持つ。参照画像は設計資料に限定し、本番画面では背景assetとsemantic HTMLを分離する。画像内の文字、button、Stage行をclick mapや透明overlayで代用しない。外部font、SPA framework、新しい本番依存関係は追加しない。
 
@@ -355,7 +365,7 @@ MVPでは次を行わない。
 | route | view | server依存 | 操作 |
 |---|---|---|---|
 | `GET /` | タイトル兼編選択 | 固定presentation catalogのみ | Git編を選び`/git/stages`へ移動 |
-| `GET /git/stages` | Git編ステージ選択 | clear進捗のDB read-only参照 | 固定Stage URLへ移動、`/`へ戻る |
+| `GET /git/stages` | Git編ステージ選択 | 研修完了・Stage clear進捗のDB read-only参照 | 固定Training／Stage URLへ移動、`/`へ戻る |
 | `GET /stages/STAGE-GIT-01`〜`05` | プレイ画面 | 既存Stage lifecycle | attempt開始または再開 |
 
 将来編の追加を見越しても、MVPではedition table、汎用edition controller、`challenge_type`、plugin、共通Runner interfaceを導入しない。新しい編を承認した時点で、固定cardとrouteを追加するか、実装済みの複数編から共通化を判断する。既存sidebarの「ステージ一覧」は`/git/stages`へ向け、タイトル画面へ戻る導線はGit編ステージ選択画面にだけ置く。既存Stage URLへのbookmarkと直接アクセスは維持する。
@@ -509,7 +519,7 @@ stack trace、host path、credentialをBrowserへ返さない。
 
 Spring Bootの依存versionは原則として4.1.0のdependency managementへ従い、個別上書きしない。Gitの教材挙動は最新Git 2.55.0ではなく、challenge image内で再現可能なAlpine package 2.52.0-r0を正とする。
 
-Maven Wrapperの`distributionUrl`はApache Maven 3.9.16 binary zipのHTTPS URLへ固定し、`distributionSha256Sum=5af3b743dd8b876b5c45da33b676251e5f1687712644abb4ee519ca56e1d89ce`を必須とする。`only-script`を使用するため`maven-wrapper.jar`は追跡・取得しない。正式なbuild commandは追跡済み`.\mvnw.cmd`だけとし、distributionのchecksum不一致ではMavenを実行しない。
+Maven Wrapperの`distributionUrl`はApache Maven 3.9.16 binary zipのHTTPS URLへ固定し、`distributionSha256Sum=5af3b743dd8b876b5c45da33b676251e5f1687712644abb4ee519ca56e1d89ce`を必須とする。`only-script`を使用するため`maven-wrapper.jar`は追跡・取得しない。正式なbuild commandは`.\scripts\invoke-maven.ps1`とし、必須JDKを解決した同一process内から追跡済み`.\mvnw.cmd`を呼び出す。distributionのchecksum不一致ではMavenを実行しない。
 
 Wrapperは`org.apache.maven.plugins:maven-wrapper-plugin:3.3.4:wrapper -Dtype=only-script -Dmaven=3.9.16 -DdistributionSha256Sum=...`で生成する。生成直後に`mvnw`、`mvnw.cmd`、`.mvn/wrapper/maven-wrapper.properties`のraw byte SHA-256を、相対pathのordinal昇順で`.mvn/wrapper/wrapper-files.sha256`へ固定する。contract testは3ファイルを再hashしてmanifestと比較し、1 byteでも異なれば失敗する。manifest更新はWrapperを明示更新する差分だけで行い、生成commandと3ファイルとmanifestを同じレビュー対象にする。
 
