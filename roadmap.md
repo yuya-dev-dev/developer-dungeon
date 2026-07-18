@@ -2,8 +2,8 @@
 
 ## 文書情報
 
-- 状態: Phase 4完了。Phase 5改善単位1〜6はmain反映済み、第2回内部プレイを受けた改善単位7A・7Bと入口2画面化7Cは実装前方針確定・未実装
-- 現在地: 画面shell、導入会話、状態保持、Stage 5複数経路までmainへ反映済み。次は7Aの画面情報設計簡素化、7Bの同一画面内部分更新、7Cのタイトル兼編選択・Git編ステージ選択画面、対象限定再確認の順に進む
+- 状態: Phase 4完了。Phase 5改善単位1〜7Cはmain反映済み。最終の対象限定再確認とPhase 5合格判定が残る
+- 現在地: 明るい固定背景と白いモニターの画面shell、導入会話、状態保持、Stage 5複数経路、画面情報設計の簡素化、同一画面内部分更新、タイトル兼編選択・Git編ステージ選択画面までmainへ反映済み。次はPhase 5の対象限定再確認と合格判定
 - 上位文書: [`docs/requirements.md`](docs/requirements.md)
 - 関連文書: [`docs/vertical-slice.md`](docs/vertical-slice.md)、[`docs/test-strategy.md`](docs/test-strategy.md)、[`docs/phase-2-hardening-plan.md`](docs/phase-2-hardening-plan.md)
 
@@ -29,7 +29,7 @@
 | 2 | Git Runner hardening | 完了・main反映済み |
 | 3 | 安定版MVP基盤 | 完了・main反映済み |
 | 4 | 5ステージ完成 | 完了・PR #10までmain反映済み |
-| 5 | MVP検証と改善 | 改善単位1〜6 main反映済み、改善単位7A・7B・7C実装前方針確定 |
+| 5 | MVP検証と改善 | 改善単位1〜7C main反映済み、最終の対象限定再確認と合格判定待ち |
 | 6 | Git編拡張の逐次評価 | 未着手 |
 | 7 | 将来技術編の再評価 | 未着手 |
 
@@ -239,12 +239,11 @@ Phase 1の次へ進む条件は満たした。安全境界を5stageへ拡張す�
 1. Phase 4とSTAGE-GIT-01〜05は完了し、起動・DB不具合の修正はPR #11、成功表示・文言はPR #13でmainへ反映済みである。
 2. Phase 5の初回内部パイロットは完了し、明るい固定背景と白いモニターによる画面shell、Stage 1〜5の導入会話、skip・再表示、clear時の人物反応をmainへ反映した。
 3. [`docs/phase-5-experience-improvement-plan.md`](docs/phase-5-experience-improvement-plan.md)の改善単位1〜6をmainへ反映した。第2回内部プレイで、active学習カード、重複情報、sidebar未活用、全画面再読込を次のMajorとして採用した。
-4. 改善単位7Aで、active画面をsidebar、統合header、repository状態、workspaceへ整理し、`/commands`参照表、sidebar hint、Stage 4の条件付き限定editorを実装する。
-5. 7Aをmainへ反映後、改善単位7Bで既存POSTと通常form fallbackを維持した同一画面内部分更新を実装する。Runner、DB、fixture、採点、attempt lifecycleは変更しない。
-6. 改善単位7Cで、承認済み参照画像に基づくタイトル兼編選択画面`/`とGit編ステージ選択画面`/git/stages`を実装する。Git編だけを有効表示し、一覧は番号、現場番号、題名、clear状態へ絞る。
-7. 7A・7B・7C後にStage 1・4・5の操作性、入口2画面の導線、Stage 1・2・5の学習転用を対象限定で再確認し、Phase 5合格判定を行う。
-8. 新卒研修から後輩を支援する立場までの共通物語骨格は採用済みとする。Chapter 0の3ステージ・20〜40分は暫定規模であり、具体設計はPhase 5完了後にユーザー承認を得る。
-9. ライブworkspaceの完了を宣言する復旧報告、`POST /report`、report待機用状態機械、TTL、sweeperは採用しない。自動clearと即時cleanupを維持する。
+4. 改善単位7A〜7Cをmainへ反映した。active画面をsidebar、統合header、repository状態、workspaceへ整理し、`/commands`参照表、sidebar hint、Stage 4の条件付き限定editor、既存POSTと通常form fallbackを維持した同一画面内部分更新、タイトル兼編選択画面`/`とGit編ステージ選択画面`/git/stages`を実装した。Runner、DB、fixture、採点、attempt lifecycleは変更していない。
+5. 実画面のスクリーンショットをREADMEへ追加し、タイトル、Git編一覧、Stage 1、Gitコマンド一覧の表示をローカルで確認した。
+6. Stage 1・4・5の操作性、入口2画面の導線、Stage 1・2・5の学習転用を対象限定で再確認し、Phase 5合格判定を行う。
+7. 新卒研修から後輩を支援する立場までの共通物語骨格は採用済みとする。Chapter 0の3ステージ・20〜40分は暫定規模であり、具体設計はPhase 5完了後にユーザー承認を得る。
+8. ライブworkspaceの完了を宣言する復旧報告、`POST /report`、report待機用状態機械、TTL、sweeperは採用しない。自動clearと即時cleanupを維持する。
 
 詳細は[`docs/requirements.md`](docs/requirements.md)、[`docs/game-design.md`](docs/game-design.md)、[`docs/git-mvp-stages.md`](docs/git-mvp-stages.md)、[`docs/architecture.md`](docs/architecture.md)、[`docs/test-strategy.md`](docs/test-strategy.md)を正本とする。
 
