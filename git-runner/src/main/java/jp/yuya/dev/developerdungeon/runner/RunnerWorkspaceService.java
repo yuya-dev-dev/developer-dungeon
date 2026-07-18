@@ -326,6 +326,7 @@ class RunnerWorkspaceService {
         RepositorySnapshot.StageThreeState stageThree = RepositorySnapshot.StageThreeState.empty();
         RepositorySnapshot.StageFourState stageFour = RepositorySnapshot.StageFourState.empty();
         RepositorySnapshot.StageFiveState stageFive = RepositorySnapshot.StageFiveState.empty();
+        RepositorySnapshot.TrainingState training = RepositorySnapshot.TrainingState.empty();
         if ("STAGE-GIT-02".equals(workspace.stageKey())) {
             profileTip = gitOutput(workspace.containerId(), List.of("rev-parse", "refs/heads/feature/profile")).trim();
             notificationTip = gitOutput(workspace.containerId(), List.of("rev-parse", "refs/heads/feature/notification")).trim();
@@ -363,8 +364,36 @@ class RunnerWorkspaceService {
             stageFive = new RepositorySnapshot.StageFiveState(mainTip, STAGE_FIVE_C1, STAGE_FIVE_C0, STAGE_FIVE_C1_TREE,
                     paymentRetryTip, localBranches);
         }
+        if (workspace.stageKey().startsWith("TRAINING-GIT-")) {
+            String mainTip = gitOutput(workspace.containerId(), List.of("rev-parse", "refs/heads/main")).trim();
+            String trainingBranchTip = nullableLocalBranchTip(workspace, "refs/heads/feature/onboarding");
+            List<String> headPaths = gitLines(workspace.containerId(), List.of("ls-tree", "-r", "--name-only", "HEAD"));
+            List<String> workingPaths = gitLines(workspace.containerId(), List.of("diff", "--name-only", "--no-ext-diff", "--"));
+            List<String> indexPaths = gitLines(workspace.containerId(), List.of("diff", "--cached", "--name-only", "--no-ext-diff", "--"));
+            List<String> untrackedPaths = gitLines(workspace.containerId(), List.of("ls-files", "--others", "--exclude-standard"));
+            List<String> ignoredPaths = gitLines(workspace.containerId(), List.of("ls-files", "--others", "--ignored", "--exclude-standard"));
+            String introBlob = "TRAINING-GIT-01".equals(workspace.stageKey()) ? fileBlob(workspace, "onboarding/intro.txt") : "";
+            String ignoreBlob = "TRAINING-GIT-02".equals(workspace.stageKey()) ? fileBlob(workspace, ".gitignore") : "";
+            String configBlob = "TRAINING-GIT-02".equals(workspace.stageKey()) ? fileBlob(workspace, "config/application-training.properties") : "";
+            String reportBlob = "TRAINING-GIT-02".equals(workspace.stageKey()) ? fileBlob(workspace, "build/training-report.txt") : "";
+            String handoffBlob = "TRAINING-GIT-03".equals(workspace.stageKey()) ? fileBlob(workspace, "docs/handoff.md") : "";
+            boolean reportExists = "TRAINING-GIT-02".equals(workspace.stageKey()) && pathExists(workspace, "/workspace/build/training-report.txt");
+            training = new RepositorySnapshot.TrainingState(mainTip, trainingBranchTip, headPaths, workingPaths,
+                    indexPaths, untrackedPaths, ignoredPaths, introBlob, ignoreBlob, configBlob, reportBlob,
+                    handoffBlob, reportExists);
+        }
         return new RepositorySnapshot(head, tree, firstParentTree, parentList, status.isEmpty(), reverting, ancestorList,
-                currentBranch, profileTip, notificationTip, cherryPicking, merging, rebasing, stageThree, stageFour, stageFive);
+                currentBranch, profileTip, notificationTip, cherryPicking, merging, rebasing, stageThree, stageFour, stageFive, training);
+    }
+
+    private String fileBlob(Workspace workspace, String path) {
+        String value = gitOutput(workspace.containerId(), List.of("hash-object", "--", path)).trim();
+        if (!value.matches("[0-9a-f]{40}")) throw new IllegalStateException("training fixture file is invalid");
+        return value;
+    }
+
+    private boolean pathExists(Workspace workspace, String path) {
+        return docker.run(List.of("exec", workspace.containerId(), "/usr/bin/test", "-f", path), COMMAND_TIMEOUT).exitCode() == 0;
     }
 
     private String nullableLocalBranchTip(Workspace workspace, String ref) {
@@ -430,7 +459,7 @@ class RunnerWorkspaceService {
         return List.copyOf(objectIds);
     }
 
-    private List<String> gitArguments(String containerId, GitCommand command) {
+    List<String> gitArguments(String containerId, GitCommand command) {
         var arguments = gitPrefix(containerId);
         arguments.add("-C"); arguments.add("/workspace");
         arguments.add("-c"); arguments.add("core.hooksPath=/opt/empty-hooks"); arguments.add("-c"); arguments.add("core.attributesFile=/dev/null");
@@ -464,6 +493,16 @@ class RunnerWorkspaceService {
             case CREATE_PAYMENT_RETRY_BRANCH -> arguments.addAll(List.of("branch", "feature/payment-retry", command.objectId()));
             case SWITCH_PAYMENT_RETRY -> arguments.addAll(List.of("switch", "feature/payment-retry"));
             case SWITCH_CREATE_PAYMENT_RETRY -> { arguments.addAll(List.of("switch", "-c", "feature/payment-retry")); arguments.add(command.objectId()); }
+            case ADD_TRAINING_INTRO -> arguments.addAll(List.of("add", "--", "onboarding/intro.txt"));
+            case COMMIT_TRAINING_ONE -> arguments.addAll(List.of("commit", "-m", "complete-training-01"));
+            case UNSTAGE_TRAINING_REPORT -> arguments.addAll(List.of("restore", "--staged", "--", "build/training-report.txt"));
+            case ADD_TRAINING_IGNORE -> arguments.addAll(List.of("add", "--", ".gitignore"));
+            case ADD_TRAINING_CONFIG -> arguments.addAll(List.of("add", "--", "config/application-training.properties"));
+            case COMMIT_TRAINING_TWO -> arguments.addAll(List.of("commit", "-m", "complete-training-02"));
+            case SWITCH_CREATE_TRAINING_BRANCH -> arguments.addAll(List.of("switch", "-c", "feature/onboarding"));
+            case SWITCH_TRAINING_BRANCH -> arguments.addAll(List.of("switch", "feature/onboarding"));
+            case ADD_TRAINING_HANDOFF -> arguments.addAll(List.of("add", "--", "docs/handoff.md"));
+            case COMMIT_TRAINING_THREE -> arguments.addAll(List.of("commit", "-m", "complete-training-03"));
         }
         return arguments;
     }
@@ -490,7 +529,9 @@ class RunnerWorkspaceService {
     private String requestKey(String scope, String requestId) { return scope + ":" + requestId; }
     private void requireStage(String stageKey) {
         if (!"STAGE-GIT-01".equals(stageKey) && !"STAGE-GIT-02".equals(stageKey) && !"STAGE-GIT-03".equals(stageKey)
-                && !"STAGE-GIT-04".equals(stageKey) && !"STAGE-GIT-05".equals(stageKey)) throw new IllegalArgumentException("unknown stage");
+                && !"STAGE-GIT-04".equals(stageKey) && !"STAGE-GIT-05".equals(stageKey)
+                && !"TRAINING-GIT-01".equals(stageKey) && !"TRAINING-GIT-02".equals(stageKey)
+                && !"TRAINING-GIT-03".equals(stageKey)) throw new IllegalArgumentException("unknown stage");
     }
     private String fixturePath(String stageKey) {
         return switch (stageKey) {
@@ -499,6 +540,9 @@ class RunnerWorkspaceService {
             case "STAGE-GIT-03" -> "/opt/fixtures/stage-git-03";
             case "STAGE-GIT-04" -> "/opt/fixtures/stage-git-04";
             case "STAGE-GIT-05" -> "/opt/fixtures/stage-git-05";
+            case "TRAINING-GIT-01" -> "/opt/fixtures/training-git-01";
+            case "TRAINING-GIT-02" -> "/opt/fixtures/training-git-02";
+            case "TRAINING-GIT-03" -> "/opt/fixtures/training-git-03";
             default -> throw new IllegalArgumentException("unknown stage");
         };
     }
@@ -549,6 +593,10 @@ class RunnerWorkspaceService {
     }
     private void validateStageCommand(Workspace workspace, GitCommand command) {
         StageTargets targets = stageTargets.get(workspace.workspaceId());
+        if (workspace.stageKey().startsWith("TRAINING-GIT-")) {
+            validateTrainingCommand(workspace.stageKey(), command.kind());
+            return;
+        }
         if ("STAGE-GIT-01".equals(workspace.stageKey())) {
             if (command.kind() != CommandKind.STATUS && command.kind() != CommandKind.LOG_ONELINE
                     && command.kind() != CommandKind.SHOW && command.kind() != CommandKind.REVERT_NO_EDIT
@@ -610,7 +658,28 @@ class RunnerWorkspaceService {
             throw new IllegalArgumentException("only the stage's branches can be selected");
         }
     }
+    void validateTrainingCommand(String stageKey, CommandKind kind) {
+        boolean allowed = switch (stageKey) {
+            case "TRAINING-GIT-01" -> kind == CommandKind.STATUS || kind == CommandKind.DIFF
+                    || kind == CommandKind.DIFF_STAGED || kind == CommandKind.LOG_ONELINE
+                    || kind == CommandKind.ADD_TRAINING_INTRO || kind == CommandKind.COMMIT_TRAINING_ONE;
+            case "TRAINING-GIT-02" -> kind == CommandKind.STATUS || kind == CommandKind.DIFF
+                    || kind == CommandKind.DIFF_STAGED || kind == CommandKind.LOG_ONELINE
+                    || kind == CommandKind.UNSTAGE_TRAINING_REPORT || kind == CommandKind.ADD_TRAINING_IGNORE
+                    || kind == CommandKind.ADD_TRAINING_CONFIG || kind == CommandKind.COMMIT_TRAINING_TWO;
+            case "TRAINING-GIT-03" -> kind == CommandKind.STATUS || kind == CommandKind.DIFF
+                    || kind == CommandKind.DIFF_STAGED || kind == CommandKind.LOG_ONELINE || kind == CommandKind.BRANCH
+                    || kind == CommandKind.SWITCH_CREATE_TRAINING_BRANCH || kind == CommandKind.SWITCH_TRAINING_BRANCH
+                    || kind == CommandKind.ADD_TRAINING_HANDOFF || kind == CommandKind.COMMIT_TRAINING_THREE;
+            default -> false;
+        };
+        if (!allowed) throw new IllegalArgumentException("command is not allowed for this training");
+    }
     private StageTargets captureStageTargets(String stageKey, RepositorySnapshot initial) {
+        if (stageKey.startsWith("TRAINING-GIT-")) {
+            validateTrainingInitial(stageKey, initial);
+            return new StageTargets(null, null, null, null, Set.of(initial.headObjectId()));
+        }
         if ("STAGE-GIT-01".equals(stageKey)) {
             return new StageTargets(initial.headObjectId(), null, null, null, Set.copyOf(initial.ancestorObjectIds()));
         }
@@ -680,6 +749,35 @@ class RunnerWorkspaceService {
         if (hooks.exitCode() != 0 || !hooks.stdout().isBlank()) throw new IllegalStateException("fixture contains hook");
         if ("STAGE-GIT-04".equals(workspace.stageKey())) validateStageFourFixturePaths(workspace);
         if ("STAGE-GIT-05".equals(workspace.stageKey())) validateStageFiveFixture(workspace);
+        if (workspace.stageKey().startsWith("TRAINING-GIT-")) validateTrainingInitial(workspace.stageKey(), snapshot(workspace));
+    }
+
+    private void validateTrainingInitial(String stageKey, RepositorySnapshot snapshot) {
+        var state = snapshot.training();
+        boolean common = "main".equals(snapshot.currentBranch()) && snapshot.headObjectId().equals(state.mainTip())
+                && state.trainingBranchTip() == null && snapshot.headParents().isEmpty()
+                && !snapshot.clean() && !snapshot.revertInProgress() && !snapshot.cherryPickInProgress()
+                && !snapshot.mergeInProgress() && !snapshot.rebaseInProgress() && state.untrackedPaths().isEmpty();
+        boolean valid = switch (stageKey) {
+            case "TRAINING-GIT-01" -> common
+                    && state.headPaths().equals(List.of("onboarding/intro.txt"))
+                    && state.workingTreePaths().equals(List.of("onboarding/intro.txt"))
+                    && state.indexPaths().isEmpty() && state.ignoredPaths().isEmpty()
+                    && !state.introBlobId().isBlank();
+            case "TRAINING-GIT-02" -> common
+                    && state.headPaths().equals(List.of(".gitignore", "config/application-training.properties"))
+                    && state.workingTreePaths().equals(List.of(".gitignore", "config/application-training.properties"))
+                    && state.indexPaths().equals(List.of("build/training-report.txt"))
+                    && state.ignoredPaths().isEmpty() && state.reportExists()
+                    && !state.ignoreBlobId().isBlank() && !state.configBlobId().isBlank() && !state.reportBlobId().isBlank();
+            case "TRAINING-GIT-03" -> common
+                    && state.headPaths().equals(List.of("docs/handoff.md"))
+                    && state.workingTreePaths().equals(List.of("docs/handoff.md"))
+                    && state.indexPaths().isEmpty() && state.ignoredPaths().isEmpty()
+                    && !state.handoffBlobId().isBlank();
+            default -> false;
+        };
+        if (!valid) throw new IllegalStateException("training fixture is invalid");
     }
 
     private void validateStageFourFixturePaths(Workspace workspace) {

@@ -24,18 +24,44 @@ class StageControllerTest {
 
     @Test void gitStageListReadsProgressAndExposesOnlyTheListFields() throws Exception {
         StageService stages = mock(StageService.class);
+        var training = List.of(new StageProgress("TRAINING-GIT-01", "変更を記録する", "summary", 1));
         var progress = List.of(new StageProgress("STAGE-GIT-01", "公開済み変更を取り消す", "summary", 3),
                 new StageProgress("STAGE-GIT-02", "間違ったbranchのcommitを移す", "summary", 0));
+        when(stages.trainingProgresses()).thenReturn(training);
         when(stages.progresses()).thenReturn(progress);
         MockMvc mvc = MockMvcBuilders.standaloneSetup(new StageController(stages))
                 .setSingleView(new InternalResourceView("/WEB-INF/test.html")).build();
 
         mvc.perform(get("/git/stages")).andExpect(status().isOk()).andExpect(view().name("stages"))
+                .andExpect(model().attribute("trainingStages", List.of(
+                        new StageController.StageListItem(1, "TRAINING-GIT-01", "変更を記録する", true))))
                 .andExpect(model().attribute("stages", List.of(
                         new StageController.StageListItem(1, "STAGE-GIT-01", "公開済み変更を取り消す", true),
                         new StageController.StageListItem(2, "STAGE-GIT-02", "間違ったbranchのcommitを移す", false))));
 
+        verify(stages).trainingProgresses();
         verify(stages).progresses();
+        verifyNoMoreInteractions(stages);
+    }
+    @Test void trainingRouteAndCommandUseOnlyTheFixedTrainingKey() throws Exception {
+        StageService stages = mock(StageService.class);
+        var definition = new StageDefinition("TRAINING-GIT-01", "chapter", "title", "summary", "intro", "ticket", "objective", "commands", outcome());
+        var page = new StageView("request", "output", null, null, 0, 0, 0, 0, false, 0, "研修中", List.of());
+        when(stages.open("TRAINING-GIT-01")).thenReturn(page);
+        when(stages.execute("TRAINING-GIT-01", "git status", "11111111-1111-1111-1111-111111111111")).thenReturn(page);
+        when(stages.definition("TRAINING-GIT-01")).thenReturn(definition);
+        MockMvc mvc = MockMvcBuilders.standaloneSetup(new StageController(stages)).build();
+
+        mvc.perform(get("/training/TRAINING-GIT-01")).andExpect(status().isOk()).andExpect(view().name("stage"))
+                .andExpect(model().attribute("training", true));
+        mvc.perform(post("/training/TRAINING-GIT-01/commands").param("command", "git status")
+                        .param("requestId", "11111111-1111-1111-1111-111111111111"))
+                .andExpect(status().isOk()).andExpect(view().name("stage"))
+                .andExpect(model().attribute("training", true));
+
+        verify(stages).open("TRAINING-GIT-01");
+        verify(stages).execute("TRAINING-GIT-01", "git status", "11111111-1111-1111-1111-111111111111");
+        verify(stages, times(2)).definition("TRAINING-GIT-01");
         verifyNoMoreInteractions(stages);
     }
     @Test void commandReferenceUsesTheFixedCatalogWithoutCallingTheService() throws Exception {

@@ -10,6 +10,14 @@ Test-MavenWrapperIntegrity -RepositoryRoot $root
 $resolvedJavaHome = Resolve-RequiredJavaHome
 $recoveredJavaHome = Resolve-RequiredJavaHome -CandidateHomes @('C:\missing-developer-dungeon-jdk', $resolvedJavaHome)
 if ($recoveredJavaHome -ne $resolvedJavaHome) { throw 'Required Java home recovery contract failed.' }
+$oldJavaHome = $env:JAVA_HOME
+$env:JAVA_HOME = 'C:\missing-developer-dungeon-jdk'
+try {
+    & (Join-Path $PSScriptRoot 'invoke-maven.ps1') --version | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw 'Repository Maven launcher Java recovery contract failed.' }
+} finally {
+    $env:JAVA_HOME = $oldJavaHome
+}
 $lockTestDirectory = Join-Path ([IO.Path]::GetTempPath()) "developer-dungeon-runtime-lock-$([Guid]::NewGuid().ToString('N'))"
 $firstLock = $null; $thirdLock = $null
 try {

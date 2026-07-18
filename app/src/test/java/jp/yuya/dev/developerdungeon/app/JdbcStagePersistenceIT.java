@@ -88,6 +88,9 @@ class JdbcStagePersistenceIT {
         JdbcStagePersistence store = store();
         UUID attemptId = UUID.randomUUID();
         Instant now = Instant.parse("2026-07-12T00:00:00Z");
+        var training = store.createStarting(UUID.randomUUID(), "TRAINING-GIT-01", UUID.randomUUID(), now);
+        assertThat(new JdbcTemplate(appDataSource).queryForObject("SELECT stage_key FROM stage_attempt WHERE id=?",
+                String.class, training.id())).isEqualTo("TRAINING-GIT-01");
         var starting = store.createStarting(attemptId, "STAGE-GIT-02", UUID.randomUUID(), now);
         var created = store.workspaceCreated(attemptId, starting.version(), UUID.randomUUID());
         var active = store.activate(attemptId, created.version(), created.workspaceId());

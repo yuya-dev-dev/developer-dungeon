@@ -1,0 +1,27 @@
+ALTER TABLE stage_attempt
+    DROP CONSTRAINT stage_attempt_stage_key_check;
+
+ALTER TABLE stage_attempt
+    ADD CONSTRAINT stage_attempt_stage_key_check CHECK (
+        stage_key ~ '^STAGE-GIT-[0-9]{2}$'
+        OR stage_key IN ('TRAINING-GIT-01', 'TRAINING-GIT-02', 'TRAINING-GIT-03')
+    );
+
+ALTER TABLE command_history
+    DROP CONSTRAINT command_history_command_kind_check;
+
+ALTER TABLE command_history
+    ADD CONSTRAINT command_history_command_kind_check CHECK (
+        command_kind IN (
+            'STATUS', 'LOG_ONELINE', 'LOG_ONELINE_ALL_DECORATE', 'BRANCH', 'SHOW', 'SWITCH',
+            'CHERRY_PICK', 'RESET_HARD', 'REVERT_NO_EDIT', 'REVERT_NO_COMMIT',
+            'COMMIT_RESTORE_SETTINGS', 'DIFF', 'DIFF_STAGED', 'STASH_PUSH', 'STASH_LIST',
+            'STASH_POP', 'STASH_APPLY', 'STASH_DROP', 'LOG_GRAPH_ALL', 'MERGE_PROFILE_MESSAGE',
+            'ADD_PROFILE_MESSAGES', 'COMMIT_NO_EDIT', 'COMMIT_ALL_NO_EDIT', 'REFLOG_HEAD',
+            'CREATE_PAYMENT_RETRY_BRANCH', 'SWITCH_PAYMENT_RETRY', 'SWITCH_CREATE_PAYMENT_RETRY',
+            'EDIT_PROFILE_MESSAGES', 'ADD_TRAINING_INTRO', 'COMMIT_TRAINING_ONE',
+            'UNSTAGE_TRAINING_REPORT', 'ADD_TRAINING_IGNORE', 'ADD_TRAINING_CONFIG',
+            'COMMIT_TRAINING_TWO', 'SWITCH_CREATE_TRAINING_BRANCH', 'SWITCH_TRAINING_BRANCH',
+            'ADD_TRAINING_HANDOFF', 'COMMIT_TRAINING_THREE'
+        )
+    );

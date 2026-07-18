@@ -41,9 +41,9 @@
 
 ### 2.3 将来構想
 
-現在の`STAGE-GIT-01`〜`05`を、Git事故対応を扱うChapter 1として位置づける。MVP後の将来構想として、日常開発フローを扱う任意のChapter 0、remote共同作業を扱うChapter 2、複数事故を分解して解決するGit編Finaleを候補とする。Chapter 0は初心者へ推奨し、経験者がChapter 1から開始できる構成を前提とする。
+現在の`STAGE-GIT-01`〜`05`を、Git事故対応を扱うChapter 1として位置づける。Chapter 0「Git基礎研修」は初心者へ推奨する任意の導入章として、local repositoryの基本を3研修で広く浅く扱う。経験者はChapter 1から開始できる。remote共同作業を扱うChapter 2と、複数事故を分解して解決するGit編Finaleは将来候補とする。
 
-Javaコードレビュー編、SQL編、Docker・CI/CD障害対応編は、同じ主人公、会社、主力サービス、登場人物を再利用できる将来候補である。ただし、Chapter 0を含む各章のステージ内容、実装順、Runner境界、データ定義、画面構成はPhase 5後に1章ずつ設計し、ユーザーが個別に承認するまで実装範囲へ含めない。
+Javaコードレビュー編、SQL編、Docker・CI/CD障害対応編は、同じ主人公、会社、主力サービス、登場人物を再利用できる将来候補である。Chapter 0の確定仕様は[`chapter-0-training.md`](chapter-0-training.md)を正本とする。Chapter 2以降は1章ずつ設計し、ユーザーが個別に承認するまで実装範囲へ含めない。
 
 共通化するのは世界観、人物の役割、チケットによる課題提示、調査・実行・確認・振り返りという学習ループまでとする。将来編だけを理由に、`challenge_type`、汎用Runner、プラグイン機構、共通DB構造、シナリオエンジン、キャラクター管理機構を導入しない。
 
@@ -60,7 +60,7 @@ Javaコードレビュー編、SQL編、Docker・CI/CD障害対応編は、同�
 - 基礎を復習したい経験者
 - 将来追加する高難度ステージで、rebase、bisect、remote事故などを練習したい開発者
 
-完全なGit未経験者向けの基礎講座は現在のMVPに含めない。将来のChapter 0では、長い講義ではなく小さな業務課題を通じて日常操作と状態モデルを学べる導入を候補とし、具体的な内容はPhase 5後に決定する。
+完全なGit未経験者もChapter 0の副対象に含める。長い講義ではなく、実Gitを使う短い新人研修でlocal repositoryの日常操作と状態モデルを学ぶ。
 
 ## 4. プロダクト目標
 
@@ -103,9 +103,11 @@ Javaコードレビュー編、SQL編、Docker・CI/CD障害対応編は、同�
 | REQ-GAME-025 | workspaceの通常表示はcommand入力、実行button、実行結果へ絞る。Stage 4の限定editorはmerge conflict中だけworkspace内へ追加し、Stage 4以外、競合前、clear後には表示しない |
 | REQ-GAME-026 | 現在repository状態は独立した横幅のある領域で表示し、完全HEAD object IDを等幅かつ折り返さず確認できる。狭い画面では当該領域内だけの横scrollを許容する |
 | REQ-GAME-027 | `/`はタイトル兼編選択画面とし、安定版MVPでは利用可能なGit編だけを表示する。閲覧時にDB、attempt、Runner、workspaceへアクセスしない |
-| REQ-GAME-028 | `/git/stages`は固定のSTAGE-GIT-01〜05を学習順に表示し、各行には番号、現場番号、題名、clear／未clear状態だけを表示する。最高スターは採点・永続化に残しても一覧には表示しない |
+| REQ-GAME-028 | `/git/stages`のChapter 1区画は固定のSTAGE-GIT-01〜05を学習順に表示し、各行には番号、現場番号、題名、clear／未clear状態だけを表示する。最高スターは採点・永続化に残しても一覧には表示しない |
 | REQ-GAME-029 | タイトル画面とGit編ステージ選択画面は承認済み参照画像の明るいオフィス、研修カード、ホワイトボード型一覧、最小限の情報階層をHTML/CSSで再現し、画像内の文字や透明なclick領域へ操作を依存させない |
 | REQ-GAME-030 | 既存の固定Stage URLは維持し、直接アクセスを禁止しない。入口画面の閲覧だけでattemptやworkspaceを作成せず、Stage開始時に限って既存lifecycleを開始する |
+| REQ-GAME-031 | `/git/stages`はGit基礎研修とGit事故対応を分け、`TRAINING-GIT-01`〜`03`と`STAGE-GIT-01`〜`05`をそれぞれ学習順に表示する。経験者のChapter 1直接開始と後から研修へ戻る導線を維持する |
+| REQ-GAME-032 | Chapter 0は完了／未完了だけを表示し、hint・resetに関係なく内部starsを常に1として保存する。固定手順、最短手順、調査回数は採点しない |
 
 ## 6. 評価要件
 
@@ -131,7 +133,7 @@ Javaコードレビュー編、SQL編、Docker・CI/CD障害対応編は、同�
 | 実務 | 複数の状態を観察し、安全な操作を選ぶ | 含む |
 | 修羅場 | rebase、bisect、remote事故など、複合的な判断を求める | MVP後 |
 
-安定版MVPは研修から実務までの5ステージとし、難易度を自動調整する仕組みは作らない。
+安定版MVPはChapter 0の基礎研修3件とChapter 1の事故対応5ステージで構成し、難易度を自動調整する仕組みは作らない。
 
 ## 8. 1日縦切り版
 
@@ -148,13 +150,13 @@ Javaコードレビュー編、SQL編、Docker・CI/CD障害対応編は、同�
 
 | ID | 要件 |
 |---|---|
-| REQ-MVP-001 | `STAGE-GIT-01`から`STAGE-GIT-05`までの5ステージを提供する |
+| REQ-MVP-001 | Chapter 0として`TRAINING-GIT-01`から`TRAINING-GIT-03`までの3研修、Chapter 1として`STAGE-GIT-01`から`STAGE-GIT-05`までの5ステージを提供する |
 | REQ-MVP-002 | タイトル兼編選択画面、Git編ステージ選択画面、プレイ画面を主要画面とする |
 | REQ-MVP-003 | attemptごとに使い捨てのGit実行環境を生成し、終了時に破棄する |
 | REQ-MVP-004 | PostgreSQLへattempt、コマンド履歴、クリア進捗を保存する |
 | REQ-MVP-005 | Flywayで管理DBのschemaを管理する |
 | REQ-MVP-006 | Git RunnerをSpring Bootアプリケーションと別プロセスにする |
-| REQ-MVP-007 | 自動テストと手動テストの双方で、5ステージと隔離制約を確認する |
+| REQ-MVP-007 | 自動テストと手動テストの双方で、Chapter 0の3研修、Chapter 1の5ステージ、隔離制約を確認する |
 
 ## 10. 非機能要件
 
@@ -192,7 +194,7 @@ Javaコードレビュー編、SQL編、Docker・CI/CD障害対応編は、同�
 
 ## 12. MVPに含めないもの
 
-- Chapter 0の日常開発フロー、Chapter 2のremote共同作業、Git編Finale
+- Chapter 2のremote共同作業、Git編Finale
 - Javaコードレビュー編、SQL編、Docker障害対応編
 - ログイン、複数プレイヤー、ランキング、実績
 - 外部公開、クラウドデプロイ、マルチテナント
@@ -205,13 +207,13 @@ Javaコードレビュー編、SQL編、Docker・CI/CD障害対応編は、同�
 
 ## 13. MVP完成条件
 
-1. 5ステージすべてで、初期化、コマンド実行、状態採点、ヒント、リセット、クリア後の自己確認と振り返りが動作する。
+1. Chapter 0の3研修とChapter 1の5ステージすべてで、初期化、コマンド実行、状態採点、ヒント、リセット、クリア後の自己確認と振り返りが動作する。
 2. 再起動後もクリア進捗と履歴が残る。
 3. 各ステージに正解、近似不正解、dirty、操作途中の自動テストがある。
 4. 禁止入力がGitまたはシェルへ渡らないことを自動テストで確認できる。
 5. timeout後に課題コンテナとworkspaceが残らない。
 6. 課題環境からホスト、Dockerソケット、管理DB、外部ネットワークへ到達できない。
-7. 全5ステージを手動で通し、ヒント、リセット、エラー分類を確認している。
+7. Chapter 0の全3研修とChapter 1の全5ステージを手動で通し、ヒント、リセット、エラー分類を確認している。
 8. ローカル専用という制約と、未対応環境をREADMEに明記している。
 9. Git出力とエディタ内容にHTML・script・制御文字を含めてもBrowserで実行・解釈されない。
 10. command二重送信、command中reset、応答喪失後の再送でGit操作、履歴、workspace lifecycleが一度だけ確定する。
@@ -233,7 +235,6 @@ Javaコードレビュー編、SQL編、Docker・CI/CD障害対応編は、同�
 |---|---|
 | TBD-001 | プロダクト、Git編、主人公、会社、主要人物の正式名称 |
 | TBD-004 | 5ステージの文章、fixture内のファイル名、コミットメッセージの最終表現 |
-| TBD-006 | Chapter 0の確定ステージ数、各課題、スキップ導線、許可操作、fixture、採点、実装順 |
 | TBD-007 | Chapter 2とGit編Finaleのステージ構成、remoteの表現方式、安全境界、採点方法 |
 | TBD-008 | コードレビュー編、SQL編、Docker・CI/CD編の順序と、各編専用の実行・隔離方式 |
 

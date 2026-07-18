@@ -10,14 +10,30 @@
 <body class="stage-select-page">
 <main class="stage-board">
   <a class="back-link" th:href="@{/}">← 編選択へ戻る</a>
-  <header class="board-heading"><h1>Git編</h1><p>ステージを選択してください</p></header>
-  <section class="board-list" aria-label="Git編のステージ一覧">
+  <header class="board-heading"><h1>Git編</h1><p>研修または現場を選択してください</p></header>
+  <section id="training-stages" class="board-chapter" aria-labelledby="training-heading">
+    <h2 id="training-heading">Chapter 0　Git基礎研修</h2>
+    <p>Gitが初めてなら、ここから始めるのがおすすめです。後からいつでも戻れます。</p>
+  <div class="board-list" aria-label="Git基礎研修の一覧">
+    <a class="board-row training-row" th:each="stage : ${trainingStages}" th:href="@{|/training/${stage.stageKey}|}">
+      <span class="board-pin" aria-hidden="true" th:classappend="${stage.cleared ? ' pin-cleared' : ''}"></span>
+      <span class="board-number"><small>TRAINING</small><strong th:text="${#numbers.formatInteger(stage.number, 2)}">01</strong></span>
+      <span class="board-title"><small th:text="${'第' + stage.number + '研修'}">第1研修</small><strong th:text="${stage.title}">最初の変更を記録する</strong></span>
+      <span class="board-status" th:classappend="${stage.cleared ? ' is-cleared' : ''}" th:text="${stage.cleared ? '研修完了' : '未完了'}">未完了</span>
+    </a>
+  </div>
+  </section>
+  <section class="board-chapter" aria-labelledby="incident-heading">
+    <h2 id="incident-heading">Chapter 1　Git事故対応</h2>
+    <p>repository事故を調査し、安全な最終状態へ復旧します。</p>
+  <div class="board-list" aria-label="Git事故対応のステージ一覧">
     <a class="board-row" th:each="stage : ${stages}" th:href="@{|/stages/${stage.stageKey}|}">
       <span class="board-pin" aria-hidden="true" th:classappend="${stage.cleared ? ' pin-cleared' : ''}"></span>
       <span class="board-number"><small>STAGE</small><strong th:text="${#numbers.formatInteger(stage.number, 2)}">01</strong></span>
       <span class="board-title"><small th:text="${'第' + stage.number + '現場'}">第1現場</small><strong th:text="${stage.title}">公開済み変更を取り消す</strong></span>
       <span class="board-status" th:classappend="${stage.cleared ? ' is-cleared' : ''}" th:text="${stage.cleared ? 'CLEAR' : '未クリア'}">未クリア</span>
     </a>
+  </div>
   </section>
 </main>
 </body>
