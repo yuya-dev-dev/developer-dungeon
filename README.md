@@ -24,7 +24,7 @@ Phase 4までの企画・要件・全体設計と実装はユーザー承認済�
 
 | ステージ画面 | Gitコマンド一覧 |
 |---|---|
-| ![第1現場のステージ画面](docs/assets/screenshots/stage-git-01.png) | ![Gitコマンド一覧](docs/assets/screenshots/command-reference.png) |
+| ![第2現場のステージ画面](docs/assets/screenshots/stage-git-02.png) | ![Gitコマンド一覧](docs/assets/screenshots/command-reference.png) |
 
 ## ゲームの中心
 
