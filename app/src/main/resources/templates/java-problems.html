@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="ja" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; img-src 'self'; base-uri 'none'; form-action 'self'">
+  <title>Javaクラス設計演習 | Developer Dungeon</title>
+  <link rel="stylesheet" th:href="@{/java-learning.css}">
+</head>
+<body class="java-page">
+<div class="java-layout">
+  <aside class="java-sidebar">
+    <a class="java-brand" th:href="@{/}"><span>DD</span><strong>Developer<br>Dungeon</strong></a>
+    <nav aria-label="Java演習ナビゲーション">
+      <a class="is-active" th:href="@{/java/problems}">問題一覧</a>
+      <a th:href="@{/}">研修選択へ戻る</a>
+    </nav>
+    <div class="java-sidebar-note"><b>Java Class Design</b><span>仕様を読み、責務を分け、自分の設計をコードにしよう。</span></div>
+  </aside>
+  <main class="java-main">
+    <header class="java-hero">
+      <p class="eyebrow">JAVA CLASS DESIGN PRACTICE</p>
+      <h1>クラス設計を、手を動かして身につける。</h1>
+      <p>問題を選び、仕様を読み、VS Codeで実装します。唯一解を探すのではなく、責務と協調を自分の言葉で説明できる設計を目指します。</p>
+      <div class="java-hero-stats"><span><strong>9</strong> exercises</span><span><strong>3</strong> themes</span><span><strong>3</strong> levels</span></div>
+    </header>
+
+    <section class="level-section" th:each="group : ${problemGroups}">
+      <div class="level-heading">
+        <div><p class="eyebrow" th:text="${group.name}">BEGINNER</p><h2 th:text="${group.label}">初級</h2></div>
+        <p th:text="${group.description}">説明</p>
+      </div>
+      <div class="problem-grid">
+        <a class="problem-card" th:each="item : ${group.problems}" th:href="@{/java/problems/{slug}(slug=${item.problem.slug})}">
+          <span class="problem-order" th:text="${#numbers.formatInteger(item.problem.order, 2)}">01</span>
+          <span class="problem-theme" th:text="${item.problem.theme}">図書館</span>
+          <strong th:text="${item.problem.title}">問題タイトル</strong>
+          <p th:text="${item.problem.summary}">概要</p>
+          <span class="problem-status" th:classappend="${'status-' + item.status.name().toLowerCase()}" th:text="${item.status.label}">未着手</span>
+          <span class="card-arrow" aria-hidden="true">↗</span>
+        </a>
+      </div>
+    </section>
+  </main>
+</div>
+</body>
+</html>

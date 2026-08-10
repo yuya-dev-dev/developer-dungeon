@@ -1,0 +1,13 @@
+{
+  "key":"JAVA-LIBRARY-ADVANCED", "slug":"library-advanced", "theme":"図書館貸出", "difficulty":"ADVANCED", "order":7,
+  "title":"予約・延長・貸出方針を設計する", "summary":"会員別policy、ISBN単位のFIFO予約、copy引当、延長を一貫した状態遷移で扱います。",
+  "learningObjectives":["会員規則を交換可能なpolicyにする", "予約queueとcopy状態を協調させる", "現在日を注入可能なClockから得る"],
+  "prerequisites":["interface", "composition", "Clock", "enumと状態遷移"],
+  "requirements":["書誌、複数copy、利用者、貸出、予約を管理する", "標準会員と優先会員で貸出上限と期間を変える", "ISBN単位のFIFO予約待ち行列を持つ", "重複予約と借入中ISBNへの予約を拒否する", "返却時は先頭予約者へcopyを引き当て一般在庫から除外する", "引当copyは先頭者だけが借りられ成功時に予約を消費する", "延長は1回だけで延滞中または次予約者がいる場合は禁止する"],
+  "constraints":["class数・field数・method数・class名は固定しない", "LocalDate.now()を直接呼ばない", "永続化やUIは扱わない"],
+  "mandatoryRequirements":["会員種別の条件分岐を散在させずpolicyで表す", "AVAILABLE・LOANED・RESERVEDを明確に区別する", "失敗した予約・貸出・返却・延長で部分更新しない"],
+  "optionalRequirements":["予約取置き期限", "延滞日数に応じた貸出停止policy"],
+  "designPoints":["会員種別を継承かcompositionのどちらで表すか", "boolean組合せでcopy状態を表す危険性", "予約queueをmutableに公開しない方法"],
+  "hints":["LoanPolicyはmaxLoansとloanDaysを返すinterfaceにできます", "返却時にqueue先頭を確認し、BookCopyをRESERVEDへ遷移させます"],
+  "beginnerScaffold":null, "referenceFiles":["LibraryService.java"], "referenceSources":[]
+}

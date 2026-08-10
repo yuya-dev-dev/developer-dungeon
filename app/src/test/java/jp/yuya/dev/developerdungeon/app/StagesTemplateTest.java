@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import jp.yuya.dev.developerdungeon.app.portal.PortalController;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -20,7 +21,8 @@ class StagesTemplateTest {
         String title = renderTitle();
         String rendered = render(0, 3, 0, 0, 0);
 
-        assertThat(title).contains("Developer", "Dungeon", "新人エンジニア研修シミュレーション", "Git編", "href=\"/git/stages\"");
+        assertThat(title).contains("Developer", "Dungeon", "新人エンジニア研修シミュレーション", "Git編", "Java設計演習",
+                "href=\"/git/stages\"", "href=\"/java/problems\"");
         assertThat(rendered).contains("Chapter 0", "Git基礎研修", "TRAINING", "研修完了", "未完了",
                 "href=\"/training/TRAINING-GIT-01\"", "href=\"/training/TRAINING-GIT-02\"",
                 "href=\"/training/TRAINING-GIT-03\"", "Chapter 1", "STAGE", ">01<", ">02<", ">03<", ">04<", ">05<",
@@ -29,8 +31,7 @@ class StagesTemplateTest {
     }
 
     private String renderTitle() {
-        StageService stages = mock(StageService.class);
-        MockMvc mvc = MockMvcBuilders.standaloneSetup(new StageController(stages)).setViewResolvers(viewResolver()).build();
+        MockMvc mvc = MockMvcBuilders.standaloneSetup(new PortalController()).setViewResolvers(viewResolver()).build();
         try { return mvc.perform(get("/")).andReturn().getResponse().getContentAsString(); }
         catch (Exception exception) { throw new AssertionError("title template did not render", exception); }
     }

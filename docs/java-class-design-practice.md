@@ -1,8 +1,14 @@
 # Javaクラス設計問題集 MVP仕様
 
+## UI実装リファレンス
+
+一覧・詳細画面は、暗いゲーム端末ではなく、長い仕様とJava codeを読みやすい本格的な演習サイトとして設計する。紺色のナビゲーション、白い本文面、青・シアンのアクセント、十分な余白と見出し階層を基調とする。
+
+![Javaクラス設計問題集 UI参考](assets/java/java-class-design-ui-reference.png)
+
 ## 文書情報
 
-- 状態: 実装前設計。井上の文書レビューPASS、ユーザーの実装開始待ち
+- 状態: MVP実装済み。井上の実装後レビューPASS、対象限定テスト済み
 - 対象: Javaクラス設計問題集MVPの9問、コンテンツ構造、画面、進捗、模範code、テスト境界
 - 上位文書: [`requirements.md`](requirements.md)
 - 関連文書: [`architecture.md`](architecture.md)、[`test-strategy.md`](test-strategy.md)、[`../roadmap.md`](../roadmap.md)

@@ -2,8 +2,8 @@
 
 ## 文書情報
 
-- 状態: Git編Phase 5改善単位1〜7DとChapter 0「Git基礎研修」はmain反映済み。Javaクラス設計問題集MVPは文書設計・井上レビュー完了、実装開始待ち
-- 現在地: Git編の入口2画面、画面shell、導入会話、同一画面内部分更新、最終状態ベースの別解対応、Chapter 0の3研修までmainへ反映済み。次期拡張としてJavaクラス設計問題集の9問と技術境界を確定し、井上の文書レビューをPASSした
+- 状態: Git編Phase 5改善単位1〜7DとChapter 0「Git基礎研修」はmain反映済み。Javaクラス設計問題集MVPは専用branchで実装・井上レビュー・対象限定テスト完了
+- 現在地: Git編の入口2画面、画面shell、導入会話、同一画面内部分更新、最終状態ベースの別解対応、Chapter 0の3研修までmainへ反映済み。Javaクラス設計問題集の3テーマ×3難易度、固定模範code、3状態進捗を実装した
 - 上位文書: [`docs/requirements.md`](docs/requirements.md)
 - 関連文書: [`docs/vertical-slice.md`](docs/vertical-slice.md)、[`docs/test-strategy.md`](docs/test-strategy.md)、[`docs/phase-2-hardening-plan.md`](docs/phase-2-hardening-plan.md)
 
@@ -31,7 +31,7 @@
 | 4 | 5ステージ完成 | 完了・PR #10までmain反映済み |
 | 5 | MVP検証と改善 | 改善単位1〜7C main反映済み、改善単位7D実装・レビュー・対象限定テスト完了 |
 | 6 | Git編拡張の逐次評価 | Chapter 0実装・main反映済み。Chapter 2以降は未着手 |
-| 7 | Javaクラス設計問題集 | 9問・技術設計の文書レビューPASS、実装開始待ち |
+| 7 | Javaクラス設計問題集 | MVP実装・井上レビュー・対象限定テスト完了、PR作成待ち |
 | 8 | その他の将来技術編の再評価 | 未着手 |
 
 ## 4. Phase 0 企画・要件定義・全体設計
@@ -228,7 +228,7 @@ Java入門書を終えた利用者が、要求仕様から複数classの責務�
 - 利用者はVS Codeと外部ChatGPTで実装・確認し、サイトでは未着手、学習中、完了だけを自己管理する。
 - 9問は最初からすべて選択可能とする。
 
-正本は[`docs/requirements.md`](docs/requirements.md)15章、[`docs/java-class-design-practice.md`](docs/java-class-design-practice.md)、[`docs/architecture.md`](docs/architecture.md)20章とする。井上の文書レビューはPASS。ユーザー承認後、専用作業branchで実装する。
+正本は[`docs/requirements.md`](docs/requirements.md)15章、[`docs/java-class-design-practice.md`](docs/java-class-design-practice.md)、[`docs/architecture.md`](docs/architecture.md)20章とする。専用作業branchでMVPを実装し、井上の実装後レビューをPASSした。
 
 最終目標は約20テーマ・約50問とするが、MVPで汎用CMS、検索、利用者code保存、自動採点、AI API連携を先回りして実装しない。
 
@@ -263,8 +263,8 @@ Java入門書を終えた利用者が、要求仕様から複数classの責務�
 7. Stage 1・4・5の操作性、入口2画面の導線、Stage 1・2・5の学習転用は確認済みとし、Phase 5からChapter 0実装へ移る。
 8. Chapter 0「Git基礎研修」は3研修・25〜40分、任意skip、実Git、最終snapshot採点として実装した。井上の実装後レビュー指摘を修正し、App／Runner unit test、Runner Docker integration test 3件、DB integration test 2件に成功し、mainへ反映した。
 9. ライブworkspaceの完了を宣言する復旧報告、`POST /report`、report待機用状態機械、TTL、sweeperは採用しない。自動clearと即時cleanupを維持する。
-10. Javaクラス設計問題集MVPの3テーマ×3難易度、合計9問の仕様と、固定content、3状態進捗、route、package、security、test境界を確定し、井上の文書レビューをPASSした。
-11. ユーザーが実装開始を明示した後、Java問題集専用の作業branchを作り、MVPだけを実装する。
+10. Javaクラス設計問題集MVPの3テーマ×3難易度、合計9問の仕様と、固定content、3状態進捗、route、package、security、test境界を確定し、専用作業branchで実装した。
+11. 9問の模範code compile、同一商品複数行の在庫不変条件、画面escape、route、V5 migrationと最小権限を対象限定テストで確認し、井上の実装後レビューをPASSした。次はPRを作成してmainへ反映する。
 
 詳細は[`docs/requirements.md`](docs/requirements.md)、[`docs/game-design.md`](docs/game-design.md)、[`docs/git-mvp-stages.md`](docs/git-mvp-stages.md)、[`docs/architecture.md`](docs/architecture.md)、[`docs/test-strategy.md`](docs/test-strategy.md)を正本とする。
 

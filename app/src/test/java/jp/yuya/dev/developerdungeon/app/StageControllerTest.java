@@ -12,16 +12,6 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.servlet.view.InternalResourceView;
 
 class StageControllerTest {
-    @Test void indexRendersTheFixedTitleWithoutCallingTheService() throws Exception {
-        StageService stages = mock(StageService.class);
-        MockMvc mvc = MockMvcBuilders.standaloneSetup(new StageController(stages))
-                .setSingleView(new InternalResourceView("/WEB-INF/test.html")).build();
-
-        mvc.perform(get("/")).andExpect(status().isOk()).andExpect(view().name("title"));
-
-        verifyNoInteractions(stages);
-    }
-
     @Test void gitStageListReadsProgressAndExposesOnlyTheListFields() throws Exception {
         StageService stages = mock(StageService.class);
         var training = List.of(new StageProgress("TRAINING-GIT-01", "変更を記録する", "summary", 1));

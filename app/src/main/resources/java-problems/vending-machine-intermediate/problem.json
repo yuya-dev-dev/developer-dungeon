@@ -1,0 +1,13 @@
+{
+  "key":"JAVA-VENDING-INTERMEDIATE", "slug":"vending-machine-intermediate", "theme":"自動販売機", "difficulty":"INTERMEDIATE", "order":5,
+  "title":"複数スロットと購入結果を管理する", "summary":"slot codeごとの商品・価格・在庫と投入残高を管理し、成功と失敗を購入結果で区別します。",
+  "learningObjectives":["商品、slot、残高、結果を別概念にする", "失敗理由をresult objectで表す", "複数状態をall-or-nothingで更新する"],
+  "prerequisites":["record", "enum", "Map", "result object"],
+  "requirements":["A1のようなslot codeごとに商品、現在価格、在庫を管理する", "同じ商品を複数slotへ置ける", "正の金額を複数回投入できる", "成功時は商品、購入価格、返却残額を返し在庫を1減らして残高を0にする", "失敗時は理由を区別する", "返金は現在残高を返して0にする", "累計売上は成功した購入価格だけを合計する"],
+  "constraints":["class数・field数・method数・class名は固定しない", "金額はint円単位", "硬貨の組合せは扱わない"],
+  "mandatoryRequirements":["slot存在、在庫、投入残高を状態変更前に検証する", "失敗時に在庫と投入残高を変更しない", "累計売上へ投入総額や返金額を混ぜない"],
+  "optionalRequirements":["slot補充と価格変更", "売切れ商品一覧"],
+  "designPoints":["失敗をnull・exception・resultのどれで表すか", "商品情報とslot固有価格の配置", "状態変更前に全条件を確認する理由"],
+  "hints":["PurchaseResultに成功可否・理由・商品・価格・返却額を持たせます", "Slotは商品と現在価格と在庫をまとめます"],
+  "beginnerScaffold":null, "referenceFiles":["VendingMachine.java"], "referenceSources":[]
+}

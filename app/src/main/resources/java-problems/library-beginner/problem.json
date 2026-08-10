@@ -1,0 +1,17 @@
+{
+  "key":"JAVA-LIBRARY-BEGINNER", "slug":"library-beginner", "theme":"図書館貸出", "difficulty":"BEGINNER", "order":1,
+  "title":"1冊の本を1人へ貸し出す", "summary":"BookとLibraryMemberを協調させ、貸出状態を片方だけ変更しない設計を作ります。",
+  "learningObjectives":["状態と状態を守るmethodを同じclassへまとめる", "2classの協調で貸出状態の矛盾を防ぐ", "不正操作を例外で拒否する"],
+  "prerequisites":["classとinstance", "constructor", "privateとgetter", "nullの基本"],
+  "requirements":["1冊の本と1人の利用者を表現する", "利用者は同時に1冊だけ借りられる", "借りる操作は本と利用者の両方を成功時だけ更新する", "返す操作は両方を未貸出状態へ戻す"],
+  "constraints":["blankの識別子・題名・氏名をconstructorで拒否する", "不正操作にはIllegalStateExceptionまたはIllegalArgumentExceptionを使う"],
+  "mandatoryRequirements":["貸出中のBookを再度貸し出さない", "LibraryMemberは同時に1冊だけ借りる", "失敗時に片方だけ変わった途中状態を残さない"],
+  "optionalRequirements":["例外messageを利用者に分かりやすくする", "貸出と返却の簡単な動作例を書く"],
+  "designPoints":["borrowedを外部から変更できない理由", "本か利用者だけを更新した場合に生じる矛盾", "どちらのclassが協調処理を開始するか"],
+  "hints":["Bookの貸出methodで、BookとLibraryMemberの事前条件を両方確認してから更新します", "LibraryMemberのborrowedBookは未貸出時にnullとします"],
+  "beginnerScaffold":{"classCount":2,"classes":[
+    {"name":"Book","purpose":"1冊の本の識別情報と貸出状態を保持する","constructorCount":1,"constructors":["Book(String id, String title): blankを拒否して未貸出で初期化"],"fieldCount":3,"methodCount":5,"fields":["String id: 本の識別子","String title: 題名","boolean borrowed: 貸出中か"],"methods":["String getId(): 識別子取得","String getTitle(): 題名取得","boolean isBorrowed(): 貸出中判定","void borrowTo(LibraryMember member): 両者を貸出状態へ変更","void returnFrom(LibraryMember member): 両者を未貸出状態へ戻す"]},
+    {"name":"LibraryMember","purpose":"1人の利用者と現在借りている1冊を管理する","constructorCount":1,"constructors":["LibraryMember(String id, String name): blankを拒否して借入なしで初期化"],"fieldCount":3,"methodCount":5,"fields":["String id: 利用者識別子","String name: 氏名","Book borrowedBook: 現在の本またはnull"],"methods":["String getId(): 識別子取得","String getName(): 氏名取得","boolean hasBorrowedBook(): 借入中判定","void borrow(Book book): 指定本を記録","Book returnBook(): 現在の本を返して記録を空にする"]}
+  ]},
+  "referenceFiles":["Book.java"], "referenceSources":[]
+}

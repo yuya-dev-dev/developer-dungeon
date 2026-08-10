@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="ja" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; img-src 'self'; base-uri 'none'; form-action 'self'">
+  <title th:text="${detail.problem.title + ' | Javaクラス設計演習'}">Javaクラス設計演習</title>
+  <link rel="stylesheet" th:href="@{/java-learning.css}">
+</head>
+<body class="java-page">
+<div class="java-layout">
+  <aside class="java-sidebar">
+    <a class="java-brand" th:href="@{/}"><span>DD</span><strong>Developer<br>Dungeon</strong></a>
+    <nav><a th:href="@{/java/problems}">← 問題一覧</a><a class="is-active" href="#problem">問題仕様</a><a href="#reference">模範設計例</a></nav>
+    <div class="progress-panel"><small>現在の進捗</small><strong th:text="${detail.status.label}">未着手</strong>
+      <form th:action="@{/java/problems/{slug}/progress(slug=${detail.problem.slug})}" method="post">
+        <label for="status">学習状況を更新</label>
+        <select id="status" name="status"><option th:each="status : ${statuses}" th:value="${status}" th:text="${status.label}" th:selected="${status == detail.status}"></option></select>
+        <button type="submit">保存する</button>
+      </form>
+    </div>
+  </aside>
+  <main class="java-main problem-main" id="problem">
+    <header class="problem-hero">
+      <p class="eyebrow" th:text="${detail.problem.difficulty.label + ' ・ ' + detail.problem.theme}">初級・図書館</p>
+      <h1 th:text="${detail.problem.title}">問題タイトル</h1>
+      <p th:text="${detail.problem.summary}">概要</p>
+    </header>
+
+    <section class="content-card accent-card"><h2>この問題で身につけること</h2><ul><li th:each="item : ${detail.problem.learningObjectives}" th:text="${item}"></li></ul></section>
+    <div class="content-columns">
+      <section class="content-card"><h2>前提知識</h2><ul><li th:each="item : ${detail.problem.prerequisites}" th:text="${item}"></li></ul></section>
+      <section class="content-card"><h2>実装条件</h2><ul><li th:each="item : ${detail.problem.constraints}" th:text="${item}"></li></ul></section>
+    </div>
+    <section class="content-card"><h2>要求仕様</h2><ol><li th:each="item : ${detail.problem.requirements}" th:text="${item}"></li></ol></section>
+    <section class="content-card" th:if="${detail.problem.beginnerScaffold != null}">
+      <div class="section-heading"><div><p class="eyebrow">BEGINNER SCAFFOLD</p><h2>指定された設計の骨格</h2></div><span th:text="${'全 ' + detail.problem.beginnerScaffold.classCount + ' class'}">初級のみ</span></div>
+      <div class="scaffold-grid">
+        <article th:each="spec : ${detail.problem.beginnerScaffold.classes}"><h3 th:text="${spec.name}">Class</h3><p th:text="${spec.purpose}">目的</p><b th:text="${'constructor ' + spec.constructorCount + '個 / field ' + spec.fieldCount + '個 / method ' + spec.methodCount + '個'}"></b><h4>Constructor</h4><ul><li th:each="constructor : ${spec.constructors}" th:text="${constructor}"></li></ul><h4>Field</h4><ul><li th:each="field : ${spec.fields}" th:text="${field}"></li></ul><h4>Method（constructorを除く）</h4><ul><li th:each="method : ${spec.methods}" th:text="${method}"></li></ul></article>
+      </div>
+    </section>
+    <div class="content-columns">
+      <section class="content-card"><h2>必須要件</h2><ul class="check-list"><li th:each="item : ${detail.problem.mandatoryRequirements}" th:text="${item}"></li></ul></section>
+      <section class="content-card"><h2>発展要件</h2><ul><li th:each="item : ${detail.problem.optionalRequirements}" th:text="${item}"></li></ul></section>
+    </div>
+    <section class="content-card"><h2>設計時に考えるポイント</h2><ul><li th:each="item : ${detail.problem.designPoints}" th:text="${item}"></li></ul></section>
+    <details class="content-card"><summary>ヒントを見る</summary><ul><li th:each="item : ${detail.problem.hints}" th:text="${item}"></li></ul></details>
+    <section class="reference-section" id="reference">
+      <div><p class="eyebrow">REFERENCE DESIGN</p><h2>模範設計例</h2><p>これは唯一解ではありません。自分の設計と責務の置き方を比較してみましょう。</p></div>
+      <details class="reference-file" th:each="file : ${detail.problem.referenceSources}"><summary th:text="${file.fileName}">Example.java</summary><pre><code th:text="${file.source}"></code></pre></details>
+    </section>
+  </main>
+</div>
+</body>
+</html>

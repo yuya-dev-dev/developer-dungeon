@@ -2,11 +2,11 @@
 
 Developer Dungeonは、新人エンジニアが複数の開発現場で技術的な問題を解決しながら成長する、ゲーム型学習Webアプリケーションです。
 
-現在のリポジトリは**Git編専用**です。プレイヤーは、壊れたGitリポジトリを実際のGitコマンドで調査・復旧します。採点は入力したコマンド列ではなく、修復後のリポジトリ状態を基本とします。
+現在のリポジトリには、実Gitを使うゲーム型の**Git編**と、要求仕様から複数classの責務を考える**Javaクラス設計問題集**があります。Git編は入力したコマンド列ではなく修復後のリポジトリ状態を採点し、Java問題集は自動採点を行わず、VS Codeでの演習と3状態の自己申告進捗を支えます。
 
 ## 現在の状態
 
-Phase 4までの企画・要件・全体設計と実装はユーザー承認済みです。安全な縦切り版、Git Runner hardening、PostgreSQLによるMVP基盤を経て、Chapter 1のSTAGE-GIT-01（revert）からSTAGE-GIT-05（reflog）までとPhase 5改善単位1〜7Dを実装しました。Gitの基本を広く浅く復習するChapter 0のTRAINING-GIT-01〜03も実装し、App／Runner／Docker／PostgreSQLの対象限定テストに成功しています。
+Phase 4までの企画・要件・全体設計と実装はユーザー承認済みです。安全な縦切り版、Git Runner hardening、PostgreSQLによるMVP基盤を経て、Chapter 1のSTAGE-GIT-01（revert）からSTAGE-GIT-05（reflog）までとPhase 5改善単位1〜7Dを実装しました。Gitの基本を広く浅く復習するChapter 0のTRAINING-GIT-01〜03に加え、図書館貸出・自動販売機・ショッピングカートを初級／中級／上級で扱うJavaクラス設計問題9問も実装しています。
 
 現在の1日縦切り版は、安全な使い捨てGit実行環境を含みます。player入力をhost上で直接実行せず、別processのGit Runnerとdisposable challenge containerを使用します。
 
@@ -45,6 +45,7 @@ Phase 4までの企画・要件・全体設計と実装はユーザー承認済�
 
 - Git編の1日縦切り版
 - Git編の安定版MVP（Chapter 0の基礎研修3件＋Chapter 1の事故対応5stage）
+- Javaクラス設計問題集MVP（3テーマ×3難易度、固定模範code、3状態進捗）
 - Java / Spring Boot / Thymeleaf
 - Git専用Runner
 - attemptごとの使い捨てDocker container
@@ -84,6 +85,7 @@ player入力から実Gitを動かす機能は、通常のWeb入力より高い�
 | [`docs/game-design.md`](docs/game-design.md) | 世界観、game loop、hint、3スター |
 | [`docs/chapter-0-training.md`](docs/chapter-0-training.md) | Chapter 0のGit基礎研修3件の操作、fixture、採点仕様 |
 | [`docs/git-mvp-stages.md`](docs/git-mvp-stages.md) | Chapter 1のGit事故対応5stageの状態と採点仕様 |
+| [`docs/java-class-design-practice.md`](docs/java-class-design-practice.md) | Javaクラス設計問題集MVPの9問、画面、進捗、模範code |
 | [`docs/threat-model.md`](docs/threat-model.md) | 信頼境界、脅威、必須security制御 |
 | [`docs/architecture.md`](docs/architecture.md) | component、module、Runner、DB、Docker境界 |
 | [`docs/vertical-slice.md`](docs/vertical-slice.md) | 1日縦切り版の範囲と完成条件 |

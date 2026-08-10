@@ -16,11 +16,18 @@
   </header>
   <section class="program-select" aria-labelledby="program-heading">
     <h2 id="program-heading">研修プログラムを選択してください</h2>
-    <a class="program-card" th:href="@{/git/stages}">
-      <span class="program-icon" aria-hidden="true">⑂</span>
-      <span class="program-copy"><strong>Git編</strong><small>開発履歴とリポジトリを扱う研修</small><span>履歴の調査・復旧、branch管理、競合解決など、Gitを使った現場対応力を身につけます。</span></span>
-      <span class="program-arrow" aria-hidden="true">→</span>
-    </a>
+    <div class="program-grid">
+      <a class="program-card" th:href="@{/git/stages}">
+        <span class="program-icon" aria-hidden="true">⑂</span>
+        <span class="program-copy"><strong>Git編</strong><small>開発履歴とリポジトリを扱う研修</small><span>履歴の調査・復旧、branch管理、競合解決など、Gitを使った現場対応力を身につけます。</span></span>
+        <span class="program-arrow" aria-hidden="true">→</span>
+      </a>
+      <a class="program-card program-card-java" th:href="@{/java/problems}">
+        <span class="program-icon" aria-hidden="true">☕</span>
+        <span class="program-copy"><strong>Java設計演習</strong><small>クラスの責務と協調を考える問題集</small><span>仕様を読み、VS Codeで実装し、実務につながるオブジェクト設計を段階的に身につけます。</span></span>
+        <span class="program-arrow" aria-hidden="true">→</span>
+      </a>
+    </div>
   </section>
   <p class="title-note">いつでも、何度でも、あなたのペースで学べます</p>
 </main>
