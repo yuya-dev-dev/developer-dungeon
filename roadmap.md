@@ -2,8 +2,8 @@
 
 ## 文書情報
 
-- 状態: Phase 4完了。Phase 5改善単位1〜7Dはmain反映済み。Chapter 0「Git基礎研修」は実装・レビュー・対象限定テスト完了
-- 現在地: 明るい固定背景と白いモニターの画面shell、導入会話、状態保持、画面情報設計の簡素化、同一画面内部分更新、入口2画面化、最終状態ベースの別解対応までmainへ反映済み。Chapter 0の3研修を実装し、井上レビューのP1を解消、App／Runner／Docker／PostgreSQLの対象限定テストに成功した。次はChapter 0をmainへ反映し、手動プレイで学習体験を確認する
+- 状態: Git編Phase 5改善単位1〜7DとChapter 0「Git基礎研修」はmain反映済み。Javaクラス設計問題集MVPは文書設計・井上レビュー完了、実装開始待ち
+- 現在地: Git編の入口2画面、画面shell、導入会話、同一画面内部分更新、最終状態ベースの別解対応、Chapter 0の3研修までmainへ反映済み。次期拡張としてJavaクラス設計問題集の9問と技術境界を確定し、井上の文書レビューをPASSした
 - 上位文書: [`docs/requirements.md`](docs/requirements.md)
 - 関連文書: [`docs/vertical-slice.md`](docs/vertical-slice.md)、[`docs/test-strategy.md`](docs/test-strategy.md)、[`docs/phase-2-hardening-plan.md`](docs/phase-2-hardening-plan.md)
 
@@ -13,10 +13,10 @@
 
 ## 2. 現在の方針
 
-- 現在のリポジトリはGit編専用である。
+- Gitコマンドの実行・採点基盤はGit編専用である。Javaクラス設計問題集は同じrepositoryとapplicationへ独立境界で追加し、Git Runnerを再利用しない。
 - 安全な1日縦切り版の実装と再評価結果を基準に、Runnerを段階的にhardeningする。
 - 安定版MVPはChapter 0の基礎研修3件とChapter 1の事故対応5ステージで構成する。
-- Java、SQL、Docker学習編はMVP完成後に別途再評価する。
+- Javaクラス設計問題集は次期MVPとして採用済みである。Javaコードレビュー、SQL、Docker学習編は別途再評価する。
 - コード変更前の作業ブランチ作成・切替はメインエージェントが行う。
 - `git add`、commit、push、PR、mergeはユーザーが行う。
 
@@ -30,8 +30,9 @@
 | 3 | 安定版MVP基盤 | 完了・main反映済み |
 | 4 | 5ステージ完成 | 完了・PR #10までmain反映済み |
 | 5 | MVP検証と改善 | 改善単位1〜7C main反映済み、改善単位7D実装・レビュー・対象限定テスト完了 |
-| 6 | Git編拡張の逐次評価 | Chapter 0実装・対象限定テスト完了、main反映待ち |
-| 7 | 将来技術編の再評価 | 未着手 |
+| 6 | Git編拡張の逐次評価 | Chapter 0実装・main反映済み。Chapter 2以降は未着手 |
+| 7 | Javaクラス設計問題集 | 9問・技術設計の文書レビューPASS、実装開始待ち |
+| 8 | その他の将来技術編の再評価 | 未着手 |
 
 ## 4. Phase 0 企画・要件定義・全体設計
 
@@ -214,7 +215,24 @@ Chapter 0の許可command、fixture、Runner、snapshot、採点、画面、テ�
 
 安定版MVPの検証結果をもとに、1stageずつ個別承認する。ランダム生成、汎用stage engine、キャラクター管理機構、将来編を見越した共通Runnerは導入しない。
 
-## 11. Phase 7 将来編の再評価
+## 11. Phase 7 Javaクラス設計問題集
+
+Java入門書を終えた利用者が、要求仕様から複数classの責務と協調を考える問題集を同じapplicationへ追加する。Git編の事故対応、Runner、workspace、状態採点、スターを再利用しない。
+
+### MVP
+
+- 図書館貸出、自動販売機、ショッピングカートの3テーマ。
+- 各テーマに初級、中級、上級を1問ずつ用意し、合計9問とする。
+- 初級だけclass、constructor、field、methodの数と目的を具体的に指定する。
+- 各問題に、JDK 25でcompileできる実務的な模範codeを1案だけ、閉じた折りたたみで用意する。
+- 利用者はVS Codeと外部ChatGPTで実装・確認し、サイトでは未着手、学習中、完了だけを自己管理する。
+- 9問は最初からすべて選択可能とする。
+
+正本は[`docs/requirements.md`](docs/requirements.md)15章、[`docs/java-class-design-practice.md`](docs/java-class-design-practice.md)、[`docs/architecture.md`](docs/architecture.md)20章とする。井上の文書レビューはPASS。ユーザー承認後、専用作業branchで実装する。
+
+最終目標は約20テーマ・約50問とするが、MVPで汎用CMS、検索、利用者code保存、自動採点、AI API連携を先回りして実装しない。
+
+## 12. Phase 8 その他の将来編の再評価
 
 ### Javaコードレビュー編
 
@@ -234,7 +252,7 @@ Chapter 0の許可command、fixture、Runner、snapshot、採点、画面、テ�
 
 いずれもGit編MVPの完成と検証前には着手しない。
 
-## 12. 現在の次作業
+## 13. 現在の次作業
 
 1. Phase 4とSTAGE-GIT-01〜05は完了し、起動・DB不具合の修正はPR #11、成功表示・文言はPR #13でmainへ反映済みである。
 2. Phase 5の初回内部パイロットは完了し、明るい固定背景と白いモニターによる画面shell、Stage 1〜5の導入会話、skip・再表示、clear時の人物反応をmainへ反映した。
@@ -243,8 +261,10 @@ Chapter 0の許可command、fixture、Runner、snapshot、採点、画面、テ�
 5. 実画面のスクリーンショットをREADMEへ追加し、タイトル、Git編一覧、Stage 1、Gitコマンド一覧の表示をローカルで確認した。
 6. 改善単位7Dとして、Stage 1〜5へ最終snapshotの不変条件を維持した安全な第2経路を実装した。井上の実装前・実装後再レビューは`PASS`で、App／Runnerの対象unit test、Runner Docker integration test 7件、DB integration test 2件が成功した。
 7. Stage 1・4・5の操作性、入口2画面の導線、Stage 1・2・5の学習転用は確認済みとし、Phase 5からChapter 0実装へ移る。
-8. Chapter 0「Git基礎研修」は3研修・25〜40分、任意skip、実Git、最終snapshot採点として実装した。井上の実装後レビュー指摘を修正し、App／Runner unit test、Runner Docker integration test 3件、DB integration test 2件に成功した。main反映後に手動プレイで学習体験を確認する。
+8. Chapter 0「Git基礎研修」は3研修・25〜40分、任意skip、実Git、最終snapshot採点として実装した。井上の実装後レビュー指摘を修正し、App／Runner unit test、Runner Docker integration test 3件、DB integration test 2件に成功し、mainへ反映した。
 9. ライブworkspaceの完了を宣言する復旧報告、`POST /report`、report待機用状態機械、TTL、sweeperは採用しない。自動clearと即時cleanupを維持する。
+10. Javaクラス設計問題集MVPの3テーマ×3難易度、合計9問の仕様と、固定content、3状態進捗、route、package、security、test境界を確定し、井上の文書レビューをPASSした。
+11. ユーザーが実装開始を明示した後、Java問題集専用の作業branchを作り、MVPだけを実装する。
 
 詳細は[`docs/requirements.md`](docs/requirements.md)、[`docs/game-design.md`](docs/game-design.md)、[`docs/git-mvp-stages.md`](docs/git-mvp-stages.md)、[`docs/architecture.md`](docs/architecture.md)、[`docs/test-strategy.md`](docs/test-strategy.md)を正本とする。
 

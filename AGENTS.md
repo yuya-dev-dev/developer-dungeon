@@ -70,9 +70,9 @@ Codexの実行環境上の作業フォルダと、ユーザーがVS Codeで開�
 
 ## 4. プロジェクト固有の制約
 
-このプロジェクトは、新人エンジニアが複数の開発現場で技術的な問題を解決しながら成長する、ゲーム型Webアプリケーション `developer-dungeon` である。現在のリポジトリはGit編専用とし、実際のGit操作を通じてリポジトリ事故を診断・復旧する機能だけを実装対象とする。
+このプロジェクトは、新人エンジニアが開発技術を実践的に学ぶWeb application `developer-dungeon` である。Gitコマンドの隔離実行・状態採点基盤はGit編専用とする。次期実装対象として、同じrepositoryとSpring Boot application内へJavaクラス設計問題集を独立した境界で追加する。
 
-Javaコードレビュー編、SQL編、Docker障害対応編は将来構想であり、別途ユーザーの承認を得て再評価するまで、このリポジトリへ実装しない。将来編だけを理由に、`challenge_type`、汎用Runner、プラグイン機構、共通DB構造などを先回りして導入しない。
+Javaクラス設計問題集は、問題提示、固定の模範code表示、3状態の自己申告進捗だけを担い、利用者codeの保存・実行・自動採点・AI API連携を行わない。具体要件は`docs/requirements.md`15章、問題と技術境界は`docs/java-class-design-practice.md`を正本とする。Javaコードレビュー編、SQL編、Docker障害対応編は将来構想であり、別途ユーザーの承認を得て再評価するまで実装しない。将来編だけを理由に、`challenge_type`、汎用Runner、プラグイン機構、共通DB構造などを先回りして導入しない。
 
 技術構成はJava / Spring Bootをアプリケーションの中心とし、DockerをGit課題の隔離実行に使用する。PostgreSQL、Docker Compose、画面方式、フロントエンド構成などの採用時期と詳細は、承認済みの要件文書とアーキテクチャ文書で定める。Git課題を隔離するためのDocker利用は、将来構想であるDocker学習編の実装を意味しない。
 

@@ -2,16 +2,16 @@
 
 ## 文書情報
 
-- 状態: 既存ベースラインとPhase 5改善単位1〜6は実装済み。改善単位7A・7B・7Cは実装前方針確定、未実装
-- 対象: Git編の1日縦切り版および安定版MVP
-- 上位文書: [`requirements.md`](requirements.md)、[`git-mvp-stages.md`](git-mvp-stages.md)、[`threat-model.md`](threat-model.md)
+- 状態: Git編ベースラインとChapter 0は実装済み。Javaクラス設計問題集MVPは実装前設計・井上文書レビューPASS
+- 対象: Git編の1日縦切り版および安定版MVP、Javaクラス設計問題集MVP
+- 上位文書: [`requirements.md`](requirements.md)、[`git-mvp-stages.md`](git-mvp-stages.md)、[`java-class-design-practice.md`](java-class-design-practice.md)、[`threat-model.md`](threat-model.md)
 - 関連文書: [`vertical-slice.md`](vertical-slice.md)、[`test-strategy.md`](test-strategy.md)
 
 ## 1. この文書が決めること
 
-この文書は、Git編を実現するruntime component、Maven module、package責務、Git Runner境界、状態採点、永続化、Dockerとの境界を定める。
+この文書は、Git編を実現するruntime component、Maven module、package責務、Git Runner境界、状態採点、永続化、Dockerとの境界、およびJavaクラス設計問題集を同じapplicationへ追加する際の独立境界を定める。
 
-この文書は将来のJava、SQL、Docker学習編の共通基盤を設計しない。
+この文書はJavaクラス設計問題集をGit編のRunnerやStageへ統合せず、将来のJavaコードレビュー、SQL、Docker学習編の共通基盤も設計しない。
 
 ## 2. 設計原則
 
@@ -619,4 +619,65 @@ LocalGitRunnerやhost process実行から移行する設計は採用しない。
 - Windows上の正式な起動入口を`scripts/start-local.ps1`に固定した。
 - 初期support範囲をWindows 11 x86_64＋Docker Desktop WSL 2 backend＋Linux containerに限定した。
 
-実装は、この方針に対する井上の実装前レビューを通過し、ユーザーから実装開始の明示指示を得るまで開始しない。
+Git編の実装基準は上記のとおりとする。Javaクラス設計問題集は次章の方針に対する井上の文書レビューを通過し、ユーザーから実装開始の明示指示を得るまで開始しない。
+
+## 20. Javaクラス設計問題集MVP
+
+### 20.1 境界とruntime
+
+- 既存のSpring Boot application、Thymeleaf、management PostgreSQLを利用し、新しいrepositoryまたはMaven moduleへ分離しない。
+- Java問題の閲覧と進捗更新はapp process内で完結し、Git Runner、Docker challenge container、workspace、attempt、snapshot採点を呼び出さない。
+- Java問題集だけを理由に既存Git packageを移動せず、汎用教材engine、汎用Runner、plugin、CMSを導入しない。
+- 既存の正式local起動入口は維持する。Java専用のDockerなし起動方法はMVP利用後に必要性を再評価する。
+
+### 20.2 component
+
+```text
+Browser
+  |
+  v
+PortalController ----> 固定のGit編／Java編card
+  |
+  v
+Java learning web/application
+  |                 |
+  |                 +----> classpath上の固定JSON／reference .java
+  v
+java_problem_progress ----> Management PostgreSQL
+```
+
+新規packageは既存`DeveloperDungeonApplication`のcomponent scan配下である`jp.yuya.dev.developerdungeon.app.javalearning`の`web`、`application`、`domain`、`content`、`persistence`へ分ける。`/`の固定編選択だけを`app.portal.PortalController`へ移し、Java側から`StageService`、`StagePersistence`、`RunnerClient`、runner contractを参照しない。scan base packageの拡大は行わない。
+
+### 20.3 content
+
+- 9問の本文と模範codeは`app/src/main/resources/java-problems/`配下の固定resourceを正本とする。
+- `catalog.json`が表示順とproblem directoryを列挙し、各directoryの`problem.json`が問題情報、`reference/*.java`が1つの模範実装を構成する。reference sourceのpackageはslugのハイフンをドットへ置換した`jp.yuya.dev.developerdungeon.javaproblems.<slug>`に固定する。
+- requestのslugや任意pathからresource pathを組み立てず、起動時にcatalog全件を検証してimmutableなmapへ読み込む。
+- key、slug、order、3テーマ×3難易度、初級の数指定、reference path、size、package、file名の不整合は起動前testと起動時検証で拒否する。
+- 問題本文とsourceはplain textとしてescapeし、raw HTMLまたは利用者入力のsourceを扱わない。
+
+### 20.4 routeと画面
+
+| method | path | 役割 |
+|---|---|---|
+| GET | `/` | Git編とJava編の固定cardを表示 |
+| GET | `/java` | `/java/problems`へredirect |
+| GET | `/java/problems` | 初級・中級・上級に分けた9問と進捗を表示 |
+| GET | `/java/problems/{slug}` | 固定catalogの問題詳細を表示 |
+| POST | `/java/problems/{slug}/progress` | 3状態の自己申告進捗を更新してredirect |
+
+問題詳細は要求仕様、実装条件、必須・任意要件、設計観点、初級の数指定を表示する。模範codeはJavaScriptを必須にしない閉じた折りたたみとし、fileごとにescape表示する。サイト内editor、upload、compile、実行、自動採点、ChatGPT API連携は設けない。
+
+### 20.5 永続化
+
+`db-migrator` moduleの次のFlyway migrationで、新しい`java_problem_progress` tableだけを追加する。`problem_key`をprimary key、`status`を`NOT_STARTED`、`IN_PROGRESS`、`COMPLETED`のcheck constraint付き文字列、`updated_at timestamptz NOT NULL`を最終更新時刻とする。upsertは初回登録、状態変更、同一状態の再送のいずれでも`updated_at = CURRENT_TIMESTAMP`を設定する。migrationは既存app DB roleへ`SELECT`、`INSERT`、`UPDATE`だけをgrantし、`DELETE`はgrantしない。content table、利用者code table、player ID、Git進捗との外部keyは追加しない。rowがない問題は未着手として扱い、更新はupsertでidempotentにする。
+
+### 20.6 検証境界
+
+- content testで9問matrix、必須field、初級の指定数、reference file境界を検証する。
+- 各問題の模範source一式を問題ごとの一時出力directoryへ分離し、空のclass path、`--release 25`、`-proc:none`でJDK 25の`JavaCompiler`に渡してcompileする。これは教材resourceの品質検証であり、利用者codeの採点ではない。
+- Web testで一覧、詳細、404、折りたたみ、escape、進捗入力を確認する。
+- persistence testでFlyway、3状態、rowなし、upsert、不正値拒否を確認する。
+- Git編のroute、進捗、Runner contract、challenge imageへ差分がないことを対象限定回帰確認する。
+
+9問の具体的な課題内容、JSON model、validation、表示順、テスト条件は[`java-class-design-practice.md`](java-class-design-practice.md)を正本とする。
