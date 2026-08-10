@@ -1,0 +1,13 @@
+{
+  "key":"JAVA-CART-ADVANCED", "slug":"shopping-cart-advanced", "theme":"ショッピングカート", "difficulty":"ADVANCED", "order":9,
+  "title":"割引・在庫予約・注文状態を統合する", "summary":"Money、割引policy、全件在庫予約、order状態遷移を組み合わせ、失敗時の整合性を守ります。",
+  "learningObjectives":["金額をimmutable value objectにする", "割引規則を交換可能なpolicyにする", "在庫予約とorder状態を一貫させる"],
+  "prerequisites":["value object", "interface", "enum", "aggregateと状態遷移"],
+  "requirements":["JPY固定で負数を作れないMoneyを使う", "cartは内部collectionを変更不能にする", "割引なし・固定額・割合の3policyを共通interfaceで扱う", "割引後合計を0未満にしない", "checkoutで全件在庫を予約し1件でも不足なら一切予約しない", "orderはPENDING・PAID・SHIPPED・CANCELEDを区別する", "PENDINGだけをPAIDまたはCANCELEDへ遷移できる", "PAIDだけをSHIPPEDへ遷移できる", "CANCELED時に予約在庫を戻す", "order行・適用割引・合計をsnapshotにする"],
+  "constraints":["class数・field数・method数・class名は固定しない", "支払済みorderの取消と返金は扱わない", "配送処理そのものは扱わない"],
+  "mandatoryRequirements":["不正遷移と在庫不足で部分状態を変更しない", "発送後は取消できない", "後の価格・policy変更でorderを変えない"],
+  "optionalRequirements":["割引併用可否の合成policy", "配送料policy"],
+  "designPoints":["intとMoneyの違い", "checkout・在庫予約・order生成の調整責務", "enumだけでなくdomain methodで遷移を守る方法"],
+  "hints":["Moneyのplus・minusFloorZero・percentageを用意します", "Inventory.reserveAllは全件確認後にまとめて予約します"],
+  "beginnerScaffold":null, "referenceFiles":["CheckoutService.java"], "referenceSources":[]
+}

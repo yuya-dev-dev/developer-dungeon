@@ -1,0 +1,13 @@
+{
+  "key":"JAVA-LIBRARY-INTERMEDIATE", "slug":"library-intermediate", "theme":"図書館貸出", "difficulty":"INTERMEDIATE", "order":4,
+  "title":"複数蔵書と貸出記録を管理する", "summary":"書誌と物理copyを分け、複数利用者の貸出記録を履歴として管理します。",
+  "learningObjectives":["書誌情報と貸出可能な1冊を分ける", "利用者・copy・貸出記録・全体操作の責務を分ける", "collection全体の整合性をserviceで守る"],
+  "prerequisites":["カプセル化", "LocalDate", "Optional", "collection"],
+  "requirements":["同じISBNの本を複数冊所蔵しcopy IDで識別する", "利用者は同時に最大3冊まで借りられる", "貸出記録は利用者、copy、貸出日、14日後の返却期限を持つ", "返却者が記録の利用者と一致する場合だけ返却する", "返却済み記録も履歴として残す", "ISBN別利用可能冊数と利用者別open貸出を取得する"],
+  "constraints":["class数・field数・method数・class名は固定しない", "金銭・延滞罰則・予約は扱わない", "永続化や画面は作らない"],
+  "mandatoryRequirements":["貸出中copyの再貸出、上限超過、未知の利用者・copyを拒否する", "open中と返却済みの記録を区別する", "失敗時にcopy状態と記録を部分更新しない"],
+  "optionalRequirements":["タイトルまたはISBN検索", "貸出上限をpolicyへ分離する"],
+  "designPoints":["書誌と物理copyを同じclassにする限界", "貸出情報の正本をどこに置くか", "返却済み履歴とopen状態の区別"],
+  "hints":["BookTitle、BookCopy、Member、Loanへ概念を分けられます", "貸出の全条件を検証してからLoanを追加します"],
+  "beginnerScaffold":null, "referenceFiles":["LibraryService.java"], "referenceSources":[]
+}

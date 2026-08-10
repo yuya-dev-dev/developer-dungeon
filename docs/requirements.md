@@ -2,7 +2,7 @@
 
 ## 文書情報
 
-- 状態: Git編の既存ベースラインは承認・実装済み。Javaクラス設計問題集は要件策定・井上文書レビュー完了、実装開始待ち
+- 状態: Git編の既存ベースラインとJavaクラス設計問題集MVPは承認・実装済み
 - 対象: Git編の1日縦切り版および安定版MVP、Javaクラス設計問題集の次期MVP
 - 上位ルール: [`../AGENTS.md`](../AGENTS.md)
 - 関連文書: [`game-design.md`](game-design.md)、[`git-mvp-stages.md`](git-mvp-stages.md)、[`java-class-design-practice.md`](java-class-design-practice.md)、[`threat-model.md`](threat-model.md)、[`architecture.md`](architecture.md)、[`phase-5-experience-improvement-plan.md`](phase-5-experience-improvement-plan.md)

@@ -2,7 +2,7 @@
 
 ## 文書情報
 
-- 状態: Git編ベースラインとChapter 0は実装済み。Javaクラス設計問題集MVPは実装前設計・井上文書レビューPASS
+- 状態: Git編ベースライン、Chapter 0、Javaクラス設計問題集MVPは実装済み
 - 対象: Git編の1日縦切り版および安定版MVP、Javaクラス設計問題集MVP
 - 上位文書: [`requirements.md`](requirements.md)、[`git-mvp-stages.md`](git-mvp-stages.md)、[`java-class-design-practice.md`](java-class-design-practice.md)、[`threat-model.md`](threat-model.md)
 - 関連文書: [`vertical-slice.md`](vertical-slice.md)、[`test-strategy.md`](test-strategy.md)

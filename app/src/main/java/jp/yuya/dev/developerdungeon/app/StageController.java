@@ -47,7 +47,6 @@ class StageController {
     private final StageService stages;
     StageController(StageService stages) { this.stages = stages; }
 
-    @GetMapping("/") String index() { return "title"; }
     @GetMapping("/git/stages") String stageList(Model model) {
         model.addAttribute("trainingStages", stages.trainingProgresses().stream()
                 .map(progress -> new StageListItem(Integer.parseInt(progress.stageKey().substring(progress.stageKey().length() - 2)),

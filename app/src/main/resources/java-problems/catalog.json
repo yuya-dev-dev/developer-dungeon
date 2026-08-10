@@ -1,0 +1,13 @@
+{
+  "directories": [
+    "library-beginner",
+    "vending-machine-beginner",
+    "shopping-cart-beginner",
+    "library-intermediate",
+    "vending-machine-intermediate",
+    "shopping-cart-intermediate",
+    "library-advanced",
+    "vending-machine-advanced",
+    "shopping-cart-advanced"
+  ]
+}
