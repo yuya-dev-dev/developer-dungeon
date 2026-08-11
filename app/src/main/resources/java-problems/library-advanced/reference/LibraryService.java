@@ -11,13 +11,15 @@ import java.util.Objects;
 
 public final class LibraryService {
     private final Map<String, Member> members = new HashMap<>();
+    private final Map<String, BookTitle> titles = new HashMap<>();
     private final Map<String, BookCopy> copies = new HashMap<>();
     private final Map<String, ArrayDeque<String>> reservations = new HashMap<>();
     private final List<Loan> loans = new ArrayList<>();
     private final Clock clock;
     public LibraryService(Clock clock) { this.clock = Objects.requireNonNull(clock); }
     public void register(Member member) { members.put(member.id(), member); }
-    public void addCopy(BookCopy copy) { copies.put(copy.id(), copy); }
+    public void addTitle(BookTitle title) { titles.put(title.isbn(), title); }
+    public void addCopy(BookCopy copy) { requiredTitle(copy.isbn()); copies.put(copy.id(), copy); }
 
     public Loan lend(String memberId, String copyId) {
         Member member = requiredMember(memberId);
@@ -25,18 +27,27 @@ public final class LibraryService {
         List<Loan> open = openLoans(memberId);
         if (open.size() >= member.policy().maxLoans()) throw new IllegalStateException("貸出上限です");
         if (open.stream().anyMatch(loan -> loan.isbn().equals(copy.isbn()))) throw new IllegalStateException("同じISBNを借入中です");
+        String nextUnassignedMember = copy.status() == CopyStatus.AVAILABLE ? nextUnassignedMember(copy.isbn()) : null;
+        if (nextUnassignedMember != null && !nextUnassignedMember.equals(memberId)) {
+            throw new IllegalStateException("予約者へ優先して貸し出すcopyです");
+        }
+        boolean consumesReservation = copy.isReservedFor(memberId) || memberId.equals(nextUnassignedMember);
         copy.assertLendableTo(memberId);
         LocalDate today = LocalDate.now(clock);
         Loan loan = new Loan(memberId, copy.id(), copy.isbn(), today, today.plusDays(member.policy().loanDays()));
         copy.lendTo(memberId);
         ArrayDeque<String> queue = reservations.get(copy.isbn());
-        if (queue != null && memberId.equals(queue.peekFirst())) queue.removeFirst();
+        if (queue != null && consumesReservation) {
+            queue.removeFirstOccurrence(memberId);
+            if (queue.isEmpty()) reservations.remove(copy.isbn());
+        }
         loans.add(loan);
         return loan;
     }
 
     public void reserve(String memberId, String isbn) {
         requiredMember(memberId);
+        requiredTitle(isbn);
         if (openLoans(memberId).stream().anyMatch(loan -> loan.isbn().equals(isbn))) throw new IllegalStateException("借入中ISBNです");
         ArrayDeque<String> queue = reservations.computeIfAbsent(isbn, ignored -> new ArrayDeque<>());
         if (queue.contains(memberId)) throw new IllegalStateException("重複予約です");
@@ -47,8 +58,7 @@ public final class LibraryService {
         BookCopy copy = requiredCopy(copyId);
         Loan loan = openLoans(memberId).stream().filter(item -> item.copyId().equals(copyId)).findFirst()
                 .orElseThrow(() -> new IllegalStateException("貸出記録がありません"));
-        ArrayDeque<String> queue = reservations.get(copy.isbn());
-        String nextMember = queue == null ? null : queue.peekFirst();
+        String nextMember = nextUnassignedMember(copy.isbn());
         loan.returnOn(LocalDate.now(clock));
         copy.returnAndReserveFor(nextMember);
     }
@@ -62,13 +72,22 @@ public final class LibraryService {
 
     public List<Loan> openLoans(String memberId) { return loans.stream().filter(loan -> loan.memberId().equals(memberId) && loan.open()).toList(); }
     public long availableCopies(String isbn) { return copies.values().stream().filter(copy -> copy.isbn().equals(isbn) && copy.status() == CopyStatus.AVAILABLE).count(); }
+    private String nextUnassignedMember(String isbn) {
+        ArrayDeque<String> queue = reservations.get(isbn);
+        if (queue == null) return null;
+        return queue.stream().filter(memberId -> copies.values().stream()
+                .noneMatch(copy -> copy.isbn().equals(isbn) && copy.isReservedFor(memberId)))
+                .findFirst().orElse(null);
+    }
     private Member requiredMember(String id) { Member value = members.get(id); if (value == null) throw new IllegalArgumentException("未知の利用者"); return value; }
+    private BookTitle requiredTitle(String isbn) { BookTitle value = titles.get(isbn); if (value == null) throw new IllegalArgumentException("未知のISBN"); return value; }
     private BookCopy requiredCopy(String id) { BookCopy value = copies.get(id); if (value == null) throw new IllegalArgumentException("未知のcopy"); return value; }
 }
 
 interface LoanPolicy { int maxLoans(); int loanDays(); }
 record StandardPolicy() implements LoanPolicy { public int maxLoans() { return 3; } public int loanDays() { return 14; } }
 record PriorityPolicy() implements LoanPolicy { public int maxLoans() { return 5; } public int loanDays() { return 21; } }
+record BookTitle(String isbn, String title) { BookTitle { Objects.requireNonNull(isbn); Objects.requireNonNull(title); } }
 record Member(String id, LoanPolicy policy) { Member { Objects.requireNonNull(id); Objects.requireNonNull(policy); } }
 enum CopyStatus { AVAILABLE, LOANED, RESERVED }
 final class BookCopy {
@@ -78,6 +97,7 @@ final class BookCopy {
     private String assignedMemberId;
     BookCopy(String id, String isbn) { this.id = id; this.isbn = isbn; }
     String id() { return id; } String isbn() { return isbn; } CopyStatus status() { return status; }
+    boolean isReservedFor(String memberId) { return status == CopyStatus.RESERVED && memberId.equals(assignedMemberId); }
     void assertLendableTo(String memberId) {
         if (status == CopyStatus.LOANED || status == CopyStatus.RESERVED && !memberId.equals(assignedMemberId)) throw new IllegalStateException("貸出できません");
     }
