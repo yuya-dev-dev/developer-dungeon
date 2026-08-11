@@ -681,3 +681,18 @@ java_problem_progress ----> Management PostgreSQL
 - Git編のroute、進捗、Runner contract、challenge imageへ差分がないことを対象限定回帰確認する。
 
 9問の具体的な課題内容、JSON model、validation、表示順、テスト条件は[`java-class-design-practice.md`](java-class-design-practice.md)を正本とする。
+
+### 20.7 Java専用GitHub Pages境界
+
+Java問題集には、既存Spring Boot版と同じ固定contentを入力にする静的公開adapterを追加する。`public-java/`は静的HTML、CSS、JavaScriptのshellだけを持ち、`scripts/build-public-java-site.ps1`が次の許可済み成果物だけを空の出力directoryへ生成する。
+
+- rootの`index.html`、`problems.html`、`problem.html`
+- local CSSとlocal JavaScript
+- `catalog.json`、9問の`problem.json`、各問題でmanifest指定された模範`.java`
+- `.nojekyll`
+
+buildの出力先はrepository内の`.developer-dungeon/public-java-pages`へ固定し、repository root、出力先の既存親要素、全コピー元pathにreparse pointまたはsymbolic linkがないことを確認してから既存出力を削除する。生成後のtreeが動的に構成した完全許可リストと一致しなければ失敗する。任意path、reparse point、設定file、DB、class、jar、workflow、秘密値を成果物へ含めない。
+
+公開routeは`index.html`、`problems.html`、`problem.html?slug=<fixed-slug>`に固定する。slugはcatalogの9件かつ安全な形式に限定し、模範file名も固定形式とmanifestの両方で検証する。問題本文と模範codeはDOMの`textContent`で描画し、外部script、外部font、CDN、inline script、`unsafe-inline`、`unsafe-eval`を許可しない。
+
+公開版にはserver runtimeとAPIが存在しない。進捗はversion付きkeyの`localStorage`へ3状態だけを保存し、破損値と未知値を無視する。storage例外時はmemoryへfallbackして閲覧を継続する。GitHub Actionsは`main`だけを配信元とし、固定commit SHAの公式Pages actionsを使い、build jobが生成したdirectoryだけをartifactとしてdeployする。Git編、Runner、Docker、PostgreSQLの公開配置はこの構成の対象外である。

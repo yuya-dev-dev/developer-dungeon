@@ -1,0 +1,21 @@
+.page-message { margin: 2rem 0; padding: 1rem 1.2rem; border: 1px solid var(--line); border-radius: .8rem; color: var(--muted); background: white; }
+.page-message[hidden] { display: none; }
+.storage-note { color: #b9c7e6; font-size: .78rem; line-height: 1.45; }
+.progress-panel[hidden] { display: none; }
+.public-home { min-height: 100vh; color: white; background: radial-gradient(circle at 85% 20%, rgb(36 107 254 / 28%), transparent 28%), linear-gradient(135deg, #08122d, #102c68 60%, #086f80); }
+.public-home-main { width: min(74rem, calc(100% - 2rem)); margin: 0 auto; padding: clamp(4rem, 10vw, 8rem) clamp(1rem, 5vw, 4rem); }
+.public-home-main .eyebrow { color: #7fe8f1; }
+.public-home-main h1 { max-width: 13ch; margin: 1rem 0; font-size: clamp(3rem, 8vw, 6.8rem); line-height: .98; letter-spacing: -.06em; }
+.public-home-lead { max-width: 44rem; color: #dbe7ff; font-size: clamp(1rem, 2vw, 1.25rem); line-height: 1.8; }
+.public-home-actions { margin-top: 2.2rem; }
+.primary-link { display: inline-flex; align-items: center; gap: 2rem; padding: 1rem 1.4rem; border-radius: .8rem; color: #0c1638; background: white; font-weight: 900; text-decoration: none; box-shadow: 0 1rem 2rem rgb(0 0 0 / 20%); }
+.primary-link:hover { color: #174da8; transform: translateY(-.15rem); }
+.public-home-stats { display: flex; gap: 2rem; margin: 3.5rem 0 0; }
+.public-home-stats div { display: grid; }
+.public-home-stats dt { color: #7fe8f1; font-size: 2.2rem; font-weight: 950; }
+.public-home-stats dd { margin: 0; color: #c5d5f6; font-size: .72rem; letter-spacing: .12em; text-transform: uppercase; }
+.public-scope-note { display: grid; gap: .45rem; max-width: 48rem; margin-top: 3rem; padding: 1rem 1.2rem; border: 1px solid rgb(255 255 255 / 18%); border-radius: .8rem; color: #c7d7f7; background: rgb(255 255 255 / 7%); line-height: 1.55; }
+.public-scope-note strong { color: white; }
+.problem-load-error { padding: 2rem; border: 1px solid #efb4b4; border-radius: 1rem; color: #792323; background: #fff5f5; }
+.problem-load-error a { font-weight: 850; }
+@media (max-width: 42rem) { .public-home-stats { gap: 1.2rem; } .public-home-main h1 { font-size: clamp(2.8rem, 15vw, 4.5rem); } }
