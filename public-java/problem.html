@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; font-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
+  <title>問題 | Javaクラス設計演習</title>
+  <link rel="stylesheet" href="./assets/public-java.css">
+  <script src="./assets/public-java.js" defer></script>
+</head>
+<body class="java-page" data-page="detail">
+<div class="java-layout">
+  <aside class="java-sidebar">
+    <a class="java-brand" href="./index.html"><span>DD</span><strong>Developer<br>Dungeon</strong></a>
+    <nav aria-label="問題ナビゲーション"><a href="./problems.html">← 問題一覧</a><a class="is-active" href="#problem">問題仕様</a><a href="#reference">模範設計例</a></nav>
+    <div class="progress-panel">
+      <small>現在の進捗</small><strong id="progress-label">未着手</strong>
+      <label for="progress-status">学習状況を更新</label>
+      <select id="progress-status"><option value="NOT_STARTED">未着手</option><option value="IN_PROGRESS">学習中</option><option value="COMPLETED">完了</option></select>
+      <button id="save-progress" type="button">この端末に保存</button>
+      <span id="storage-note" class="storage-note">進捗は、この端末・このブラウザだけに保存されます。</span>
+    </div>
+  </aside>
+  <main class="java-main problem-main" id="problem">
+    <p id="page-message" class="page-message" role="status">問題を読み込んでいます…</p>
+    <div id="problem-content"></div>
+  </main>
+</div>
+</body>
+</html>

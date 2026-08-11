@@ -344,3 +344,13 @@ Javaコードレビュー編、SQL編、Docker・CI/CD障害対応編は、同�
 8. 問題キー、表示順、難易度、必須項目、テーマとの対応に不整合があれば自動テストで検出できる。
 9. Git編の既存ルート、進捗、Runner、採点へ回帰がない。
 10. 9問は前の問題の完了状態にかかわらず、最初からすべて選択できる。
+
+### 15.9 Java専用公開版
+
+- Javaクラス設計問題集9問は、PCとDocker Desktopが停止していてもスマートフォンから閲覧できるGitHub Pages版を提供する。
+- 公開版の責務は、問題一覧、問題詳細、ヒント、固定模範code、未着手・学習中・完了の自己申告進捗に限定する。
+- 公開版の進捗は`localStorage`へ保存し、端末・Browser間では同期しない。保存機能を利用できない場合も問題閲覧を継続でき、そのsessionだけの進捗として扱う。
+- 9問のJSONと模範codeはlocal版と同じ固定resourceを正本とし、公開用に別の問題本文を複製管理しない。
+- Git編、Git Runner、Docker challenge container、management PostgreSQL、Spring Boot API、認証情報、秘密値を公開成果物へ含めない。
+- Git編とJava local版の既存route、DB進捗、安全境界は変更しない。
+- 公開版にログイン、server側進捗同期、利用者code保存、自動採点、AI API連携を追加しない。

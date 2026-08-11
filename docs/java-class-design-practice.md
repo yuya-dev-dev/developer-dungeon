@@ -561,6 +561,15 @@ jp.yuya.dev.developerdungeon
 - MVPではJava専用launcherを追加せず、既存の正式local起動手順を維持する。
 - Java問題集だけをDockerなしで起動する方式は、MVPの利用結果を確認してから別途判断する。
 
+### 10.3 公開Java版
+
+- GitHub Pages向けの静的版は、同じ9問の固定JSONと模範codeをbuild時にコピーし、問題内容の第2の正本を持たない。
+- 静的版は問題提示と端末内進捗だけを担当し、Spring Boot、management PostgreSQL、Git Runner、Dockerへ接続しない。
+- 一覧は初級・中級・上級の3group、詳細は固定slugのquery parameterで表示する。未知slugは問題dataを取得せず、安全な案内と一覧への導線を表示する。
+- 模範codeは初期状態で閉じた`details`にplain textとして表示する。
+- 進捗は`developer-dungeon.public-java.progress.v1`へ3状態だけを保存する。端末・Browser限定であることを画面へ明示し、storage破損・拒否時も閲覧を止めない。
+- 公開版のCSPはlocal resourceだけを許可し、外部CDN、外部font、inline scriptを使用しない。
+
 ## 11. securityと表示境界
 
 - problem JSON、模範codeは開発者がrepositoryへ追加した固定resourceだけを扱い、Browserから任意contentを登録できない。

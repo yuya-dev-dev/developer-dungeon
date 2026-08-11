@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; font-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
+  <title>問題一覧 | Javaクラス設計演習</title>
+  <link rel="stylesheet" href="./assets/public-java.css">
+  <script src="./assets/public-java.js" defer></script>
+</head>
+<body class="java-page" data-page="list">
+<div class="java-layout">
+  <aside class="java-sidebar">
+    <a class="java-brand" href="./index.html"><span>DD</span><strong>Developer<br>Dungeon</strong></a>
+    <nav aria-label="Java演習ナビゲーション">
+      <a class="is-active" href="./problems.html">問題一覧</a>
+      <a href="./index.html">Java編トップへ</a>
+    </nav>
+    <div class="java-sidebar-note"><b>Public Java Edition</b><span>進捗は、この端末・このブラウザだけに保存されます。</span></div>
+  </aside>
+  <main class="java-main">
+    <header class="java-hero">
+      <p class="eyebrow">JAVA CLASS DESIGN PRACTICE</p>
+      <h1>クラス設計を、手を動かして身につける。</h1>
+      <p>問題を選び、仕様を読み、VS Codeで実装します。唯一解を探すのではなく、責務と協調を自分の言葉で説明できる設計を目指します。</p>
+      <div class="java-hero-stats"><span><strong>9</strong> exercises</span><span><strong>3</strong> themes</span><span><strong>3</strong> levels</span></div>
+    </header>
+    <p id="page-message" class="page-message" role="status">問題を読み込んでいます…</p>
+    <div id="problem-groups" aria-live="polite"></div>
+  </main>
+</div>
+</body>
+</html>

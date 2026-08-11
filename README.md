@@ -8,6 +8,8 @@ Developer Dungeonは、新人エンジニアが複数の開発現場で技術的
 
 Phase 4までの企画・要件・全体設計と実装はユーザー承認済みです。安全な縦切り版、Git Runner hardening、PostgreSQLによるMVP基盤を経て、Chapter 1のSTAGE-GIT-01（revert）からSTAGE-GIT-05（reflog）までとPhase 5改善単位1〜7Dを実装しました。Gitの基本を広く浅く復習するChapter 0のTRAINING-GIT-01〜03に加え、図書館貸出・自動販売機・ショッピングカートを初級／中級／上級で扱うJavaクラス設計問題9問も実装しています。
 
+Javaクラス設計問題集は、GitHub Pagesで公開するJava専用静的版も提供します。公開URLは[`https://yuya-dev-dev.github.io/developer-dungeon/`](https://yuya-dev-dev.github.io/developer-dungeon/)です。PC、Docker Desktop、管理DBを起動せずスマートフォンから閲覧でき、進捗は利用中の端末・ブラウザ内だけに保存されます。Git編は安全な隔離実行環境が必要なため公開版へ含めず、従来どおりlocalで実行します。
+
 現在の1日縦切り版は、安全な使い捨てGit実行環境を含みます。player入力をhost上で直接実行せず、別processのGit Runnerとdisposable challenge containerを使用します。
 
 企画・要件・全体設計の文書一式はユーザー承認済みです。初期対応環境はWindows 11 x86_64＋Docker DesktopのWSL 2 backend／Linux containerに限定し、実装基準versionとRunner方式は[`docs/architecture.md`](docs/architecture.md)を正本とします。
@@ -54,7 +56,7 @@ Phase 4までの企画・要件・全体設計と実装はユーザー承認済�
 含まない：
 
 - Javaコードレビュー編、SQL編、Docker障害対応編
-- ログイン、複数player、ランキング、外部公開
+- ログイン、複数player、ランキング、Git編・Runner・管理DBの外部公開
 - 汎用Runner、plugin、microservice、stage作成UI
 - ライブworkspaceの完了をプレイヤーが宣言する復旧報告と、その待機用TTL・状態機械
 - rebase、bisect、実remoteを使う高難度stage
@@ -116,3 +118,5 @@ Dockerを伴う検証の実行許可後、次の順で起動します。
 ```
 
 Browserで`http://127.0.0.1:8080`を開きます。Dockerを起動しない単体テストは`.\scripts\invoke-maven.ps1 test`で実行します。このlauncherは、Codexやterminalが古い`JAVA_HOME`を継承していても、必須のEclipse Temurin 25.0.3+9 x64を検出して、そのMaven processにだけ適用します。
+
+Java公開版の成果物は`.\scripts\build-public-java-site.ps1`で許可リストに従って生成します。`main`へ対象変更が反映されるとGitHub Actionsが生成物だけをGitHub Pagesへ配信します。公開版にSpring Boot、Git Runner、Docker、DB接続、秘密値は含まれません。
