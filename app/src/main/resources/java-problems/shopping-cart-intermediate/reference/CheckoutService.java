@@ -35,7 +35,19 @@ record Order(LocalDateTime orderedAt, List<OrderItem> items) {
 }
 final class ShoppingCart {
     private final List<CartItem> items = new ArrayList<>();
-    void add(Product product, int quantity) { items.add(new CartItem(product, quantity)); }
+    void add(Product product, int quantity) {
+        Objects.requireNonNull(product);
+        if (quantity <= 0) throw new IllegalArgumentException();
+        for (int i = 0; i < items.size(); i++) {
+            CartItem existing = items.get(i);
+            if (existing.product().id().equals(product.id())) {
+                if (!existing.product().equals(product)) throw new IllegalArgumentException("商品情報が一致しません");
+                items.set(i, new CartItem(product, Math.addExact(existing.quantity(), quantity)));
+                return;
+            }
+        }
+        items.add(new CartItem(product, quantity));
+    }
     void changeQuantity(String productId, int quantity) {
         if (quantity <= 0) throw new IllegalArgumentException();
         for (int i = 0; i < items.size(); i++) if (items.get(i).product().id().equals(productId)) {

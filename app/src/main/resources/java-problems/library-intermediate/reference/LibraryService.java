@@ -31,6 +31,7 @@ public final class LibraryService {
         Loan loan = loans.stream().filter(item -> item.copyId().equals(copyId) && item.open()).findFirst()
                 .orElseThrow(() -> new IllegalStateException("openな貸出がありません"));
         if (!loan.memberId().equals(memberId)) throw new IllegalStateException("返却者が一致しません");
+        copy.assertLoaned();
         loan.close(returnedOn);
         copy.returned();
     }
@@ -56,6 +57,7 @@ final class BookCopy {
     String copyId() { return copyId; }
     Book book() { return book; }
     boolean loaned() { return loaned; }
+    void assertLoaned() { if (!loaned) throw new IllegalStateException(); }
     void lend() { if (loaned) throw new IllegalStateException(); loaned = true; }
     void returned() { if (!loaned) throw new IllegalStateException(); loaned = false; }
 }

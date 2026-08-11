@@ -9,15 +9,15 @@ import java.util.Objects;
 public final class CheckoutService {
     private final Inventory inventory;
     public CheckoutService(Inventory inventory) { this.inventory = inventory; }
-    public Order checkout(ShoppingCart cart, List<DiscountPolicy> policies) {
+    public Order checkout(ShoppingCart cart, DiscountPolicy policy) {
         if (cart.items().isEmpty()) throw new IllegalStateException("カートが空です");
-        Reservation reservation = inventory.reserveAll(cart.items());
+        Objects.requireNonNull(policy);
         List<OrderItem> items = cart.items().stream().map(item -> new OrderItem(item.productId(), item.name(), item.unitPrice(), item.quantity())).toList();
         Money subtotal = items.stream().map(OrderItem::subtotal).reduce(Money.zero(), Money::plus);
-        Money current = subtotal;
-        List<String> applied = new ArrayList<>();
-        for (DiscountPolicy policy : List.copyOf(policies)) { current = policy.apply(current); applied.add(policy.name()); }
-        return new Order(items, applied, current, reservation);
+        DiscountApplication applied = Objects.requireNonNull(policy.apply(subtotal));
+        Objects.requireNonNull(applied.total());
+        Reservation reservation = inventory.reserveAll(cart.items());
+        return new Order(items, applied, applied.total(), reservation);
     }
 }
 
@@ -27,14 +27,22 @@ record Money(int yen) {
     Money plus(Money other){return new Money(Math.addExact(yen,other.yen));}
     Money times(int quantity){return new Money(Math.multiplyExact(yen,quantity));}
     Money minusFloorZero(Money other){return new Money(Math.max(0,yen-other.yen));}
-    Money percentageOff(int percent){return new Money(yen - yen*percent/100);}
+    Money percentageOff(int percent){long discount=(long)yen*percent/100;return new Money(Math.toIntExact(yen-discount));}
 }
-interface DiscountPolicy { Money apply(Money subtotal); String name(); }
-record NoDiscount() implements DiscountPolicy { public Money apply(Money subtotal){return subtotal;} public String name(){return "NONE";} }
-record FixedDiscount(Money amount) implements DiscountPolicy { public Money apply(Money subtotal){return subtotal.minusFloorZero(amount);} public String name(){return "FIXED";} }
+record DiscountApplication(String policyName, String condition, Money total) {
+    DiscountApplication { Objects.requireNonNull(policyName); Objects.requireNonNull(condition); Objects.requireNonNull(total); }
+}
+interface DiscountPolicy { DiscountApplication apply(Money subtotal); }
+record NoDiscount() implements DiscountPolicy {
+    public DiscountApplication apply(Money subtotal){return new DiscountApplication("NONE","割引なし",subtotal);}
+}
+record FixedDiscount(Money amount) implements DiscountPolicy {
+    FixedDiscount { Objects.requireNonNull(amount); }
+    public DiscountApplication apply(Money subtotal){return new DiscountApplication("FIXED",amount.yen()+"円",subtotal.minusFloorZero(amount));}
+}
 record RateDiscount(int percent) implements DiscountPolicy {
     RateDiscount { if(percent<0||percent>100)throw new IllegalArgumentException(); }
-    public Money apply(Money subtotal){return subtotal.percentageOff(percent);} public String name(){return "RATE";}
+    public DiscountApplication apply(Money subtotal){return new DiscountApplication("RATE",percent+"%",subtotal.percentageOff(percent));}
 }
 record CartItem(String productId,String name,Money unitPrice,int quantity){CartItem{if(quantity<=0)throw new IllegalArgumentException();}}
 record OrderItem(String productId,String productName,Money unitPrice,int quantity){Money subtotal(){return unitPrice.times(quantity);}}
@@ -46,7 +54,7 @@ final class ShoppingCart {
 interface Reservation { void commit(); void release(); }
 final class Inventory {
     private final Map<String,Integer> available=new HashMap<>();
-    void stock(String id,int quantity){available.put(id,quantity);}
+    void stock(String id,int quantity){if(id==null||id.isBlank()||quantity<0)throw new IllegalArgumentException();available.put(id,quantity);}
     Reservation reserveAll(List<CartItem> items){
         Map<String,Integer> requested=new HashMap<>();
         items.forEach(item->requested.merge(item.productId(),item.quantity(),Math::addExact));
@@ -57,11 +65,11 @@ final class Inventory {
 }
 enum OrderStatus { PENDING, PAID, SHIPPED, CANCELED }
 final class Order {
-    private final List<OrderItem> items; private final List<String> discounts; private final Money total; private final Reservation reservation;
+    private final List<OrderItem> items; private final DiscountApplication discount; private final Money total; private final Reservation reservation;
     private OrderStatus status=OrderStatus.PENDING;
-    Order(List<OrderItem> items,List<String> discounts,Money total,Reservation reservation){this.items=List.copyOf(items);this.discounts=List.copyOf(discounts);this.total=total;this.reservation=reservation;}
+    Order(List<OrderItem> items,DiscountApplication discount,Money total,Reservation reservation){this.items=List.copyOf(items);this.discount=discount;this.total=total;this.reservation=reservation;}
     void pay(){if(status!=OrderStatus.PENDING)throw new IllegalStateException();reservation.commit();status=OrderStatus.PAID;}
     void cancel(){if(status!=OrderStatus.PENDING)throw new IllegalStateException();reservation.release();status=OrderStatus.CANCELED;}
     void ship(){if(status!=OrderStatus.PAID)throw new IllegalStateException();status=OrderStatus.SHIPPED;}
-    OrderStatus status(){return status;} Money total(){return total;} List<OrderItem> items(){return items;} List<String> discounts(){return discounts;}
+    OrderStatus status(){return status;} Money total(){return total;} List<OrderItem> items(){return items;} DiscountApplication discount(){return discount;}
 }

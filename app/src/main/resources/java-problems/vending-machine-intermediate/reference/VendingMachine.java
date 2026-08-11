@@ -20,8 +20,9 @@ public final class VendingMachine {
         if (slot.stock() == 0) return PurchaseResult.failure(PurchaseFailure.OUT_OF_STOCK);
         if (balanceYen < slot.priceYen()) return PurchaseResult.failure(PurchaseFailure.INSUFFICIENT_BALANCE);
         int returned = balanceYen - slot.priceYen();
+        int updatedSalesYen = Math.addExact(salesYen, slot.priceYen());
         slot.takeOne();
-        salesYen = Math.addExact(salesYen, slot.priceYen());
+        salesYen = updatedSalesYen;
         balanceYen = 0;
         return PurchaseResult.success(slot.product(), slot.priceYen(), returned);
     }

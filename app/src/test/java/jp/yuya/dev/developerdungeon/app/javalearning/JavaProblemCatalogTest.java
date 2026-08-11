@@ -8,6 +8,7 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
 import java.net.URI;
 import java.net.URLClassLoader;
 import java.nio.file.Path;
@@ -60,6 +61,143 @@ class JavaProblemCatalogTest {
         assertDuplicateRowsAreAtomic(catalog.findBySlug("shopping-cart-advanced").orElseThrow(), true);
     }
 
+    @Test
+    void advancedLibraryKeepsEachReservationBoundToItsAssignedCopy() throws Exception {
+        JavaProblem problem = new JavaProblemCatalog(new ObjectMapper())
+                .findBySlug("library-advanced").orElseThrow();
+        Path classes = compile(problem, output.resolve("library-advanced-runtime"));
+        String packageName = "jp.yuya.dev.developerdungeon.javaproblems.library.advanced";
+        try (URLClassLoader loader = new URLClassLoader(new java.net.URL[]{classes.toUri().toURL()})) {
+            Class<?> serviceType = loader.loadClass(packageName + ".LibraryService");
+            Class<?> titleType = loader.loadClass(packageName + ".BookTitle");
+            Class<?> copyType = loader.loadClass(packageName + ".BookCopy");
+            Class<?> memberType = loader.loadClass(packageName + ".Member");
+            Class<?> policyType = loader.loadClass(packageName + ".LoanPolicy");
+            Object policy = instantiate(loader.loadClass(packageName + ".StandardPolicy"));
+            Object service = instantiate(serviceType, new Class<?>[]{Clock.class}, Clock.systemUTC());
+
+            invoke(serviceType, service, "addTitle", new Class<?>[]{titleType},
+                    instantiate(titleType, new Class<?>[]{String.class, String.class}, "ISBN-1", "設計入門"));
+            invoke(serviceType, service, "addCopy", new Class<?>[]{copyType},
+                    instantiate(copyType, new Class<?>[]{String.class, String.class}, "C1", "ISBN-1"));
+            invoke(serviceType, service, "addCopy", new Class<?>[]{copyType},
+                    instantiate(copyType, new Class<?>[]{String.class, String.class}, "C2", "ISBN-1"));
+            for (String memberId : List.of("BORROWER", "M1", "M2")) {
+                invoke(serviceType, service, "register", new Class<?>[]{memberType},
+                        instantiate(memberType, new Class<?>[]{String.class, policyType}, memberId, policy));
+            }
+
+            invoke(serviceType, service, "lend", new Class<?>[]{String.class, String.class}, "BORROWER", "C1");
+            invoke(serviceType, service, "reserve", new Class<?>[]{String.class, String.class}, "M1", "ISBN-1");
+            invoke(serviceType, service, "reserve", new Class<?>[]{String.class, String.class}, "M2", "ISBN-1");
+            invoke(serviceType, service, "returnCopy", new Class<?>[]{String.class, String.class}, "BORROWER", "C1");
+
+            assertThatThrownBy(() -> invoke(serviceType, service, "lend",
+                    new Class<?>[]{String.class, String.class}, "M1", "C2"))
+                    .isInstanceOf(InvocationTargetException.class)
+                    .hasCauseInstanceOf(IllegalStateException.class);
+            invoke(serviceType, service, "lend", new Class<?>[]{String.class, String.class}, "M1", "C1");
+            invoke(serviceType, service, "lend", new Class<?>[]{String.class, String.class}, "M2", "C2");
+        }
+    }
+
+    @Test
+    void advancedVendingReturnsCashChangeAndRejectsInvalidSlots() throws Exception {
+        JavaProblem problem = new JavaProblemCatalog(new ObjectMapper())
+                .findBySlug("vending-machine-advanced").orElseThrow();
+        Path classes = compile(problem, output.resolve("vending-advanced-runtime"));
+        String packageName = "jp.yuya.dev.developerdungeon.javaproblems.vending.machine.advanced";
+        try (URLClassLoader loader = new URLClassLoader(new java.net.URL[]{classes.toUri().toURL()})) {
+            Class<?> machineType = loader.loadClass(packageName + ".VendingMachine");
+            Class<?> productType = loader.loadClass(packageName + ".Product");
+            Class<?> paymentType = loader.loadClass(packageName + ".PaymentMethod");
+            Object machine = instantiate(machineType, new Class<?>[]{Clock.class}, Clock.systemUTC());
+            Object product = instantiate(productType, new Class<?>[]{String.class, String.class}, "P1", "水");
+            invoke(machineType, machine, "addSlot",
+                    new Class<?>[]{String.class, productType, int.class, int.class}, "A1", product, 300, 1);
+            Object cash = instantiate(loader.loadClass(packageName + ".CashPayment"),
+                    new Class<?>[]{int.class}, 500);
+            Object outcome = invoke(machineType, machine, "sell",
+                    new Class<?>[]{String.class, paymentType}, "A1", cash);
+            assertThat(invoke(outcome.getClass(), outcome, "returnedYen", new Class<?>[0])).isEqualTo(200);
+
+            assertThatThrownBy(() -> invoke(machineType, machine, "addSlot",
+                    new Class<?>[]{String.class, productType, int.class, int.class}, "B1", product, -1, 1))
+                    .isInstanceOf(InvocationTargetException.class)
+                    .hasCauseInstanceOf(IllegalArgumentException.class);
+        }
+    }
+
+    @Test
+    void advancedCartLeavesInventoryUntouchedWhenDiscountCalculationFails() throws Exception {
+        JavaProblem problem = new JavaProblemCatalog(new ObjectMapper())
+                .findBySlug("shopping-cart-advanced").orElseThrow();
+        Path classes = compile(problem, output.resolve("cart-advanced-policy-runtime"));
+        String packageName = "jp.yuya.dev.developerdungeon.javaproblems.shopping.cart.advanced";
+        try (URLClassLoader loader = new URLClassLoader(new java.net.URL[]{classes.toUri().toURL()})) {
+            Class<?> cartType = loader.loadClass(packageName + ".ShoppingCart");
+            Class<?> inventoryType = loader.loadClass(packageName + ".Inventory");
+            Class<?> itemType = loader.loadClass(packageName + ".CartItem");
+            Class<?> moneyType = loader.loadClass(packageName + ".Money");
+            Class<?> policyType = loader.loadClass(packageName + ".DiscountPolicy");
+            Object cart = instantiate(cartType);
+            Object inventory = instantiate(inventoryType);
+            invoke(inventoryType, inventory, "stock", new Class<?>[]{String.class, int.class}, "P1", 1);
+            Object money = instantiate(moneyType, new Class<?>[]{int.class}, 100);
+            invoke(cartType, cart, "add", new Class<?>[]{itemType},
+                    instantiate(itemType, new Class<?>[]{String.class, String.class, moneyType, int.class},
+                            "P1", "商品", money, 1));
+            Object checkout = instantiate(loader.loadClass(packageName + ".CheckoutService"),
+                    new Class<?>[]{inventoryType}, inventory);
+            Method checkoutMethod = accessibleMethod(checkout.getClass(), "checkout", cartType, policyType);
+            Object failingPolicy = Proxy.newProxyInstance(loader, new Class<?>[]{policyType},
+                    (proxy, method, arguments) -> { throw new IllegalStateException("割引計算失敗"); });
+
+            assertThatThrownBy(() -> checkoutMethod.invoke(checkout, cart, failingPolicy))
+                    .isInstanceOf(InvocationTargetException.class)
+                    .hasCauseInstanceOf(IllegalStateException.class);
+            Field inventoryField = inventoryType.getDeclaredField("available");
+            inventoryField.setAccessible(true);
+            assertThat(((Map<?, ?>) inventoryField.get(inventory)).get("P1")).isEqualTo(1);
+
+            Object noDiscount = instantiate(loader.loadClass(packageName + ".NoDiscount"));
+            assertThat(checkoutMethod.invoke(checkout, cart, noDiscount)).isNotNull();
+            assertThat(((Map<?, ?>) inventoryField.get(inventory)).get("P1")).isEqualTo(0);
+        }
+    }
+
+    @Test
+    void intermediateVendingChecksSalesOverflowBeforeChangingStockOrBalance() throws Exception {
+        JavaProblem problem = new JavaProblemCatalog(new ObjectMapper())
+                .findBySlug("vending-machine-intermediate").orElseThrow();
+        Path classes = compile(problem, output.resolve("vending-intermediate-runtime"));
+        String packageName = "jp.yuya.dev.developerdungeon.javaproblems.vending.machine.intermediate";
+        try (URLClassLoader loader = new URLClassLoader(new java.net.URL[]{classes.toUri().toURL()})) {
+            Class<?> machineType = loader.loadClass(packageName + ".VendingMachine");
+            Class<?> productType = loader.loadClass(packageName + ".Product");
+            Object machine = instantiate(machineType);
+            Object product = instantiate(productType, new Class<?>[]{String.class, String.class}, "P1", "水");
+            invoke(machineType, machine, "addSlot",
+                    new Class<?>[]{String.class, productType, int.class, int.class}, "A1", product, 1, 1);
+            invoke(machineType, machine, "insert", new Class<?>[]{int.class}, 1);
+            Field sales = machineType.getDeclaredField("salesYen");
+            sales.setAccessible(true);
+            sales.setInt(machine, Integer.MAX_VALUE);
+
+            assertThatThrownBy(() -> invoke(machineType, machine, "purchase",
+                    new Class<?>[]{String.class}, "A1"))
+                    .isInstanceOf(InvocationTargetException.class)
+                    .hasCauseInstanceOf(ArithmeticException.class);
+            Field slots = machineType.getDeclaredField("slots");
+            slots.setAccessible(true);
+            Object slot = ((Map<?, ?>) slots.get(machine)).get("A1");
+            assertThat(invoke(slot.getClass(), slot, "stock", new Class<?>[0])).isEqualTo(1);
+            Field balance = machineType.getDeclaredField("balanceYen");
+            balance.setAccessible(true);
+            assertThat(balance.getInt(machine)).isEqualTo(1);
+        }
+    }
+
     private void assertDuplicateRowsAreAtomic(JavaProblem problem, boolean advanced) throws Exception {
         Path classes = compile(problem, output.resolve(problem.slug() + "-runtime"));
         String packageName = "jp.yuya.dev.developerdungeon.javaproblems." + problem.slug().replace('-', '.');
@@ -92,18 +230,20 @@ class JavaProblemCatalogTest {
             Object checkout = advanced
                     ? instantiate(checkoutType, new Class<?>[]{inventoryType}, inventory)
                     : instantiate(checkoutType, new Class<?>[]{inventoryType, Clock.class}, inventory, Clock.systemUTC());
+            Class<?> discountType = advanced ? loader.loadClass(packageName + ".DiscountPolicy") : null;
+            Object noDiscount = advanced ? instantiate(loader.loadClass(packageName + ".NoDiscount")) : null;
             Method checkoutMethod = advanced
-                    ? accessibleMethod(checkoutType, "checkout", cartType, List.class)
+                    ? accessibleMethod(checkoutType, "checkout", cartType, discountType)
                     : accessibleMethod(checkoutType, "checkout", cartType);
             assertThatThrownBy(() -> {
-                if (advanced) checkoutMethod.invoke(checkout, cart, List.of());
+                if (advanced) checkoutMethod.invoke(checkout, cart, noDiscount);
                 else checkoutMethod.invoke(checkout, cart);
             }).isInstanceOf(InvocationTargetException.class).hasCauseInstanceOf(IllegalStateException.class);
 
             Field inventoryField = inventoryType.getDeclaredField(advanced ? "available" : "quantities");
             inventoryField.setAccessible(true);
             assertThat(((Map<?, ?>) inventoryField.get(inventory)).get("P1")).isEqualTo(5);
-            assertThat((List<?>) invoke(cartType, cart, "items", new Class<?>[0])).hasSize(2);
+            assertThat((List<?>) invoke(cartType, cart, "items", new Class<?>[0])).hasSize(advanced ? 2 : 1);
         }
     }
 

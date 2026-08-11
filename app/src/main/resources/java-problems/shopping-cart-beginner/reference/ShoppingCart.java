@@ -12,8 +12,17 @@ public final class ShoppingCart {
     public void add(Product product, int quantity) {
         Objects.requireNonNull(product);
         if (quantity <= 0) throw new IllegalArgumentException("数量は1以上です");
-        items.stream().filter(item -> item.getProduct().getId().equals(product.getId())).findFirst()
-                .ifPresentOrElse(item -> item.increaseQuantity(quantity), () -> items.add(new CartItem(product, quantity)));
+        CartItem existing = items.stream().filter(item -> item.getProduct().getId().equals(product.getId()))
+                .findFirst().orElse(null);
+        if (existing == null) {
+            items.add(new CartItem(product, quantity));
+            return;
+        }
+        Product current = existing.getProduct();
+        if (!current.getName().equals(product.getName()) || current.getUnitPriceYen() != product.getUnitPriceYen()) {
+            throw new IllegalArgumentException("同じ商品IDに異なる商品情報は使えません");
+        }
+        existing.increaseQuantity(quantity);
     }
     public int totalQuantity() { return items.stream().mapToInt(CartItem::getQuantity).sum(); }
     public int totalPriceYen() { return items.stream().mapToInt(CartItem::subtotal).sum(); }

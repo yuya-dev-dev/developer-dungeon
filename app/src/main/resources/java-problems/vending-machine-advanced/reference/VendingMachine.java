@@ -9,25 +9,28 @@ import java.util.Objects;
 public final class VendingMachine {
     private final Map<String, Slot> slots = new HashMap<>();
     private final Clock clock;
-    public VendingMachine(Clock clock) { this.clock = clock; }
-    public void addSlot(String code, Product product, int priceYen, int stock) { slots.put(code, new Slot(product, priceYen, stock)); }
+    public VendingMachine(Clock clock) { this.clock = Objects.requireNonNull(clock); }
+    public void addSlot(String code, Product product, int priceYen, int stock) {
+        if (code == null || code.isBlank() || priceYen <= 0 || stock < 0) throw new IllegalArgumentException();
+        slots.put(code, new Slot(Objects.requireNonNull(product), priceYen, stock));
+    }
 
     public SaleOutcome sell(String slotCode, PaymentMethod payment) {
         SaleTransaction transaction = new SaleTransaction();
         Slot slot = slots.get(slotCode);
         if (slot == null || slot.stock() == 0) return transaction.cancel(payment.refundYen(), "購入不可");
         PaymentApproval approval = payment.authorize(slot.priceYen());
-        if (!approval.approved()) return transaction.cancel(approval.refundYen(), approval.reason());
+        if (!approval.approved()) return transaction.cancel(approval.returnedYen(), approval.reason());
         transaction.approve();
         slot.takeOne();
         transaction.complete();
         SaleRecord record = new SaleRecord(slot.product().name(), slot.priceYen(), payment.name(), LocalDateTime.now(clock));
-        return SaleOutcome.completed(record);
+        return SaleOutcome.completed(record, approval.returnedYen());
     }
 }
 
 record Product(String id, String name) { Product { Objects.requireNonNull(id); Objects.requireNonNull(name); } }
-record PaymentApproval(boolean approved, int refundYen, String reason) { }
+record PaymentApproval(boolean approved, int returnedYen, String reason) { }
 interface PaymentMethod { PaymentApproval authorize(int priceYen); int refundYen(); String name(); }
 final class CashPayment implements PaymentMethod {
     private final int insertedYen;
@@ -51,13 +54,13 @@ final class SaleTransaction {
     SaleOutcome cancel(int refund, String reason){if(status!=TransactionStatus.STARTED)throw new IllegalStateException();status=TransactionStatus.CANCELED;return SaleOutcome.canceled(refund,reason);}
 }
 record SaleRecord(String productName, int priceYen, String paymentMethod, LocalDateTime completedAt) { }
-record SaleOutcome(boolean completed, SaleRecord record, int refundYen, String failureReason) {
-    static SaleOutcome completed(SaleRecord record){return new SaleOutcome(true,record,0,null);}
+record SaleOutcome(boolean completed, SaleRecord record, int returnedYen, String failureReason) {
+    static SaleOutcome completed(SaleRecord record,int returned){return new SaleOutcome(true,record,returned,null);}
     static SaleOutcome canceled(int refund,String reason){return new SaleOutcome(false,null,refund,reason);}
 }
 final class Slot {
     private final Product product; private int priceYen, stock;
     Slot(Product product,int priceYen,int stock){this.product=product;this.priceYen=priceYen;this.stock=stock;}
     Product product(){return product;} int priceYen(){return priceYen;} int stock(){return stock;}
-    void takeOne(){if(stock==0)throw new IllegalStateException();stock--;}
+    void takeOne(){if(stock<=0)throw new IllegalStateException();stock--;}
 }

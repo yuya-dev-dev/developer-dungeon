@@ -3,7 +3,7 @@
   "title":"在庫を確認して注文を確定する", "summary":"編集中のcartと確定orderを分け、在庫確認からsnapshot生成までを一貫して行います。",
   "learningObjectives":["cartとorderを別aggregateとして扱う", "checkout時点の値をsnapshotへ固定する", "cart・inventory・order作成をserviceで調整する"],
   "prerequisites":["collection", "LocalDateTime", "service", "immutable object"],
-  "requirements":["cartへ追加、数量変更、削除ができる", "inventoryは商品ID別の利用可能数を管理する", "空cartはcheckoutできない", "全商品の在庫を先に確認し不足時は何も変更しない", "成功時は全在庫を減らし注文日時と注文行を持つorderを作る", "order行は商品名・単価・数量・小計のsnapshotを持つ", "成功後は元cartを空にする"],
+  "requirements":["cartへ追加、数量変更、削除ができ、同じ商品IDの追加は1つの行へまとめる", "同じ商品IDで名称または単価が異なる商品は拒否する", "inventoryは商品ID別の利用可能数を管理する", "空cartはcheckoutできない", "全商品の在庫を先に確認し不足時は何も変更しない", "成功時は全在庫を減らし注文日時と注文行を持つorderを作る", "order行は商品名・単価・数量・小計のsnapshotを持つ", "成功後は元cartを空にする"],
   "constraints":["class数・field数・method数・class名は固定しない", "金額はint円単位", "割引・決済・配送は扱わない"],
   "mandatoryRequirements":["後の価格変更でorder金額が変わらない", "在庫不足時に在庫もcartもorderも部分変更しない", "order合計は注文行の小計合計から計算する"],
   "optionalRequirements":["cart有効期限", "在庫不足商品をまとめて返すresult"],
