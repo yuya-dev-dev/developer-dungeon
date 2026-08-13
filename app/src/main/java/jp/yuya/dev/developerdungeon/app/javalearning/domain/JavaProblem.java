@@ -18,6 +18,7 @@ public record JavaProblem(
         List<String> optionalRequirements,
         List<String> designPoints,
         List<String> hints,
+        MainScenario mainScenario,
         BeginnerScaffold beginnerScaffold,
         List<String> referenceFiles,
         List<ReferenceSource> referenceSources) {
@@ -25,8 +26,14 @@ public record JavaProblem(
     public JavaProblem withReferenceSources(List<ReferenceSource> sources) {
         return new JavaProblem(key, slug, theme, difficulty, order, title, summary, learningObjectives,
                 prerequisites, requirements, constraints, mandatoryRequirements, optionalRequirements,
-                designPoints, hints, beginnerScaffold, referenceFiles, List.copyOf(sources));
+                designPoints, hints, mainScenario, beginnerScaffold, referenceFiles, List.copyOf(sources));
     }
+
+    public record MainScenario(
+            List<String> instances,
+            List<String> steps,
+            List<String> expectedResults,
+            List<String> invariants) { }
 
     public record BeginnerScaffold(int classCount, List<ClassSpecification> classes) { }
 

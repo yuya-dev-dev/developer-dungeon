@@ -72,6 +72,7 @@ final class Loan {
     }
     String memberId() { return memberId; }
     String copyId() { return copyId; }
+    LocalDate dueOn() { return dueOn; }
     boolean open() { return returnedOn == null; }
     void close(LocalDate date) { if (!open()) throw new IllegalStateException(); returnedOn = Objects.requireNonNull(date); }
 }

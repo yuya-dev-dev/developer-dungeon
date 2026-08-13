@@ -9,9 +9,10 @@
   "optionalRequirements":["例外messageを利用者に分かりやすくする", "貸出と返却の簡単な動作例を書く"],
   "designPoints":["borrowedを外部から変更できない理由", "本か利用者だけを更新した場合に生じる矛盾", "どちらのclassが協調処理を開始するか"],
   "hints":["Bookの貸出methodで、BookとLibraryMemberの事前条件を両方確認してから更新します", "LibraryMemberのborrowedBookは未貸出時にnullとします"],
+  "mainScenario":{"instances":["本B-001『Java入門』を1冊生成する","利用者M-001『青木』とM-002『佐藤』を生成する"],"steps":["初期状態を確認する","青木へ本を貸し出す","貸出中の同じ本を佐藤へ貸し出して失敗させる","失敗後の両者の状態を確認する","青木から本を返却する"],"expectedResults":["貸出後は本と青木の両方が貸出中になる","返却後は本と青木の両方が未貸出になる"],"invariants":["二重貸出の失敗後も本は青木へ貸出中である","佐藤は未貸出のままである"]},
   "beginnerScaffold":{"classCount":2,"classes":[
     {"name":"Book","purpose":"1冊の本の識別情報と貸出状態を保持する","constructorCount":1,"constructors":["Book(String id, String title): blankを拒否して未貸出で初期化"],"fieldCount":3,"methodCount":5,"fields":["String id: 本の識別子","String title: 題名","boolean borrowed: 貸出中か"],"methods":["String getId(): 識別子取得","String getTitle(): 題名取得","boolean isBorrowed(): 貸出中判定","void borrowTo(LibraryMember member): 両者を貸出状態へ変更","void returnFrom(LibraryMember member): 両者を未貸出状態へ戻す"]},
     {"name":"LibraryMember","purpose":"1人の利用者と現在借りている1冊を管理する","constructorCount":1,"constructors":["LibraryMember(String id, String name): blankを拒否して借入なしで初期化"],"fieldCount":3,"methodCount":5,"fields":["String id: 利用者識別子","String name: 氏名","Book borrowedBook: 現在の本またはnull"],"methods":["String getId(): 識別子取得","String getName(): 氏名取得","boolean hasBorrowedBook(): 借入中判定","void borrow(Book book): 指定本を記録","Book returnBook(): 現在の本を返して記録を空にする"]}
   ]},
-  "referenceFiles":["Book.java"], "referenceSources":[]
+  "referenceFiles":["Book.java","Main.java"], "referenceSources":[]
 }

@@ -9,5 +9,6 @@
   "optionalRequirements":["slot補充と価格変更", "売切れ商品一覧"],
   "designPoints":["失敗をnull・exception・resultのどれで表すか", "商品情報とslot固有価格の配置", "状態変更前に全条件を確認する理由"],
   "hints":["PurchaseResultに成功可否・理由・商品・価格・返却額を持たせます", "Slotは商品と現在価格と在庫をまとめます"],
-  "beginnerScaffold":null, "referenceFiles":["VendingMachine.java"], "referenceSources":[]
+  "mainScenario":{"instances":["商品『コーラ』と『お茶』、自動販売機を生成する","A1=コーラ150円在庫1、A2=同じコーラ130円在庫1、B1=お茶120円在庫0を登録する"],"steps":["100円でA1を購入して金額不足を確認し返金する","200円でA1を購入する","売切れたA1を再購入して失敗させ返金する","200円でA2を購入する"],"expectedResults":["A1成功時はコーラ・価格150円・返却50円、売上150円になる","A2成功時は価格130円・返却70円、累計売上280円になる"],"invariants":["各失敗後も対象在庫と売上は変わらず、投入額は返金できる"]},
+  "beginnerScaffold":null, "referenceFiles":["VendingMachine.java","Main.java"], "referenceSources":[]
 }

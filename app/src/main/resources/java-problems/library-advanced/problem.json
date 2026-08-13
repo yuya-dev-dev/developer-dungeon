@@ -3,11 +3,12 @@
   "title":"予約・延長・貸出方針を設計する", "summary":"会員別policy、ISBN単位のFIFO予約、copy引当、延長を一貫した状態遷移で扱います。",
   "learningObjectives":["会員規則を交換可能なpolicyにする", "予約queueとcopy状態を協調させる", "現在日を注入可能なClockから得る"],
   "prerequisites":["interface", "composition", "Clock", "enumと状態遷移"],
-  "requirements":["書誌を登録し、登録済みISBNに属する複数copy、利用者、貸出、予約を管理する", "標準会員と優先会員で貸出上限と期間を変える", "ISBN単位のFIFO予約待ち行列を持つ", "重複予約、未登録ISBNへの予約、借入中ISBNへの予約を拒否する", "返却時は未引当の先頭予約者へcopyを1冊だけ引き当て一般在庫から除外する", "引当copyは引当先の利用者だけが借りられ、そのcopyの貸出成功時に対応する予約を消費する", "延長は1回だけで延滞中または次予約者がいる場合は禁止する"],
+  "requirements":["書誌を登録し、登録済みISBNに属する複数copy、利用者、貸出、予約を管理する", "標準会員は最大3冊・14日、優先会員は最大5冊・21日の貸出方針を使う", "ISBN単位のFIFO予約待ち行列を持ち、利用可能copyの有無にかかわらず予約を受け付ける", "重複予約、未登録ISBNへの予約、借入中ISBNへの予約を拒否する", "未引当予約があるISBNの利用可能copyは先頭の未引当予約者へ優先し、返却時も未引当の先頭予約者へcopyを1冊だけ引き当て一般在庫から除外する", "1予約につき引当は1copyとし、引当copyは引当先の利用者だけが借りられ、そのcopyの貸出成功時に対応する予約を消費する", "延長は1回7日だけで、延滞中または未消費の次予約者がいる場合は禁止する"],
   "constraints":["class数・field数・method数・class名は固定しない", "LocalDate.now()を直接呼ばない", "永続化やUIは扱わない"],
   "mandatoryRequirements":["会員種別の条件分岐を散在させずpolicyで表す", "AVAILABLE・LOANED・RESERVEDを明確に区別する", "失敗した予約・貸出・返却・延長で部分更新しない"],
   "optionalRequirements":["予約取置き期限", "延滞日数に応じた貸出停止policy"],
   "designPoints":["会員種別を継承かcompositionのどちらで表すか", "boolean組合せでcopy状態を表す危険性", "予約queueをmutableに公開しない方法"],
   "hints":["LoanPolicyはmaxLoansとloanDaysを返すinterfaceにできます", "返却時にqueue先頭を確認し、BookCopyをRESERVEDへ遷移させます"],
-  "beginnerScaffold":null, "referenceFiles":["LibraryService.java"], "referenceSources":[]
+  "mainScenario":{"instances":["固定日2026年4月1日のClockと図書館serviceを生成する","ISBN-001の書誌、copy C-001・C-002を生成する","標準会員、優先会員、待機会員を生成する"],"steps":["標準会員へC-001を貸し出し、優先会員・待機会員の順に予約する","標準会員が返却し、待機会員によるC-001貸出を失敗させる","優先会員がC-001を借り、予約待ち中の延長を失敗させて返却する","待機会員がC-001を借りる","予約なしで標準会員へC-002を貸し、1回延長後に2回目を失敗させる"],"expectedResults":["標準会員の期限は14日後、優先会員の期限は21日後になる","返却順にC-001が優先会員、次に待機会員へ引き当てられる","予約なしの貸出は期限が7日延長される"],"invariants":["割当先以外の貸出失敗で予約とcopy状態を変更しない","延長失敗で期限と延長済み状態を不正に変更しない"]},
+  "beginnerScaffold":null, "referenceFiles":["LibraryService.java","Main.java"], "referenceSources":[]
 }

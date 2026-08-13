@@ -64,6 +64,10 @@
     if (!LEVELS.some((level) => level.key === problem.difficulty)) throw new Error("難易度が正しくありません。");
     if (!Number.isInteger(problem.order) || problem.order < 1 || problem.order > 99) throw new Error("問題番号が正しくありません。");
     if (arrayFields.some((name) => !isTextArray(problem[name]))) throw new Error("問題データの項目が正しくありません。");
+    if (!problem.mainScenario || ["instances", "steps", "expectedResults", "invariants"]
+        .some((name) => !isTextArray(problem.mainScenario[name]) || problem.mainScenario[name].length === 0)) {
+      throw new Error("Main動作確認の形式が正しくありません。");
+    }
     if (problem.referenceFiles.length === 0 || problem.referenceFiles.some((name) => !REFERENCE_PATTERN.test(name))) throw new Error("模範コードのファイル名が正しくありません。");
     return problem;
   }
@@ -209,6 +213,26 @@
     return details;
   }
 
+  function renderMainScenario(scenario) {
+    const section = element("section", "content-card main-scenario-card");
+    const heading = element("div", "section-heading");
+    const headingText = element("div");
+    headingText.append(element("p", "eyebrow", "MAIN SCENARIO"), element("h2", "", "Mainメソッドで動作を確認する"));
+    heading.append(headingText, element("span", "", "必須"));
+    section.append(heading, element("p", "", "設計したクラスをMainから利用し、正常系と失敗系の両方を確認してください。Mainクラスとmainメソッドは、初級のクラス数・constructor数・field数・method数に含みません。中級・上級は、同等の外部動作を実現できれば模範例と異なるAPI・責務分割でも構いません。"));
+    const grid = element("div", "main-scenario-grid");
+    [["生成するインスタンス", scenario.instances, false], ["実行する操作", scenario.steps, true],
+      ["期待する結果", scenario.expectedResults, false], ["失敗後に守る状態", scenario.invariants, false]]
+      .forEach(([title, items, ordered]) => {
+        const article = element("article");
+        article.append(element("h3", "", title));
+        appendList(article, items, ordered);
+        grid.append(article);
+      });
+    section.append(grid);
+    return section;
+  }
+
   async function renderReferences(container, problem) {
     const section = element("section", "reference-section");
     section.id = "reference";
@@ -265,7 +289,7 @@
 
       const secondColumns = element("div", "content-columns");
       secondColumns.append(contentSection("必須要件", problem.mandatoryRequirements), contentSection("発展要件", problem.optionalRequirements));
-      content.append(secondColumns, contentSection("設計時に考えるポイント", problem.designPoints), renderDetails("ヒントを見る", problem.hints));
+      content.append(secondColumns, contentSection("設計時に考えるポイント", problem.designPoints), renderMainScenario(problem.mainScenario), renderDetails("ヒントを見る", problem.hints));
       await renderReferences(content, problem);
 
       updateProgressUi(slug);

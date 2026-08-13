@@ -17,7 +17,7 @@
 
 この文書は、Javaクラス設計問題集MVPの3テーマ×3難易度、各問題で要求する設計判断、初級の数指定、問題コンテンツの管理形式、画面と進捗の責務、模範codeの品質、実装時のテスト境界を定める正本である。
 
-Java問題集はDeveloper Dungeonの上位ブランドと編選択画面を共有するが、Git編のStage、事故対応の物語、Runner、workspace、状態採点、スターを使用しない。採点、動作確認、利用者codeの保存、ChatGPT API連携はこのシステムの責務に含めない。
+Java問題集はDeveloper Dungeonの上位ブランドと編選択画面を共有するが、Git編のStage、事故対応の物語、Runner、workspace、状態採点、スターを使用しない。利用者codeの採点・保存・サイト内実行・ChatGPT API連携はこのシステムの責務に含めない。全問題にlocalで行う`Main`動作確認scenarioと、教材側が管理する模範`Main.java`を用意する。
 
 ## 2. 共通方針
 
@@ -36,10 +36,11 @@ Java問題集はDeveloper Dungeonの上位ブランドと編選択画面を共�
 
 - `class数`: 問題で作成を要求するtop-level class、interface、enumの総数。MVPの初級ではclassだけを要求する。
 - `メンバ変数数`: 各classへ宣言するinstance fieldの数。問題文で指定しない`static final`定数や追加fieldを勝手に増やさない。
-- `メソッド数`: constructorを除く、各classへ宣言するmethodの数。getter、状態確認method、private helperも1methodとして数える。
+- `メソッド数`: constructorを除く、問題文で指定する各classのdomain API数。getterと状態確認methodを含み、動作確認用`Main`のmethodと実装上のprivate helperは数へ含めない。
 - `constructor数`: method数とは別に示す。初級MVPでは各classにconstructorを1つ要求する。
 - `Object`由来method: `equals`、`hashCode`、`toString`は、問題文で明示しない限り数へ含めず実装も要求しない。
 - method overloadは宣言1つごとに1methodとして数える。
+- 動作確認用の`Main` classと`main` methodは、class数、constructor数、field数、method数のすべてから除外する。
 
 初級ではclass名、fieldの型と目的、methodの引数・戻り値・目的まで示す。利用者が考える中心は、指定された状態をどのclassが守り、method同士がどう協調して不正状態を防ぐかである。
 
@@ -158,14 +159,14 @@ class数は3、各classのconstructorは1つとする。
 |---|---|---:|---|---:|---|
 | `Product` | 商品識別子、名称、単価を保持する | 3 | `id:String`=商品識別子、`name:String`=商品名、`unitPriceYen:int`=1個の税込価格 | 3 | 識別子取得、名称取得、単価取得 |
 | `CartItem` | 1商品の数量と小計を管理する | 2 | `product:Product`=対象商品、`quantity:int`=数量 | 4 | 商品取得、数量取得、数量追加、小計計算 |
-| `ShoppingCart` | 複数の`CartItem`を保持してカート全体を管理する | 1 | `items:List<CartItem>`=カート内の商品行 | 5 | 読み取り専用一覧取得、商品追加、全数量取得、合計金額計算、全削除 |
+| `ShoppingCart` | 複数の`CartItem`を保持してカート全体を管理する | 1 | `items:List<CartItem>`=カート内の商品行 | 5 | 要素もcopyした読み取り用snapshot取得、商品追加、全数量取得、合計金額計算、全削除 |
 
 #### 必須要件
 
 - 商品単価と追加数量は1以上とする。
 - 同じ`Product.id`の商品を再度追加した場合は既存`CartItem`の数量を増やす。
 - 小計は単価×数量、合計は全小計の合計とする。
-- 外部から`items`を直接追加・削除できない読み取り専用viewを返す。
+- 外部から`items`を直接追加・削除できず、取得した`CartItem`の数量変更も内部へ影響しないsnapshotを返す。
 - `clear`後は数量と合計が0になる。
 - 金額はMVPでは`int`の円単位とし、税、割引、送料を扱わない。
 
@@ -289,11 +290,12 @@ class数は3、各classのconstructorは1つとする。
 - 書誌、複数copy、利用者、貸出、予約を管理する。
 - 標準会員と優先会員で貸出上限と貸出期間が異なる。
 - 会員種別による規則を条件分岐の散在ではなく交換可能な貸出方針として表現する。
-- 利用可能copyがない場合、ISBN単位のFIFO予約待ち行列へ登録できる。
+- 標準会員は最大3冊・14日、優先会員は最大5冊・21日の貸出方針を使用する。
+- 利用可能copyの有無にかかわらず、ISBN単位のFIFO予約待ち行列へ登録できる。
 - 同じ利用者による重複予約、すでに借りているISBNへの予約を拒否する。
-- 返却時に予約者がいる場合、そのcopyを先頭予約者へ引当済みにし、先頭予約者以外へ貸し出せない状態にする。引当済みcopyは一般の利用可能冊数に数えない。
+- 未引当予約があるISBNの利用可能copyは、先頭の未引当予約者へ優先する。返却時も未引当の先頭予約者へ1予約につき1copyだけを引当済みにし、先頭予約者以外へ貸し出せない状態にする。引当済みcopyは一般の利用可能冊数に数えない。
 - 引当済みcopyは先頭予約者だけが借りられる。貸出成功時に先頭予約を削除してcopyを貸出中にし、失敗時は引当状態と予約queueを変更しない。
-- 貸出は1回だけ延長できる。ただし延滞中または次の予約者がいる場合は延長できない。
+- 貸出は1回だけ7日延長できる。ただし延滞中または未消費の次予約者がいる場合は延長できない。
 - 現在日は`Clock`または同等の注入可能な時間sourceから取得する。
 - 失敗した予約、貸出、返却、延長で一部状態だけを変更しない。
 
@@ -321,6 +323,7 @@ class数は3、各classのconstructorは1つとする。
 - 複数slotの商品、価格、在庫を管理する。
 - 現金支払いとcashless支払いの2方式を共通の支払い抽象で扱う。
 - 現金は投入額と返金額を扱い、cashlessは外部決済の成功・失敗結果を受け取る。実network接続は行わない。
+- 支払い承認後に内部処理が失敗した場合の承認取消と補償処理は、この問題では扱わない。
 - 販売取引は少なくとも開始、支払い承認、完了、取消を区別する。
 - slot確認、在庫確認、支払い承認のすべてが成功した場合だけ在庫を減らして販売を完了する。
 - 支払い失敗または取消では在庫を減らさず、現金であれば返金額を確定する。
@@ -352,6 +355,7 @@ class数は3、各classのconstructorは1つとする。
 - 金額は通貨をJPYに固定したimmutableなvalue objectで表現し、負数を作れない。
 - cartは複数商品と数量を保持し、外部から内部collectionを変更できない。
 - 複数の割引規則を共通interfaceで表現し、割引なし、固定額、割合の少なくとも3種類を扱う。
+- 割合割引は`floor(小計 × 割引率 ÷ 100)`を割引額とする。
 - 割引後合計を0未満にしない。
 - checkout時に必要在庫を全件予約し、1件でも不足する場合は一切予約しない。
 - orderは少なくとも支払い待ち、支払い済み、発送済み、取消済みを区別する。
@@ -420,6 +424,7 @@ app/src/main/resources/java-problems/
 | `optionalRequirements` | 任意の発展要件 |
 | `designPoints` | 設計時に考えるポイント |
 | `hints` | 必要時に展開するヒント。0件可 |
+| `mainScenario` | `instances`、`steps`、`expectedResults`、`invariants`の4つの非空listからなるlocal動作確認scenario |
 | `beginnerScaffold` | 初級だけ必須のclass・field・method・constructor数と目的 |
 | `referenceFiles` | 1つの模範実装を構成する`.java` file名の順序付きlist |
 
@@ -434,9 +439,11 @@ app/src/main/resources/java-problems/
 - 3テーマ×3難易度が各1問あり、合計9問。
 - orderが1〜9で欠番・重複なし。
 - 必須text/listが空でない。
+- `mainScenario`を持ち、`instances`、`steps`、`expectedResults`、`invariants`の4 listがすべて空でない。
 - 初級だけ`beginnerScaffold`を持ち、宣言数と要素数が一致する。
 - 中級・上級がclass数を正解条件として持たない。
 - `referenceFiles`が空でなく、同じproblem directory内の固定`.java` fileだけを指す。
+- `referenceFiles`が`Main.java`をちょうど1件含み、そのfileが`public static void main(String[])`を宣言する。
 - file名にseparator、`..`、absolute pathを含めない。
 - reference fileが存在し、1file 64 KiB、1problem合計256 KiB以内。
 - 各reference sourceが`jp.yuya.dev.developerdungeon.javaproblems.<slugのハイフンをドットへ置換した値>`だけをpackageとして宣言し、`public` typeとfile名が一致する。
@@ -479,8 +486,9 @@ app/src/main/resources/java-problems/
 5. 初級だけ、class・constructor・field・methodの数と目的。
 6. 任意の発展要件。
 7. 設計時に考えるポイント。
-8. ヒントの折りたたみ。
-9. 模範codeの折りたたみ。
+8. `Main` methodで生成するinstance、操作手順、期待結果、失敗後の不変条件。
+9. ヒントの折りたたみ。
+10. 模範codeの折りたたみ。
 
 - 模範codeはnativeな`details`／`summary`相当の折りたたみを使用し、JavaScriptを必須にしない。
 - 模範実装が複数fileの場合は、展開領域内でfile名とsourceを順に分けて表示する。
@@ -592,7 +600,7 @@ jp.yuya.dev.developerdungeon
 - 各問題のreference source一式をproblemごとに分離し、JDK 25の`JavaCompiler`でcompileできること。`--release 25`、`-proc:none`、問題ごとの一時出力directory、空のclass pathを使い、当該問題のreference source一式だけを同じcompile単位として渡す。
 - reference sourceが外部dependencyとpreview機能を要求しないこと。
 
-reference compile testは教材品質の検証であり、利用者codeの自動採点ではない。`Main` methodとJUnit testの同梱を必須にしない。
+reference compile・Main実行testは教材品質の検証であり、利用者codeの自動採点ではない。各問題の模範`Main.main`は、通常のJava assertionに依存せず、不一致時に例外を送出する明示的な確認helperを使う。
 
 ### 12.2 Webとapplication
 
@@ -621,7 +629,7 @@ reference compile testは教材品質の検証であり、利用者codeの自動
 
 - 利用者codeの入力、upload、保存、compile、実行、test、差分表示。
 - 自動採点、AST解析、模範codeとの比較、ChatGPT API連携。
-- 問題側で用意する固定確認用`Main`、JUnit課題、期待出力判定。
+- 利用者codeをサイトへ送信して行う動作確認、JUnit課題、サイトによる期待出力判定。
 - 複数の模範解答、解答への点数、正解率、ランキング、unlock。
 - 問題作成画面、管理画面、databaseによる問題本文管理、外部CMS。
 - Java編専用Runner、container、workspace、認証、Java source保存table。

@@ -37,6 +37,9 @@ public class JavaProblemCatalog {
                 require(SAFE_SEGMENT.matcher(directory).matches(), "invalid catalog directory: " + directory);
                 JavaProblem problem = readJson(objectMapper, ROOT + directory + "/problem.json", JavaProblem.class);
                 require(directory.equals(problem.slug()), "catalog directory and slug differ: " + directory);
+                require(problem.referenceFiles() != null, "reference files are missing: " + directory);
+                require(problem.referenceFiles().stream().filter("Main.java"::equals).count() == 1,
+                        "reference files must contain exactly one Main.java: " + directory);
                 List<JavaProblem.ReferenceSource> sources = new ArrayList<>();
                 int problemReferenceBytes = 0;
                 for (String fileName : problem.referenceFiles()) {
@@ -54,6 +57,11 @@ public class JavaProblemCatalog {
                                     + Pattern.quote(typeName) + "\\b")
                             .matcher(source).find(),
                             "public type and file name differ: " + fileName);
+                    if (fileName.equals("Main.java")) {
+                        require(Pattern.compile("(?m)^\\s*public\\s+static\\s+void\\s+main\\s*\\(\\s*String(?:\\[\\s*]|\\s*\\[\\s*])\\s+\\w+\\s*\\)")
+                                        .matcher(source).find(),
+                                "Main.java must declare public static void main(String[]): " + directory);
+                    }
                     sources.add(new JavaProblem.ReferenceSource(fileName, source));
                 }
                 require(problemReferenceBytes <= MAX_PROBLEM_REFERENCE_BYTES,
@@ -91,6 +99,12 @@ public class JavaProblemCatalog {
             require(notBlank(problem.theme()) && notBlank(problem.title()) && notBlank(problem.summary()), "problem summary fields are blank");
             require(nonEmpty(problem.learningObjectives()) && nonEmpty(problem.requirements())
                     && nonEmpty(problem.mandatoryRequirements()) && nonEmpty(problem.designPoints()), "required problem sections are empty");
+            require(problem.mainScenario() != null
+                            && nonEmpty(problem.mainScenario().instances())
+                            && nonEmpty(problem.mainScenario().steps())
+                            && nonEmpty(problem.mainScenario().expectedResults())
+                            && nonEmpty(problem.mainScenario().invariants()),
+                    "Main scenario is missing");
             require(nonEmpty(problem.referenceFiles()) && problem.referenceFiles().size() == problem.referenceSources().size(),
                     "reference files are missing");
             if (problem.difficulty() == JavaDifficulty.BEGINNER) {

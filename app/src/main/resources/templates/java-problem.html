@@ -44,6 +44,16 @@
       <section class="content-card"><h2>発展要件</h2><ul><li th:each="item : ${detail.problem.optionalRequirements}" th:text="${item}"></li></ul></section>
     </div>
     <section class="content-card"><h2>設計時に考えるポイント</h2><ul><li th:each="item : ${detail.problem.designPoints}" th:text="${item}"></li></ul></section>
+    <section class="content-card main-scenario-card">
+      <div class="section-heading"><div><p class="eyebrow">MAIN SCENARIO</p><h2>Mainメソッドで動作を確認する</h2></div><span>必須</span></div>
+      <p>設計したクラスをMainから利用し、正常系と失敗系の両方を確認してください。Mainクラスとmainメソッドは、初級のクラス数・constructor数・field数・method数に含みません。中級・上級は、同等の外部動作を実現できれば模範例と異なるAPI・責務分割でも構いません。</p>
+      <div class="main-scenario-grid">
+        <article><h3>生成するインスタンス</h3><ul><li th:each="item : ${detail.problem.mainScenario.instances}" th:text="${item}"></li></ul></article>
+        <article><h3>実行する操作</h3><ol><li th:each="item : ${detail.problem.mainScenario.steps}" th:text="${item}"></li></ol></article>
+        <article><h3>期待する結果</h3><ul><li th:each="item : ${detail.problem.mainScenario.expectedResults}" th:text="${item}"></li></ul></article>
+        <article><h3>失敗後に守る状態</h3><ul><li th:each="item : ${detail.problem.mainScenario.invariants}" th:text="${item}"></li></ul></article>
+      </div>
+    </section>
     <details class="content-card"><summary>ヒントを見る</summary><ul><li th:each="item : ${detail.problem.hints}" th:text="${item}"></li></ul></details>
     <section class="reference-section" id="reference">
       <div><p class="eyebrow">REFERENCE DESIGN</p><h2>模範設計例</h2><p>これは唯一解ではありません。自分の設計と責務の置き方を比較してみましょう。</p></div>

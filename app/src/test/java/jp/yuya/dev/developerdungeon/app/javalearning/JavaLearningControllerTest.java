@@ -65,6 +65,7 @@ class JavaLearningControllerTest {
         return new JavaProblem("JAVA-LIBRARY-BEGINNER", "library-beginner", "図書館貸出", JavaDifficulty.BEGINNER,
                 1, "本の貸出", "summary", List.of("objective"), List.of("prerequisite"), List.of("requirement"),
                 List.of("constraint"), List.of("mandatory"), List.of("optional"), List.of("point"), List.of("hint"),
+                new JavaProblem.MainScenario(List.of("instance"), List.of("step"), List.of("expected"), List.of("invariant")),
                 new JavaProblem.BeginnerScaffold(0, List.of()), List.of("LibraryService.java"), List.of());
     }
 }

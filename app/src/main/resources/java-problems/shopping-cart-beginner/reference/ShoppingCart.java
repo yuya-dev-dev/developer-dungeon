@@ -8,7 +8,11 @@ public final class ShoppingCart {
     private final List<CartItem> items;
 
     public ShoppingCart() { this.items = new ArrayList<>(); }
-    public List<CartItem> getItems() { return List.copyOf(items); }
+    public List<CartItem> getItems() {
+        return items.stream()
+                .map(item -> new CartItem(item.getProduct(), item.getQuantity()))
+                .toList();
+    }
     public void add(Product product, int quantity) {
         Objects.requireNonNull(product);
         if (quantity <= 0) throw new IllegalArgumentException("数量は1以上です");
