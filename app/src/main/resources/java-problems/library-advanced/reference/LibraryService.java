@@ -110,7 +110,7 @@ final class Loan {
     private LocalDate dueOn, returnedOn;
     private boolean extended;
     Loan(String memberId, String copyId, String isbn, LocalDate loanedOn, LocalDate dueOn) { this.memberId=memberId; this.copyId=copyId; this.isbn=isbn; this.loanedOn=loanedOn; this.dueOn=dueOn; }
-    String memberId(){return memberId;} String copyId(){return copyId;} String isbn(){return isbn;} boolean open(){return returnedOn==null;}
+    String memberId(){return memberId;} String copyId(){return copyId;} String isbn(){return isbn;} LocalDate dueOn(){return dueOn;} boolean extended(){return extended;} boolean open(){return returnedOn==null;}
     void returnOn(LocalDate date){if(!open())throw new IllegalStateException();returnedOn=date;}
     void extend(LocalDate today, boolean waiting, int days){if(!open()||extended||today.isAfter(dueOn)||waiting)throw new IllegalStateException("延長不可");dueOn=dueOn.plusDays(days);extended=true;}
 }

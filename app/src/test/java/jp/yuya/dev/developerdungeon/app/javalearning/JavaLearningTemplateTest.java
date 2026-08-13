@@ -41,7 +41,7 @@ class JavaLearningTemplateTest {
 
         assertThat(list).contains("Java Class Design", "初級", "中級", "上級", "未着手", "学習中", "完了",
                 "href=\"/java/problems/library-beginner\"");
-        assertThat(detail).contains("この問題で身につけること", "指定された設計の骨格", "模範設計例",
+        assertThat(detail).contains("この問題で身につけること", "指定された設計の骨格", "Mainメソッドで動作を確認する", "生成するインスタンス", "失敗後に守る状態", "模範設計例",
                 "<details class=\"reference-file\"", "LibraryService.java", "class LibraryService", "&lt;script&gt;alert(1)&lt;/script&gt;")
                 .doesNotContain("<script>alert(1)</script>");
     }
@@ -58,6 +58,7 @@ class JavaLearningTemplateTest {
         return new JavaProblem("KEY-" + order, slug, "図書館貸出", difficulty, order, "本の貸出を設計する", "概要",
                 List.of("責務を分ける"), List.of("class"), List.of("本を貸し出す"), List.of("blankを拒否する"),
                 List.of("状態を守る"), List.of("予約を追加する"), List.of("状態をどこへ置くか"), List.of("Bookを作る"),
+                new JavaProblem.MainScenario(List.of("Bookを生成"), List.of("貸し出す"), List.of("貸出中"), List.of("失敗後も状態維持")),
                 scaffold, List.of("LibraryService.java"), List.of(new JavaProblem.ReferenceSource(
                 "LibraryService.java", "public final class LibraryService { String marker = \"<script>alert(1)</script>\"; }")));
     }

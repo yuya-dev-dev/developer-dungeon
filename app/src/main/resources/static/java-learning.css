@@ -59,6 +59,8 @@ a:focus-visible, button:focus-visible, select:focus-visible, summary:focus-visib
 .scaffold-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 1rem; }
 .scaffold-grid article { padding: 1.2rem; border: 1px solid #d7e2f3; border-radius: .8rem; background: #f8fbff; }
 .scaffold-grid article > b { color: #0a7788; font-size: .85rem; }
+.main-scenario-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; margin-top: 1.2rem; }
+.main-scenario-grid article { padding: 1.2rem; border: 1px solid #d7e2f3; border-radius: .8rem; background: #f8fbff; }
 .check-list { list-style: "✓  "; }
 details summary { cursor: pointer; font-weight: 850; }
 .reference-section { margin-top: 3.5rem; padding-top: 2.5rem; border-top: 2px solid #cfd9e9; }
@@ -67,5 +69,5 @@ details summary { cursor: pointer; font-weight: 850; }
 .reference-file summary { padding: 1rem 1.2rem; color: white; background: #172344; }
 .reference-file pre { overflow: auto; margin: 0; padding: 1.3rem; color: #dce7ff; font: .88rem/1.65 Consolas, monospace; }
 @media (max-width: 62rem) { .java-layout { grid-template-columns: 1fr; } .java-sidebar { position: static; height: auto; } .java-sidebar nav { grid-template-columns: repeat(2, 1fr); margin-top: 1.2rem; } .java-sidebar-note, .progress-panel { margin-top: 1.2rem; } .problem-grid { grid-template-columns: 1fr; } }
-@media (max-width: 42rem) { .java-main { padding: 1.2rem; } .java-hero { grid-template-columns: 1fr; } .java-hero-stats { grid-column: 1; grid-row: auto; justify-self: start; margin-top: 1rem; } .level-heading { display: block; } .content-columns { grid-template-columns: 1fr; } .java-sidebar nav { grid-template-columns: 1fr; } }
+@media (max-width: 42rem) { .java-main { padding: 1.2rem; } .java-hero { grid-template-columns: 1fr; } .java-hero-stats { grid-column: 1; grid-row: auto; justify-self: start; margin-top: 1rem; } .level-heading { display: block; } .content-columns, .main-scenario-grid { grid-template-columns: 1fr; } .java-sidebar nav { grid-template-columns: 1fr; } }
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; transition: none !important; } }

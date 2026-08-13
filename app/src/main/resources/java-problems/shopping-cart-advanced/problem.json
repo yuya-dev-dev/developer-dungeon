@@ -3,11 +3,12 @@
   "title":"割引・在庫予約・注文状態を統合する", "summary":"Money、割引policy、全件在庫予約、order状態遷移を組み合わせ、失敗時の整合性を守ります。",
   "learningObjectives":["金額をimmutable value objectにする", "割引規則を交換可能なpolicyにする", "在庫予約とorder状態を一貫させる"],
   "prerequisites":["value object", "interface", "enum", "aggregateと状態遷移"],
-  "requirements":["JPY固定で負数を作れないMoneyを使う", "cartは内部collectionを変更不能にする", "割引なし・固定額・割合の3policyを共通interfaceで扱い、checkoutでは1つのpolicyを適用する", "割引後合計を0未満にせず、割合割引の端数は1円未満を切り捨てる", "割引計算を確定してから全件在庫を予約し、処理失敗や1件でも在庫不足があれば一切予約しない", "orderはPENDING・PAID・SHIPPED・CANCELEDを区別する", "PENDINGだけをPAIDまたはCANCELEDへ遷移できる", "PAIDだけをSHIPPEDへ遷移できる", "CANCELED時に予約在庫を戻す", "order行・適用した割引名と条件・合計をsnapshotにする"],
+  "requirements":["JPY固定で負数を作れないMoneyを使う", "cartは内部collectionを変更不能にする", "割引なし・固定額・割合の3policyを共通interfaceで扱い、checkoutでは1つのpolicyを適用する", "割合割引はfloor(小計×割引率÷100)を割引額とし、割引後合計を0未満にしない", "割引計算を確定してから全件在庫を予約し、処理失敗や1件でも在庫不足があれば一切予約しない", "orderはPENDING・PAID・SHIPPED・CANCELEDを区別する", "PENDINGだけをPAIDまたはCANCELEDへ遷移できる", "PAIDだけをSHIPPEDへ遷移できる", "CANCELED時に予約在庫を戻す", "order行・適用した割引名と条件・合計をsnapshotにする"],
   "constraints":["class数・field数・method数・class名は固定しない", "支払済みorderの取消と返金は扱わない", "配送処理そのものは扱わない"],
   "mandatoryRequirements":["割引計算失敗、不正遷移、在庫不足で部分状態を変更しない", "発送後は取消できない", "後の価格・policy変更でorderを変えない"],
   "optionalRequirements":["割引併用可否の合成policy", "配送料policy"],
   "designPoints":["intとMoneyの違い", "checkout・在庫予約・order生成の調整責務", "enumだけでなくdomain methodで遷移を守る方法"],
   "hints":["Moneyのplus・minusFloorZero・percentageを用意します", "Inventory.reserveAllは全件確認後にまとめて予約します"],
-  "beginnerScaffold":null, "referenceFiles":["CheckoutService.java"], "referenceSources":[]
+  "mainScenario":{"instances":["本P-BOOKを1200円・在庫4、マグカップP-MUGを800円・在庫1で準備する","checkout service、10%割合割引、100円固定割引、複数の空カートを生成する"],"steps":["本2冊・マグカップ1個を10%割引でcheckoutする","支払い前の発送を失敗させ、支払い後に発送する","本1冊・在庫切れのマグカップ1個をcheckoutして失敗させる","本2冊を100円引きでcheckoutして取消す","別のカートで本2冊をcheckoutする"],"expectedResults":["最初の注文は小計3200円・合計2880円・PENDINGからPAID、SHIPPEDへ進む","固定割引の注文は合計2300円になり、取消で予約在庫を戻す","最後の本2冊のcheckoutが成功する"],"invariants":["不正な発送でPENDINGを維持する","在庫不足の失敗で本の在庫も予約しない"]},
+  "beginnerScaffold":null, "referenceFiles":["CheckoutService.java","Main.java"], "referenceSources":[]
 }

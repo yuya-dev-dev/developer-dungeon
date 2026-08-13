@@ -41,6 +41,10 @@ class JavaProblemCatalogTest {
                 .allSatisfy(problem -> assertThat(problem.beginnerScaffold()).isNull());
         assertThat(catalog.findBySlug("library-beginner")).isPresent();
         assertThat(catalog.findBySlug("../../application.properties")).isEmpty();
+        assertThat(catalog.all()).allSatisfy(problem -> {
+            assertThat(problem.mainScenario()).isNotNull();
+            assertThat(problem.referenceFiles()).contains("Main.java");
+        });
     }
 
     @Test
@@ -51,6 +55,20 @@ class JavaProblemCatalogTest {
 
         for (JavaProblem problem : catalog.all()) {
             compile(problem, output.resolve(problem.slug()));
+        }
+    }
+
+    @Test
+    void everyReferenceMainScenarioRunsToCompletion() throws Exception {
+        JavaProblemCatalog catalog = new JavaProblemCatalog(new ObjectMapper());
+        for (JavaProblem problem : catalog.all()) {
+            Path classes = compile(problem, output.resolve(problem.slug() + "-main"));
+            String packageName = "jp.yuya.dev.developerdungeon.javaproblems." + problem.slug().replace('-', '.');
+            try (URLClassLoader loader = new URLClassLoader(new java.net.URL[]{classes.toUri().toURL()})) {
+                Class<?> mainType = loader.loadClass(packageName + ".Main");
+                Method main = mainType.getMethod("main", String[].class);
+                main.invoke(null, (Object) new String[0]);
+            }
         }
     }
 

@@ -9,9 +9,10 @@
   "optionalRequirements":["在庫補充methodを考える", "購入と返金の動作例を書く"],
   "designPoints":["canPurchaseとpurchaseの条件を一致させる方法", "失敗後も状態が変わらない重要性", "価格をVendingMachineへ重複保持しない理由"],
   "hints":["purchaseはcanPurchaseを最初に確認します", "refundは現在の投入額を一度変数へ退避してから0へ戻します"],
+  "mainScenario":{"instances":["価格120円の商品『水』を生成する","水を2個持つ自動販売機を生成する"],"steps":["100円を投入して購入を失敗させる","失敗後の在庫と投入額を確認する","50円を追加して水を1個購入する","残額を返金する"],"expectedResults":["購入成功後は水が返り、在庫1、残額30円になる","返金額は30円で投入額は0円になる"],"invariants":["金額不足の失敗後も在庫2と投入額100円を維持する"]},
   "beginnerScaffold":{"classCount":2,"classes":[
     {"name":"Product","purpose":"販売する商品の名称と価格を保持する","constructorCount":1,"constructors":["Product(String name, int priceYen): blank名と1円未満を拒否"],"fieldCount":2,"methodCount":2,"fields":["String name: 商品名","int priceYen: 税込価格"],"methods":["String getName(): 商品名取得","int getPriceYen(): 価格取得"]},
     {"name":"VendingMachine","purpose":"1種類の商品の在庫と投入金額を管理する","constructorCount":1,"constructors":["VendingMachine(Product product, int stock): null商品と負在庫を拒否"],"fieldCount":3,"methodCount":6,"fields":["Product product: 販売商品","int stock: 在庫数","int insertedYen: 現在の投入額"],"methods":["int getStock(): 在庫取得","int getInsertedYen(): 投入額取得","void insert(int yen): 正額を投入","boolean canPurchase(): 購入可否","Product purchase(): 1個購入","int refund(): 残額返金"]}
   ]},
-  "referenceFiles":["VendingMachine.java"], "referenceSources":[]
+  "referenceFiles":["VendingMachine.java","Main.java"], "referenceSources":[]
 }

@@ -4,10 +4,11 @@
   "learningObjectives":["支払い方式をinterfaceとpolymorphismで分離する", "販売取引の状態遷移を守る", "完了記録をimmutable snapshotにする"],
   "prerequisites":["interface", "polymorphism", "enum", "LocalDateTimeとClock"],
   "requirements":["複数slotの商品・価格・在庫を管理する", "現金とcashlessを共通の支払い抽象で扱う", "現金は投入額と成功時の釣銭・失敗時の返金額、cashlessは外部結果を扱いnetwork接続しない", "取引は開始・支払い承認・完了・取消を区別する", "slot・在庫・支払い承認が成功した場合だけ在庫を減らす", "失敗または取消で在庫を減らさず現金返金額を確定する", "完了結果は現金の釣銭を返し、完了記録は商品名・販売価格・支払い方式・完了日時のsnapshotを持つ"],
-  "constraints":["class数・field数・method数・class名は固定しない", "実network接続をしない", "支払い方式固有の分岐を販売機へ散在させない"],
+  "constraints":["class数・field数・method数・class名は固定しない", "実network接続をしない", "支払い承認後の内部障害と承認取消の補償処理は扱わない", "支払い方式固有の分岐を販売機へ散在させない"],
   "mandatoryRequirements":["同じ取引を二重完了・二重取消しない", "支払い失敗で在庫を変更しない", "後の価格変更で販売記録を変えない"],
   "optionalRequirements":["支払い方式別売上集計", "第三の支払い方式を追加する"],
   "designPoints":["支払いを継承かinterfaceで表すか", "在庫減算と支払い承認の順序", "mutable取引とimmutable販売記録を分ける理由"],
   "hints":["PaymentMethodはauthorizeとrefundAmountを提供できます", "SaleTransactionだけが状態遷移を変更します"],
-  "beginnerScaffold":null, "referenceFiles":["VendingMachine.java"], "referenceSources":[]
+  "mainScenario":{"instances":["固定日時2026年4月1日10時のClockと自動販売機を生成する","商品P-COFFEE『コーヒー』をA1へ150円・在庫2で登録する","現金200円、拒否されるcashless、承認されるcashless、現金500円の支払いを生成する"],"steps":["現金200円で購入する","拒否されるcashlessで購入する","承認されるcashlessで購入する","売切れ後に現金500円で購入する"],"expectedResults":["最初の購入は完了し釣銭50円、CASH、指定日時の記録になる","cashless成功は完了し返却額0円になる","売切れ時は取消となり500円が返る"],"invariants":["cashless拒否で在庫を減らさない","以前の販売記録は後続操作で変化しない"]},
+  "beginnerScaffold":null, "referenceFiles":["VendingMachine.java","Main.java"], "referenceSources":[]
 }

@@ -5,14 +5,15 @@
   "prerequisites":["classとconstructor", "List", "streamまたはloop", "例外"],
   "requirements":["商品と数量をカートへ追加する", "同じ商品IDを再追加したら既存行の数量を増やし、同じIDで名称または単価が異なる商品は拒否する", "全数量と合計金額を計算する", "全削除で空の状態へ戻す"],
   "constraints":["商品単価と追加数量は1以上", "金額はint円単位", "税・割引・送料は扱わない"],
-  "mandatoryRequirements":["小計は単価×数量、合計は全小計の合計", "itemsの変更不能なsnapshotを返す", "clear後は数量と合計が0になる"],
+  "mandatoryRequirements":["小計は単価×数量、合計は全小計の合計", "itemsは一覧の追加・削除だけでなく、取得した要素の数量変更でもカート内部へ影響しないsnapshotを返す", "clear後は数量と合計が0になる"],
   "optionalRequirements":["数量増加時のoverflowを考える", "空カートの表示用messageを考える"],
   "designPoints":["商品・数量・小計を平行Listにしない理由", "同一商品をobject identityではなくIDで判定する理由", "mutable Listを返す危険性"],
-  "hints":["CartItemへincreaseQuantityとsubtotalを置きます", "getItemsはList.copyOfを利用できます"],
+  "hints":["CartItemへincreaseQuantityとsubtotalを置きます", "getItemsではListだけでなく、mutableなCartItemもcopyしたsnapshotを返します"],
+  "mainScenario":{"instances":["商品P-001『ノート』500円、P-002『ペン』120円を生成する","P-001と同じID・名称で単価600円の商品を失敗確認用に生成する","空のカートを生成する"],"steps":["ノート2個とペン3本を追加し、ノートをさらに1個追加する","同じIDで単価が異なる商品を追加して失敗させる","取得した商品一覧の削除を失敗させ、取得済み要素の数量も変更する","カートを全削除する"],"expectedResults":["商品行2、全数量6、合計1860円になる","取得済み要素の数量を変えてもカートは全数量6・合計1860円のままになる","全削除後は数量と合計が0になる"],"invariants":["不整合商品の追加失敗後も数量6・合計1860円を維持する","外部から一覧とカート内部の要素を変更できない"]},
   "beginnerScaffold":{"classCount":3,"classes":[
     {"name":"Product","purpose":"商品識別子、名称、単価を保持する","constructorCount":1,"constructors":["Product(String id, String name, int unitPriceYen): blankと1円未満を拒否"],"fieldCount":3,"methodCount":3,"fields":["String id: 商品識別子","String name: 商品名","int unitPriceYen: 税込単価"],"methods":["String getId(): 識別子取得","String getName(): 名称取得","int getUnitPriceYen(): 単価取得"]},
     {"name":"CartItem","purpose":"1商品の数量と小計を管理する","constructorCount":1,"constructors":["CartItem(Product product, int quantity): null商品と1未満の数量を拒否"],"fieldCount":2,"methodCount":4,"fields":["Product product: 対象商品","int quantity: 数量"],"methods":["Product getProduct(): 商品取得","int getQuantity(): 数量取得","void increaseQuantity(int amount): 数量追加","int subtotal(): 小計計算"]},
-    {"name":"ShoppingCart","purpose":"複数のCartItemを保持して全体を管理する","constructorCount":1,"constructors":["ShoppingCart(): 空のitemsで初期化"],"fieldCount":1,"methodCount":5,"fields":["List<CartItem> items: カート内商品行"],"methods":["List<CartItem> getItems(): 読み取り専用一覧","void add(Product product, int quantity): 商品追加","int totalQuantity(): 全数量","int totalPriceYen(): 合計金額","void clear(): 全削除"]}
+    {"name":"ShoppingCart","purpose":"複数のCartItemを保持して全体を管理する","constructorCount":1,"constructors":["ShoppingCart(): 空のitemsで初期化"],"fieldCount":1,"methodCount":5,"fields":["List<CartItem> items: カート内商品行"],"methods":["List<CartItem> getItems(): 要素もcopyした読み取り用snapshot","void add(Product product, int quantity): 商品追加","int totalQuantity(): 全数量","int totalPriceYen(): 合計金額","void clear(): 全削除"]}
   ]},
-  "referenceFiles":["ShoppingCart.java"], "referenceSources":[]
+  "referenceFiles":["ShoppingCart.java","Main.java"], "referenceSources":[]
 }

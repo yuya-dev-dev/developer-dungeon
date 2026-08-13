@@ -9,5 +9,6 @@
   "optionalRequirements":["cart有効期限", "在庫不足商品をまとめて返すresult"],
   "designPoints":["Product参照だけをorderへ引き継ぐ危険性", "順番に在庫を減らす途中失敗の問題", "checkoutの調整責務を置く場所"],
   "hints":["在庫全件確認と全件減算を別phaseにします", "OrderItemは商品値をcopyしたimmutable snapshotにします"],
-  "beginnerScaffold":null, "referenceFiles":["CheckoutService.java"], "referenceSources":[]
+  "mainScenario":{"instances":["商品P-BOOK『Java設計入門』1200円とP-PEN『ペン』100円を生成する","在庫を本3冊・ペン2本で初期化し、固定日時2026年4月1日10時のcheckout serviceを生成する","複数の空カートを生成する"],"steps":["最初のカートへ本を2回合計2冊、ペン1本を追加してcheckoutする","次のカートへ本1冊・ペン2本を追加して在庫不足で失敗させる","別のカートで本1冊をcheckoutする"],"expectedResults":["最初の注文は商品2行・合計2500円・指定日時になり、元カートは空になる","最後の本1冊のcheckoutが成功する"],"invariants":["在庫不足の失敗後もカート内容を維持し、本の在庫を部分減算しない"]},
+  "beginnerScaffold":null, "referenceFiles":["CheckoutService.java","Main.java"], "referenceSources":[]
 }

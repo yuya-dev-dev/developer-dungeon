@@ -9,5 +9,6 @@
   "optionalRequirements":["タイトルまたはISBN検索", "貸出上限をpolicyへ分離する"],
   "designPoints":["書誌と物理copyを同じclassにする限界", "貸出情報の正本をどこに置くか", "返却済み履歴とopen状態の区別"],
   "hints":["BookTitle、BookCopy、Member、Loanへ概念を分けられます", "貸出の全条件を検証してからLoanを追加します"],
-  "beginnerScaffold":null, "referenceFiles":["LibraryService.java"], "referenceSources":[]
+  "mainScenario":{"instances":["ISBN-001『Clean Code』の書誌とcopy C-001・C-002を生成する","利用者M-001『綾』とM-002『健』、図書館serviceを生成する"],"steps":["2026年4月1日に綾へC-001、健へC-002を貸し出す","健がC-001を返却して失敗させる","綾が2026年4月5日にC-001を返却する","利用可能冊数、open貸出、履歴を確認する"],"expectedResults":["貸出期限は2026年4月15日になる","正しい返却後はISBN-001の利用可能冊数1、綾のopen貸出0、履歴2件になる"],"invariants":["返却者不一致の失敗後も2件の貸出はopenでcopy2冊とも貸出中である"]},
+  "beginnerScaffold":null, "referenceFiles":["LibraryService.java","Main.java"], "referenceSources":[]
 }
