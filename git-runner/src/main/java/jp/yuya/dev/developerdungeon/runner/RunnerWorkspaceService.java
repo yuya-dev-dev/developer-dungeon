@@ -69,12 +69,15 @@ class RunnerWorkspaceService {
     private final Clock clock;
     private final ContainerOwnershipLedger ledger;
     private final RunnerGitArguments gitArgumentsBuilder = new RunnerGitArguments();
+    private final RunnerSnapshotReader snapshotReader;
     private final AtomicBoolean shuttingDown = new AtomicBoolean();
     private final AtomicBoolean degraded = new AtomicBoolean();
 
     @Autowired
     RunnerWorkspaceService(DockerGateway docker, RunnerProperties properties, RunnerCommandValidator validator, Clock clock, ContainerOwnershipLedger ledger) {
         this.docker = docker; this.properties = properties; this.validator = validator; this.clock = clock; this.ledger = ledger;
+        this.snapshotReader = new RunnerSnapshotReader(docker, COMMAND_TIMEOUT, STAGE_FOUR_PATH,
+                STAGE_FIVE_C0, STAGE_FIVE_C1, STAGE_FIVE_C1_TREE);
     }
     RunnerWorkspaceService(DockerGateway docker, RunnerProperties properties, RunnerCommandValidator validator, Clock clock) { this(docker, properties, validator, clock, new MemoryContainerOwnershipLedger(clock)); }
     RunnerWorkspaceService(DockerGateway docker, RunnerProperties properties, RunnerCommandValidator validator) { this(docker, properties, validator, Clock.systemUTC()); }
@@ -309,102 +312,7 @@ class RunnerWorkspaceService {
     }
 
     private RepositorySnapshot snapshot(Workspace workspace) {
-        String head = gitOutput(workspace.containerId(), List.of("rev-parse", "HEAD")).trim();
-        String tree = gitOutput(workspace.containerId(), List.of("rev-parse", "HEAD^{tree}")).trim();
-        String parents = gitOutput(workspace.containerId(), List.of("show", "-s", "--format=%P", "HEAD")).trim();
-        String firstParentTree = parents.isBlank() ? "" : gitOutput(workspace.containerId(), List.of("rev-parse", "HEAD^1^{tree}")).trim();
-        String ancestors = gitOutput(workspace.containerId(), List.of("rev-list", "HEAD")).trim();
-        String status = gitOutput(workspace.containerId(), List.of("status", "--porcelain=v1")).trim();
-        var parentList = parents.isBlank() ? List.<String>of() : List.of(parents.split(" "));
-        var ancestorList = ancestors.isBlank() ? List.<String>of() : List.of(ancestors.split("\\R"));
-        boolean reverting = stateFileExists(workspace, "REVERT_HEAD");
-        boolean cherryPicking = stateFileExists(workspace, "CHERRY_PICK_HEAD");
-        boolean merging = stateFileExists(workspace, "MERGE_HEAD");
-        boolean rebasing = stateFileExists(workspace, "rebase-merge") || stateFileExists(workspace, "rebase-apply");
-        String currentBranch = gitOutput(workspace.containerId(), List.of("branch", "--show-current")).trim();
-        String profileTip = "";
-        String notificationTip = "";
-        RepositorySnapshot.StageThreeState stageThree = RepositorySnapshot.StageThreeState.empty();
-        RepositorySnapshot.StageFourState stageFour = RepositorySnapshot.StageFourState.empty();
-        RepositorySnapshot.StageFiveState stageFive = RepositorySnapshot.StageFiveState.empty();
-        RepositorySnapshot.TrainingState training = RepositorySnapshot.TrainingState.empty();
-        if ("STAGE-GIT-02".equals(workspace.stageKey())) {
-            profileTip = gitOutput(workspace.containerId(), List.of("rev-parse", "refs/heads/feature/profile")).trim();
-            notificationTip = gitOutput(workspace.containerId(), List.of("rev-parse", "refs/heads/feature/notification")).trim();
-        }
-        if ("STAGE-GIT-03".equals(workspace.stageKey())) {
-            String mainTip = gitOutput(workspace.containerId(), List.of("rev-parse", "refs/heads/main")).trim();
-            String searchTip = gitOutput(workspace.containerId(), List.of("rev-parse", "refs/heads/feature/search")).trim();
-            String searchParent = gitOutput(workspace.containerId(), List.of("rev-parse", "refs/heads/feature/search^1")).trim();
-            String searchFileBlobId = gitOutput(workspace.containerId(), List.of("hash-object", "--", "search.txt")).trim();
-            stageThree = new RepositorySnapshot.StageThreeState(mainTip, searchTip, searchParent, searchFileBlobId,
-                    gitLines(workspace.containerId(), List.of("diff", "--name-only", "--no-ext-diff", "--")),
-                    gitLines(workspace.containerId(), List.of("diff", "--cached", "--name-only", "--no-ext-diff", "--")),
-                    unmergedPaths(workspace), gitLines(workspace.containerId(), List.of("ls-files", "--others", "--exclude-standard")),
-                    readStashObjectIds(workspace));
-        }
-        if ("STAGE-GIT-04".equals(workspace.stageKey())) {
-            String mainTip = gitOutput(workspace.containerId(), List.of("rev-parse", "refs/heads/main")).trim();
-            String mainParent = gitOutput(workspace.containerId(), List.of("rev-parse", "refs/heads/main^1")).trim();
-            String featureTip = gitOutput(workspace.containerId(), List.of("rev-parse", "refs/heads/feature/profile-message")).trim();
-            String featureParent = gitOutput(workspace.containerId(), List.of("rev-parse", "refs/heads/feature/profile-message^1")).trim();
-            String mainTree = gitOutput(workspace.containerId(), List.of("rev-parse", "refs/heads/main^{tree}")).trim();
-            String featureTree = gitOutput(workspace.containerId(), List.of("rev-parse", "refs/heads/feature/profile-message^{tree}")).trim();
-            String messagesBlob = gitOutput(workspace.containerId(), List.of("hash-object", "--", STAGE_FOUR_PATH)).trim();
-            stageFour = new RepositorySnapshot.StageFourState(mainTip, mainParent, featureTip, featureParent,
-                    mainTree, featureTree, messagesBlob,
-                    gitLines(workspace.containerId(), List.of("diff", "--name-only", "--no-ext-diff", "--")),
-                    gitLines(workspace.containerId(), List.of("diff", "--cached", "--name-only", "--no-ext-diff", "--")),
-                    unmergedPaths(workspace), gitLines(workspace.containerId(), List.of("ls-files", "--others", "--exclude-standard")));
-        }
-        if ("STAGE-GIT-05".equals(workspace.stageKey())) {
-            String mainTip = gitOutput(workspace.containerId(), List.of("rev-parse", "refs/heads/main")).trim();
-            String paymentRetryTip = nullableLocalBranchTip(workspace, "refs/heads/feature/payment-retry");
-            List<String> localBranches = gitLines(workspace.containerId(), List.of("for-each-ref", "--format=%(refname:short)", "refs/heads"))
-                    .stream().sorted().toList();
-            stageFive = new RepositorySnapshot.StageFiveState(mainTip, STAGE_FIVE_C1, STAGE_FIVE_C0, STAGE_FIVE_C1_TREE,
-                    paymentRetryTip, localBranches);
-        }
-        if (workspace.stageKey().startsWith("TRAINING-GIT-")) {
-            String mainTip = gitOutput(workspace.containerId(), List.of("rev-parse", "refs/heads/main")).trim();
-            String trainingBranchTip = nullableLocalBranchTip(workspace, "refs/heads/feature/onboarding");
-            List<String> headPaths = gitLines(workspace.containerId(), List.of("ls-tree", "-r", "--name-only", "HEAD"));
-            List<String> workingPaths = gitLines(workspace.containerId(), List.of("diff", "--name-only", "--no-ext-diff", "--"));
-            List<String> indexPaths = gitLines(workspace.containerId(), List.of("diff", "--cached", "--name-only", "--no-ext-diff", "--"));
-            List<String> untrackedPaths = gitLines(workspace.containerId(), List.of("ls-files", "--others", "--exclude-standard"));
-            List<String> ignoredPaths = gitLines(workspace.containerId(), List.of("ls-files", "--others", "--ignored", "--exclude-standard"));
-            String introBlob = "TRAINING-GIT-01".equals(workspace.stageKey()) ? fileBlob(workspace, "onboarding/intro.txt") : "";
-            String ignoreBlob = "TRAINING-GIT-02".equals(workspace.stageKey()) ? fileBlob(workspace, ".gitignore") : "";
-            String configBlob = "TRAINING-GIT-02".equals(workspace.stageKey()) ? fileBlob(workspace, "config/application-training.properties") : "";
-            String reportBlob = "TRAINING-GIT-02".equals(workspace.stageKey()) ? fileBlob(workspace, "build/training-report.txt") : "";
-            String handoffBlob = "TRAINING-GIT-03".equals(workspace.stageKey()) ? fileBlob(workspace, "docs/handoff.md") : "";
-            boolean reportExists = "TRAINING-GIT-02".equals(workspace.stageKey()) && pathExists(workspace, "/workspace/build/training-report.txt");
-            training = new RepositorySnapshot.TrainingState(mainTip, trainingBranchTip, headPaths, workingPaths,
-                    indexPaths, untrackedPaths, ignoredPaths, introBlob, ignoreBlob, configBlob, reportBlob,
-                    handoffBlob, reportExists);
-        }
-        return new RepositorySnapshot(head, tree, firstParentTree, parentList, status.isEmpty(), reverting, ancestorList,
-                currentBranch, profileTip, notificationTip, cherryPicking, merging, rebasing, stageThree, stageFour, stageFive, training);
-    }
-
-    private String fileBlob(Workspace workspace, String path) {
-        String value = gitOutput(workspace.containerId(), List.of("hash-object", "--", path)).trim();
-        if (!value.matches("[0-9a-f]{40}")) throw new IllegalStateException("training fixture file is invalid");
-        return value;
-    }
-
-    private boolean pathExists(Workspace workspace, String path) {
-        return docker.run(List.of("exec", workspace.containerId(), "/usr/bin/test", "-f", path), COMMAND_TIMEOUT).exitCode() == 0;
-    }
-
-    private String nullableLocalBranchTip(Workspace workspace, String ref) {
-        var arguments = gitPrefix(workspace.containerId());
-        arguments.addAll(List.of("-C", "/workspace", "show-ref", "--verify", "--quiet", ref));
-        var result = docker.run(arguments, COMMAND_TIMEOUT);
-        if (result.outputTruncated()) throw new IllegalStateException("branch snapshot failed");
-        if (result.exitCode() == 1) return null;
-        if (result.exitCode() != 0) throw new IllegalStateException("branch snapshot failed");
-        return gitOutput(workspace.containerId(), List.of("rev-parse", ref)).trim();
+        return snapshotReader.read(workspace.containerId(), workspace.stageKey());
     }
 
     private String gitOutput(String containerId, List<String> gitArguments) {
@@ -423,43 +331,10 @@ class RunnerWorkspaceService {
         if (result.exitCode() != 0 || result.outputTruncated()) throw new IllegalStateException("snapshot failed");
         return result.stdout();
     }
-    private boolean stateFileExists(Workspace workspace, String name) {
-        var result = docker.run(List.of("exec", workspace.containerId(), "/usr/bin/test", "-e", "/workspace/.git/" + name), COMMAND_TIMEOUT);
-        if (result.outputTruncated() || (result.exitCode() != 0 && result.exitCode() != 1)) {
-            throw new IllegalStateException("Git state file check failed");
-        }
-        return result.exitCode() == 0;
-    }
     private List<String> gitLines(String containerId, List<String> gitArguments) {
         String output = gitOutput(containerId, gitArguments);
         return output.isBlank() ? List.of() : output.lines().filter(line -> !line.isBlank()).toList();
     }
-    private List<String> unmergedPaths(Workspace workspace) {
-        String output = gitOutput(workspace.containerId(), List.of("ls-files", "--unmerged"));
-        if (output.isBlank()) return List.of();
-        var paths = new java.util.LinkedHashSet<String>();
-        for (String line : output.lines().toList()) {
-            int separator = line.indexOf('\t');
-            if (separator <= 0 || separator == line.length() - 1) throw new IllegalStateException("invalid unmerged path output");
-            paths.add(line.substring(separator + 1));
-        }
-        return List.copyOf(paths);
-    }
-    private List<String> readStashObjectIds(Workspace workspace) {
-        var arguments = gitPrefix(workspace.containerId());
-        arguments.addAll(List.of("-C", "/workspace", "-c", "core.hooksPath=/opt/empty-hooks", "-c", "core.attributesFile=/dev/null",
-                "-c", "credential.helper=", "-c", "core.pager=cat", "-c", "core.editor=:", "-c", "protocol.file.allow=never",
-                "-c", "user.name=Developer Dungeon Player", "-c", "user.email=player@developer-dungeon.invalid", "stash", "list", "--format=%H"));
-        var result = docker.run(arguments, COMMAND_TIMEOUT);
-        if (result.exitCode() != 0 || result.outputTruncated()) throw new IllegalStateException("stash snapshot failed");
-        if (result.stdout().isBlank()) return List.of();
-        List<String> objectIds = result.stdout().lines().toList();
-        if (objectIds.stream().anyMatch(id -> !id.matches("[0-9a-f]{40}")) || new java.util.LinkedHashSet<>(objectIds).size() != objectIds.size()) {
-            throw new IllegalStateException("invalid stash snapshot");
-        }
-        return List.copyOf(objectIds);
-    }
-
     List<String> gitArguments(String containerId, GitCommand command) {
         return gitArgumentsBuilder.forPlayerCommand(containerId, command);
     }
@@ -539,7 +414,7 @@ class RunnerWorkspaceService {
         if (!allowedObjects.getOrDefault(workspace.workspaceId(), Set.of()).contains(command.objectId())) {
             throw new IllegalArgumentException("object is not allowed for this stage");
         }
-        if (!"commit".equals(gitOutput(workspace.containerId(), List.of("cat-file", "-t", command.objectId())).trim())) {
+        if (!snapshotReader.isCommit(workspace.containerId(), command.objectId())) {
             throw new IllegalArgumentException("object is not a commit");
         }
         StageTargets targets = stageTargets.get(workspace.workspaceId());
