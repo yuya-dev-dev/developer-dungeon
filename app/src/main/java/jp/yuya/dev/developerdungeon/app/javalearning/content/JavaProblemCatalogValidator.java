@@ -1,0 +1,136 @@
+package jp.yuya.dev.developerdungeon.app.javalearning.content;
+
+import java.util.Comparator;
+import java.util.EnumMap;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.regex.Pattern;
+import jp.yuya.dev.developerdungeon.app.javalearning.domain.JavaDifficulty;
+import jp.yuya.dev.developerdungeon.app.javalearning.domain.JavaProblem;
+
+final class JavaProblemCatalogValidator {
+    private static final Pattern SAFE_SEGMENT = Pattern.compile("[a-z0-9]+(?:-[a-z0-9]+)*");
+    private static final Pattern SAFE_JAVA_FILE = Pattern.compile("[A-Z][A-Za-z0-9]*\\.java");
+    private static final int MAX_REFERENCE_BYTES = 64 * 1024;
+    private static final int MAX_PROBLEM_REFERENCE_BYTES = 256 * 1024;
+
+    void validateDirectory(String directory) {
+        require(SAFE_SEGMENT.matcher(directory).matches(),
+                "invalid catalog directory: " + directory);
+    }
+
+    void validateProblemLocation(String directory, JavaProblem problem) {
+        require(directory.equals(problem.slug()), "catalog directory and slug differ: " + directory);
+        require(problem.referenceFiles() != null, "reference files are missing: " + directory);
+        require(problem.referenceFiles().stream().filter("Main.java"::equals).count() == 1,
+                "reference files must contain exactly one Main.java: " + directory);
+    }
+
+    void validateReferenceFileName(String fileName) {
+        require(SAFE_JAVA_FILE.matcher(fileName).matches(),
+                "invalid reference file: " + fileName);
+    }
+
+    void validateReferenceFileSize(String fileName, int byteCount) {
+        require(byteCount <= MAX_REFERENCE_BYTES, "reference file is too large: " + fileName);
+    }
+
+    int addReferenceBytes(int currentBytes, int additionalBytes) {
+        return Math.addExact(currentBytes, additionalBytes);
+    }
+
+    void validateProblemReferenceSize(String directory, int byteCount) {
+        require(byteCount <= MAX_PROBLEM_REFERENCE_BYTES,
+                "reference files are too large in total: " + directory);
+    }
+
+    void validateReferenceSource(String directory, String fileName, String source) {
+        String expectedPackage = "jp.yuya.dev.developerdungeon.javaproblems." + directory.replace('-', '.');
+        require(Pattern.compile("(?m)^package\\s+" + Pattern.quote(expectedPackage) + ";\\s*$")
+                .matcher(source).find(), "reference package differs: " + fileName);
+        String typeName = fileName.substring(0, fileName.length() - 5);
+        require(Pattern.compile("(?m)^public\\s+(?:final\\s+)?(?:class|record|interface|enum)\\s+"
+                        + Pattern.quote(typeName) + "\\b")
+                        .matcher(source).find(),
+                "public type and file name differ: " + fileName);
+        if (fileName.equals("Main.java")) {
+            require(Pattern.compile("(?m)^\\s*public\\s+static\\s+void\\s+main\\s*\\(\\s*String(?:\\[\\s*]|\\s*\\[\\s*])\\s+\\w+\\s*\\)")
+                            .matcher(source).find(),
+                    "Main.java must declare public static void main(String[]): " + directory);
+        }
+    }
+
+    List<JavaProblem> validateCatalog(List<JavaProblem> loaded) {
+        require(loaded.size() == 9, "Java MVP must contain exactly nine problems");
+        Set<String> keys = new HashSet<>();
+        Set<String> slugs = new HashSet<>();
+        Set<Integer> orders = new HashSet<>();
+        Map<JavaDifficulty, Map<String, Integer>> matrix = new EnumMap<>(JavaDifficulty.class);
+        for (JavaProblem problem : loaded) {
+            require(notBlank(problem.key()) && keys.add(problem.key()), "problem key is blank or duplicated");
+            require(notBlank(problem.slug()) && SAFE_SEGMENT.matcher(problem.slug()).matches() && slugs.add(problem.slug()),
+                    "problem slug is blank, unsafe, or duplicated");
+            require(problem.order() >= 1 && problem.order() <= 9 && orders.add(problem.order()),
+                    "problem order is invalid or duplicated");
+            require(notBlank(problem.theme()) && notBlank(problem.title()) && notBlank(problem.summary()),
+                    "problem summary fields are blank");
+            require(nonEmpty(problem.learningObjectives()) && nonEmpty(problem.requirements())
+                            && nonEmpty(problem.mandatoryRequirements()) && nonEmpty(problem.designPoints()),
+                    "required problem sections are empty");
+            require(problem.mainScenario() != null
+                            && nonEmpty(problem.mainScenario().instances())
+                            && nonEmpty(problem.mainScenario().steps())
+                            && nonEmpty(problem.mainScenario().expectedResults())
+                            && nonEmpty(problem.mainScenario().invariants()),
+                    "Main scenario is missing");
+            require(nonEmpty(problem.referenceFiles())
+                            && problem.referenceFiles().size() == problem.referenceSources().size(),
+                    "reference files are missing");
+            validateScaffold(problem);
+            matrix.computeIfAbsent(problem.difficulty(), ignored -> new HashMap<>())
+                    .merge(problem.theme(), 1, Integer::sum);
+        }
+        require(orders.equals(Set.of(1, 2, 3, 4, 5, 6, 7, 8, 9)),
+                "problem orders must be continuous");
+        for (JavaDifficulty difficulty : JavaDifficulty.values()) {
+            require(matrix.containsKey(difficulty) && matrix.get(difficulty).size() == 3
+                            && matrix.get(difficulty).values().stream().allMatch(count -> count == 1),
+                    "each difficulty must contain one problem for all three themes");
+        }
+        return loaded.stream().sorted(Comparator.comparingInt(JavaProblem::order)).toList();
+    }
+
+    private void validateScaffold(JavaProblem problem) {
+        if (problem.difficulty() == JavaDifficulty.BEGINNER) {
+            require(problem.beginnerScaffold() != null && nonEmpty(problem.beginnerScaffold().classes()),
+                    "beginner scaffold is missing");
+            require(problem.beginnerScaffold().classCount() == problem.beginnerScaffold().classes().size(),
+                    "beginner class count differs");
+            for (JavaProblem.ClassSpecification specification : problem.beginnerScaffold().classes()) {
+                require(specification.constructorCount() == specification.constructors().size(),
+                        "beginner constructor count differs");
+                require(specification.fieldCount() == specification.fields().size(),
+                        "beginner field count differs");
+                require(specification.methodCount() == specification.methods().size(),
+                        "beginner method count differs");
+            }
+            return;
+        }
+        require(problem.beginnerScaffold() == null, "scaffold is only allowed for beginner problems");
+    }
+
+    private static boolean notBlank(String value) {
+        return value != null && !value.isBlank();
+    }
+
+    private static boolean nonEmpty(List<?> values) {
+        return values != null && !values.isEmpty();
+    }
+
+    private static void require(boolean condition, String message) {
+        if (!condition) throw new IllegalStateException(message);
+    }
+}
