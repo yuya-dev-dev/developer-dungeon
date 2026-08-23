@@ -18,11 +18,11 @@ import org.thymeleaf.templatemode.TemplateMode;
 import org.thymeleaf.templateresolver.ClassLoaderTemplateResolver;
 
 class StagePresentationTemplateTest {
-    @Test void keepsGuidanceAndIncidentBoardIndependentAcrossAllCombinations() {
-        assertPresentation(StagePresentationPolicy.GuidanceMode.FULL_SYNTAX, StagePresentationPolicy.IncidentBoardMode.BASIC, true, true);
-        assertPresentation(StagePresentationPolicy.GuidanceMode.FULL_SYNTAX, StagePresentationPolicy.IncidentBoardMode.OFF, true, false);
-        assertPresentation(StagePresentationPolicy.GuidanceMode.CONCEPT_ONLY, StagePresentationPolicy.IncidentBoardMode.BASIC, false, true);
-        assertPresentation(StagePresentationPolicy.GuidanceMode.CONCEPT_ONLY, StagePresentationPolicy.IncidentBoardMode.OFF, false, false);
+    @Test void keepsIncidentBoardIndependentFromTheRemovedGuidancePanel() {
+        assertPresentation(StagePresentationPolicy.GuidanceMode.FULL_SYNTAX, StagePresentationPolicy.IncidentBoardMode.BASIC, true);
+        assertPresentation(StagePresentationPolicy.GuidanceMode.FULL_SYNTAX, StagePresentationPolicy.IncidentBoardMode.OFF, false);
+        assertPresentation(StagePresentationPolicy.GuidanceMode.CONCEPT_ONLY, StagePresentationPolicy.IncidentBoardMode.BASIC, true);
+        assertPresentation(StagePresentationPolicy.GuidanceMode.CONCEPT_ONLY, StagePresentationPolicy.IncidentBoardMode.OFF, false);
     }
 
     @Test void stageThreeHidesExactSyntaxUntilHintThree() {
@@ -30,19 +30,17 @@ class StagePresentationTemplateTest {
         String before = render(stage, List.of());
         String after = render(stage, List.of("git stash push、git switch <branch>、git stash popの形を順に使う。"));
 
-        assertThat(before).contains("調査・対応の観点", "class=\"concept-chips\"", "観察", "一時退避", "branch移動", "Gitコマンドを入力",
-                        "正確な構文はヒント3", "具体的な対象と手順はヒント4")
-                .doesNotContain("git stash push", "git diff --staged", "incident-board");
+        assertThat(before).contains("Gitコマンドを入力", "ヒントを見る <span>0</span>/4")
+                .doesNotContain("git stash push", "git diff --staged", "incident-board", "concept-chips");
         assertThat(after).contains("git stash push", "git switch &lt;branch&gt;", "git stash pop");
     }
 
     private void assertPresentation(StagePresentationPolicy.GuidanceMode guidance, StagePresentationPolicy.IncidentBoardMode board,
-                                    boolean expectsSyntax, boolean expectsBoard) {
+                                    boolean expectsBoard) {
         StageDefinition stage = new StageDefinition("STAGE-GIT-01", "chapter", "title", "summary", "intro", "ticket", "objective", "EXACT COMMANDS", outcome(),
                 new StagePresentationPolicy(guidance, board, List.of("観察")));
         String rendered = render(stage, List.of());
-        if (expectsSyntax) assertThat(rendered).contains("EXACT COMMANDS");
-        else assertThat(rendered).contains("調査・対応の観点", "観察").doesNotContain("EXACT COMMANDS");
+        assertThat(rendered).doesNotContain("EXACT COMMANDS", "調査・対応の観点", "class=\"concept-chips\"");
         if (expectsBoard) assertThat(rendered).contains("class=\"incident-board\"");
         else assertThat(rendered).doesNotContain("class=\"incident-board\"");
     }

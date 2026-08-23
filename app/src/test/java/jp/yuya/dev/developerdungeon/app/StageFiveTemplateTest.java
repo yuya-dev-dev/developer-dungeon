@@ -30,7 +30,8 @@ class StageFiveTemplateTest {
                         .requestAttr("_csrf", new DefaultCsrfToken("X-CSRF-TOKEN", "_csrf", "test-token")))
                 .andReturn().getResponse().getContentAsString();
 
-        assertThat(rendered).contains("branch状態: main=", "feature/payment-retry=<span>未復旧</span>")
+        assertThat(rendered).contains("<dt>main</dt><dd>存在</dd>",
+                        "<dt>feature/payment-retry</dt><dd>未復旧</dd>")
                 .doesNotContain("現在branch:", "HEAD:", "39194dda9576", "4b03c129e4d5");
     }
 

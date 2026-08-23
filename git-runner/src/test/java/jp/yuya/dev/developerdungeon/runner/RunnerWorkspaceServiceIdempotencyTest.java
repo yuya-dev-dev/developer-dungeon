@@ -397,6 +397,7 @@ class RunnerWorkspaceServiceIdempotencyTest {
         if (arguments.contains("/usr/bin/test")) return new DockerGateway.ProcessResult(arguments.contains("!") ? 0 : 1, "", "", false);
         if (arguments.contains("rev-parse") && arguments.contains("HEAD^{tree}")) return result("b".repeat(40) + "\n");
         if (arguments.contains("rev-parse")) return result("c".repeat(40) + "\n");
+        if (arguments.contains("cat-file") && arguments.contains("-t")) return result("commit\n");
         if (arguments.contains("show")) return result("b".repeat(40) + "\n");
         if (arguments.contains("rev-list")) return result("c".repeat(40) + "\n" + "b".repeat(40) + "\n");
         if (arguments.contains("branch") && arguments.contains("--show-current")) return result("main\n");

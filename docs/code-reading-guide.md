@@ -2,8 +2,8 @@
 
 ## 文書情報
 
-- 状態: リファクタリング前の現在構造を説明する初版
-- 対象: `009f53d`時点のJava本体、test、Java教材reference source
+- 状態: クラスタ2のJava問題content責務分割まで反映
+- 対象: `009f53d`を調査基準とし、クラスタ2作業branchのJava本体、test、Java教材reference sourceを追記
 - 目的: Javaを学び始めた開発者が、処理を読む順番とstateの所有者を把握できるようにする
 - 計画: [`java-refactoring-plan.md`](java-refactoring-plan.md)
 
@@ -106,7 +106,9 @@ Docker CLI processを起動する最下層である。任意shellではなく固
 Browser
   -> JavaLearningController
   -> JavaLearningService
-     -> JavaProblemCatalog -> problem.json / reference source
+     -> JavaProblemCatalog
+        -> JavaProblemContentLoader -> catalog / problem.json / reference source
+        -> JavaProblemCatalogValidator -> path / size / content / 3x3 matrix
      -> JavaProgressRepository -> PostgreSQL
   -> Java問題集template
 ```
@@ -121,7 +123,7 @@ Browser
 
 ### 3.3 `JavaProblemCatalog`
 
-起動時に9問を全件読む。安全なpath、file名、package、公開type、`Main.main`、3テーマ×3難易度、初級scaffoldを検証する。現在は読込と検証が同じconstructorにあるため、クラスタ2の主要候補である。
+起動時に9問を全件読み、読み込みと検証の順序を調整して、slugから問題を引く不変indexを構築する。classpath I/Oは`JavaProblemContentLoader`、安全なpath、file名、容量、package、公開type、`Main.main`、3テーマ×3難易度、初級scaffoldの規則はstatelessな`JavaProblemCatalogValidator`が担当する。公開constructorと取得API、問題data、例外messageは分割前から変更していない。
 
 ### 3.4 `JavaProblem`とreference source
 
@@ -158,6 +160,7 @@ token、loopback、shutdownは通常のplayer routeとは別の境界である�
 | Runner隔離 | `RunnerSecurityDockerIT` |
 | DB状態遷移 | `JdbcStagePersistenceIT` |
 | Java問題9問と模範code | `JavaProblemCatalogTest` |
+| Java問題contentの安全制約と例外境界 | `JavaProblemCatalogValidatorTest` |
 | Java進捗DB | `JdbcJavaProgressRepositoryIT` |
 | routeと画面model | `StageControllerTest`、`JavaLearningControllerTest` |
 

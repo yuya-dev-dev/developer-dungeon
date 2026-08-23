@@ -3,7 +3,7 @@
 ## 文書情報
 
 - 状態: Git編Phase 5改善単位1〜7D、Chapter 0「Git基礎研修」、Javaクラス設計問題集MVPとJava専用GitHub Pages版はmain反映・公開済み
-- 現在地: Javaコード大規模リファクタリングのクラスタ1で文書作成と井上レビューを完了。クラスタ2の前に既知8件のtest失敗を別の小差分で解消する
+- 現在地: Javaコード大規模リファクタリングのクラスタ2を完了。次はクラスタ3でGit appの責務分割を小さなrollback単位から進める
 - 上位文書: [`docs/requirements.md`](docs/requirements.md)
 - 関連文書: [`docs/vertical-slice.md`](docs/vertical-slice.md)、[`docs/test-strategy.md`](docs/test-strategy.md)、[`docs/phase-2-hardening-plan.md`](docs/phase-2-hardening-plan.md)
 
@@ -267,6 +267,8 @@ Java入門書を終えた利用者が、要求仕様から複数classの責務�
 11. 9問の模範code compile、同一商品複数行の在庫不変条件、画面escape、route、V5 migrationと最小権限を対象限定テストで確認し、井上の実装後レビューをPASSしてmainへ反映した。
 12. Java問題集だけをGitHub Pagesへ静的配信し、Git編、Runner、Docker、管理DBを公開せず、PC停止中もスマートフォンから9問を閲覧できる公開URLを用意した。
 13. Javaコード大規模リファクタリングのクラスタ1として、[`docs/java-refactoring-plan.md`](docs/java-refactoring-plan.md)と[`docs/code-reading-guide.md`](docs/code-reading-guide.md)を作成し、井上レビューのP1・P2を反映した。コード変更前のbaselineで既存test 8件の失敗を確認したため、クラスタ2の前に別の小差分で必ずgreenへ戻す。
+14. 基準線の既存test 8件を現仕様に合わせた独立commitで修復し、root `test`をgreenへ戻した。クラスタ2では`JavaProblemCatalog`をcatalog調整、classpath I/O、stateless検証へ分離し、公開API、問題data、reference source、進捗DB、画面を維持した。
+15. クラスタ2の実装後レビューで井上のP2 3件を修正し、再レビューを`PASS`した。最終root `test`はRunner 36件、app 95件が成功し、Docker／DB integration testを必要とする境界には変更を加えていない。
 
 詳細は[`docs/requirements.md`](docs/requirements.md)、[`docs/game-design.md`](docs/game-design.md)、[`docs/git-mvp-stages.md`](docs/git-mvp-stages.md)、[`docs/architecture.md`](docs/architecture.md)、[`docs/test-strategy.md`](docs/test-strategy.md)を正本とする。
 

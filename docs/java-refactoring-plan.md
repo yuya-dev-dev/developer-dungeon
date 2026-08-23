@@ -2,8 +2,8 @@
 
 ## 文書情報
 
-- 状態: クラスタ1・調査、計画、井上レビューを完了。コード変更は未着手
-- 対象commit: `009f53d`（PR #25マージ後の`main`）
+- 状態: クラスタ2完了。責務分割、井上の実装後レビュー、最終root testまで完了
+- 調査基準commit: `009f53d`（PR #25マージ後の`main`）。実装状態はクラスタ2作業branchを反映
 - 目的: Javaを学び始めた開発者が、処理の入口、責務、状態の所有者を追いやすいコードへ段階的に整理する
 - 上位制約: [`architecture.md`](architecture.md)、[`threat-model.md`](threat-model.md)、[`test-strategy.md`](test-strategy.md)
 - 読み方: [`code-reading-guide.md`](code-reading-guide.md)
@@ -64,15 +64,15 @@
 
 | 分類 | file数 | 行数 | 扱い |
 |---|---:|---:|---|
-| app本体 | 37 | 2,039 | クラスタ2・3の対象 |
+| app本体 | 39 | 2,115 | クラスタ2・3の対象 |
 | Git Runner本体 | 11 | 1,492 | クラスタ4の対象 |
 | runner-contract | 13 | 188 | 外部contract。原則変更禁止 |
 | DB migrator | 1 | 20 | schema起動入口。原則変更禁止 |
-| app test | 28 | 2,522 | appのcharacterization／回帰証拠 |
+| app test | 29 | 2,625 | appのcharacterization／回帰証拠 |
 | Runner test | 12 | 1,643 | Runnerのcharacterization／security証拠 |
 | Java教材reference source | 18 | 963 | 教材content。クラスタ2で個別に可読性を判断 |
 
-合計は120 Java fileである。module依存は次の向きだけとする。
+合計は123 Java fileである。module依存は次の向きだけとする。
 
 ```text
 app ---------> runner-contract <--------- git-runner
@@ -92,7 +92,7 @@ Java教材reference --X--> runtime component
 | Java問題集Web | `JavaLearningController` | 一覧、詳細、進捗POST | 2 |
 | Java問題集application | `JavaLearningService` | catalogと進捗の組合せ | 2 |
 | Java問題集domain | `JavaProblem`、`JavaDifficulty`、`JavaProgressStatus` | 問題、難易度、進捗の値 | 2。値の意味は維持 |
-| Java問題集content | `JavaProblemCatalog` | manifest／JSON／source読込と全検証 | 2。読込と検証の分離候補 |
+| Java問題集content | `JavaProblemCatalog`、`JavaProblemContentLoader`、`JavaProblemCatalogValidator` | catalog調整／classpath読込／stateless検証 | 2で責務分割済み |
 | Java問題集persistence | `JavaProgressRepository`、`JdbcJavaProgressRepository` | 進捗取得・保存 | 2 |
 | Git Web | `StageController` | 全stage／training route、model組立 | 3 |
 | Git application | `StageService` | attempt lifecycle、Runner呼出し、採点、recovery、表示状態 | 3。state所有者を維持 |
@@ -117,7 +117,7 @@ Java教材reference --X--> runtime component
 
 - `runner-contract`の13 typeはappとRunnerのwire contractであり、可読性だけを理由にrename、統合、package移動を行わない。
 - `DatabaseMigrator`はFlywayの独立起動入口である。変更理由がなければ維持する。
-- 40 test fileは変更前後の証拠である。本体のpackage移動時は対応testも移すが、test都合でproduction可視性を`public`へ広げない。
+- 41 test fileは変更前後の証拠である。本体のpackage移動時は対応testも移すが、test都合でproduction可視性を`public`へ広げない。
 - 18 reference sourceは9問ごとに別compile／Main実行される教材である。共通base classやframeworkへ統合しない。
 
 ## 4. 現在の主要な可読性課題
@@ -128,7 +128,7 @@ Java教材reference --X--> runtime component
 | `StageRules` | 約575 | 8教材定義、parse、normalize、hint、対象capture、採点、表示済みID | 教材catalog、command policy、grading policyを別rollback単位で抽出 |
 | `StageService` | 約339 | attempt memory、DB遷移、Runner call、recovery、clear、reset、view生成 | attempt lifecycle coordinatorを1つに固定し、stateを持たない処理だけを先に分離 |
 | `FileContainerOwnershipLedger` | 約187 | file format、atomic更新、ownership検証 | I/Oとdata変換の境界を確認してから判断 |
-| `JavaProblemCatalog` | 約160 | manifest読込、JSON読込、path検証、reference検証、MVP matrix検証 | loaderとvalidatorを分離候補とする |
+| Java問題集content境界 | `JavaProblemCatalog` 56、`JavaProblemContentLoader` 44、`JavaProblemCatalogValidator` 136 | catalog調整、classpath I/O、stateless検証 | クラスタ2で分離済み。公開APIとdata契約を維持する |
 | `JdbcStagePersistence` | 約140 | 多数の状態遷移SQL | SQL状態機械を崩さず、名前と補助methodだけを慎重に整理 |
 | `RepositorySnapshot` | 約135 | 大きなwire recordと互換constructor | contractのため維持。変更対象にしない |
 
@@ -244,6 +244,8 @@ package間の依存方向は次を基本とする。layer名へ合わせるた�
 5. Portalは変更理由がある場合だけ扱う。
 6. reference sourceはruntime差分へ混ぜず、クラスタ2内の独立した教材content用rollback単位として最後に扱う。要求仕様との一致、compile、`Main`実行、表示上の教育意図を問題ごとに確認し、改善理由がないsourceは変更しない。
 
+クラスタ2では、既存characterizationを維持したまま、`JavaProblemCatalog`からclasspath I/Oとstateless validationをpackage-private classへ抽出した。Portal、進捗DB、問題JSON、reference sourceには変更理由がなかったため変更していない。reference sourceは既存testで9問すべてのcompileと`Main`実行を再確認し、可読性だけを理由とする変更は行わなかった。
+
 ### クラスタ3: Git app
 
 1. package移動だけを小単位で行う。
@@ -279,15 +281,17 @@ package間の依存方向は次を基本とする。layer名へ合わせるた�
 |---|---|---|---|---|
 | 2026-08-23 | `.\scripts\invoke-maven.ps1 test` | Temurin 25／Maven Wrapper 3.9.16、sandbox外 | 失敗 | Runner unit 36件中4件失敗。appはfail-fastにより未実行 |
 | 2026-08-23 | `.\scripts\invoke-maven.ps1 -pl app -am test` | Temurin 25／Maven Wrapper 3.9.16、sandbox外 | 失敗 | app 91件中4件失敗。Java問題集compile／Main実行8件は成功 |
+| 2026-08-23 | `.\scripts\invoke-maven.ps1 test` | Temurin 25／Maven Wrapper 3.9.16、sandbox外 | 成功 | 基準線修復後。Runner 36件、app 91件が成功 |
+| 2026-08-23 | `.\scripts\invoke-maven.ps1 test` | Temurin 25／Maven Wrapper 3.9.16、sandbox外 | 成功 | クラスタ2変更後。Runner 36件、app 95件が成功 |
 
-変更前から失敗しているtestは次のとおりである。
+クラスタ1の基準取得時に失敗していたtestは次のとおりである。
 
 - `RunnerWorkspaceServiceIdempotencyTest`: 4件。productionが実行する固定`git cat-file -t`をmock Docker応答が扱わない。
 - `StageFiveTemplateTest`: 1件。現在templateと旧表示期待の不一致。
 - `StageGuidanceTest`: 1件。現在のguidance表示と旧期待の不一致。
 - `StagePresentationTemplateTest`: 2件。現在templateと旧concept chip期待の不一致。
 
-この失敗はクラスタ1の文書変更によるものではない。ただし、赤いtestを無視してコードリファクタリングを開始しない。クラスタ2の前に、現仕様を正としてtestを直すのか、本体の回帰を直すのかを別の小差分で判断し、`test`をgreenにする。
+この失敗はクラスタ1の文書変更によるものではなかった。現仕様とproductionの固定commandを根拠にtest fixtureと古い表示期待だけを独立commit `d7b4707`で修正し、正式なroot `test`をgreenへ戻してからクラスタ2へ着手した。
 
 通常のMaven `test`は`*IT`を実行しない。Docker／DB testは未実行である。
 
@@ -300,7 +304,7 @@ package間の依存方向は次を基本とする。layer名へ合わせるた�
 | persistence | 対応unitと`JdbcStagePersistenceIT` | Docker Desktopが必要 |
 | Git Runner | validator、token、ledger、idempotency unit | 関連stage Docker ITと`RunnerSecurityDockerIT`にDocker Desktopが必要 |
 
-各rollback単位で、変更前に成功したtestと同じtestを変更後にも実行する。現在判明しているunit／template test 8件は、別の小差分で原因を確定して正式なroot `test`をgreenにするまでクラスタ2を開始しない。この条件はリスク受容によって免除しない。
+各rollback単位で、変更前に成功したtestと同じtestを変更後にも実行する。クラスタ1で判明したunit／template test 8件は独立commitで原因を解消し、正式なroot `test`が成功したためクラスタ2の着手gateを満たした。この条件は今後のクラスタでもリスク受容によって免除しない。
 
 Docker／DBのようにユーザー許可と外部環境が必要なbaselineは、関連subsystemを変更するクラスタの着手gateとする。実行しない場合は未検証のまま変更せず、そのsubsystemのrollback単位を延期する。security／persistence baselineもリスク受容を理由に迂回しない。
 
@@ -315,3 +319,5 @@ Docker／DBのようにユーザー許可と外部環境が必要なbaselineは�
 - 各小単位は単独でrevertでき、revert後もcompileする。
 
 クラスタ1は、この計画、読解ガイド、基準test結果、既知の開始ブロッカーへ井上レビューを反映したことをもって完了する。コードリファクタリングは、既知の赤いtestを別小差分でgreenにした後、クラスタ2から開始する。
+
+クラスタ2は、基準線をgreenへ戻した独立commit、Java問題contentのI/Oと検証の責務分割、直接的な安全制約test、井上の実装前後レビュー、変更後のroot `test`成功をもって完了する。次のクラスタ3ではGit appを対象とし、Java問題集の責務分割を追加で広げない。
