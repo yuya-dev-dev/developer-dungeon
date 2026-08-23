@@ -2,8 +2,8 @@
 
 ## 文書情報
 
-- 状態: クラスタ2のJava問題content責務分割まで反映
-- 対象: `009f53d`を調査基準とし、クラスタ2作業branchのJava本体、test、Java教材reference sourceを追記
+- 状態: クラスタ3のGit app責務分割まで反映
+- 対象: `009f53d`を調査基準とし、クラスタ2・3で整理したJava本体とtestを反映
 - 目的: Javaを学び始めた開発者が、処理を読む順番とstateの所有者を把握できるようにする
 - 計画: [`java-refactoring-plan.md`](java-refactoring-plan.md)
 
@@ -27,6 +27,9 @@ Browser
   -> StageController
   -> StageService
        +-> StageRules
+            +-> StageCatalog
+            +-> StageCommandPolicy
+            +-> StageStatePolicy
        +-> StagePersistence
        +-> RunnerClient
             -> RunnerController
@@ -64,15 +67,16 @@ Git編の中心である。現在は次を1つのclassが持つ。
 
 読むときは`open`、`execute`、`performOperation`、`reset`、`createWorkspace`、`recoverSaved`の順が分かりやすい。`synchronized`は単なる飾りではなく、同じattemptの状態と外部操作を直列化する安全境界である。
 
-### 2.3 `StageRules`
+### 2.3 `StageRules`と3つの方針class
 
-8件の`StageDefinition`、入力parse／normalize、hint、fixture target capture、snapshot採点を持つ。長い理由は、教材contentとpolicyが同じclassへ集まっているためである。
+`StageRules`は`StageService`から見える互換窓口だけを残した。次の順に読むと、教材、入力境界、最終状態判定を混同せず追える。
 
-最初は次の3つを区別して読む。
+1. `StageCatalog`: 8件の`StageDefinition`と一覧順序を持つ。
+2. `StageCommandPolicy`: Browserの文字列を許可済み`GitCommand`へ変換し、表示済みobject IDと照合して正規化する。
+3. `StageStatePolicy`: fixture targetを検証して取得し、hintを組み立て、command履歴ではなく最終`RepositorySnapshot`を採点する。
+4. `StageRules`: 上記3責務へ委譲し、既存callerとtestが利用する`StageTargets`を保持する。
 
-1. `StageDefinition`: プレイヤーへ見せる教材と目標。
-2. parse／normalize: Browserの文字列を許可済み`GitCommand`へ変換する境界。
-3. grade: command履歴ではなく最終`RepositorySnapshot`を判定する処理。
+`StageService`はattempt lifecycle、DB遷移、Runner呼出し、cleanupを直列化するstate所有者であるため、クラスタ3では分割していない。
 
 ### 2.4 `StagePersistence`
 

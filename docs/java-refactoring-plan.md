@@ -2,8 +2,8 @@
 
 ## 文書情報
 
-- 状態: クラスタ2完了。責務分割、井上の実装後レビュー、最終root testまで完了
-- 調査基準commit: `009f53d`（PR #25マージ後の`main`）。実装状態はクラスタ2作業branchを反映
+- 状態: クラスタ3完了。3つのrollback単位、井上レビュー、分担root testまで完了
+- 調査基準commit: `009f53d`（PR #25マージ後の`main`）。実装状態はクラスタ3作業branchを反映
 - 目的: Javaを学び始めた開発者が、処理の入口、責務、状態の所有者を追いやすいコードへ段階的に整理する
 - 上位制約: [`architecture.md`](architecture.md)、[`threat-model.md`](threat-model.md)、[`test-strategy.md`](test-strategy.md)
 - 読み方: [`code-reading-guide.md`](code-reading-guide.md)
@@ -64,15 +64,15 @@
 
 | 分類 | file数 | 行数 | 扱い |
 |---|---:|---:|---|
-| app本体 | 39 | 2,115 | クラスタ2・3の対象 |
+| app本体 | 42 | 2,174 | クラスタ2・3で責務分割済み |
 | Git Runner本体 | 11 | 1,492 | クラスタ4の対象 |
 | runner-contract | 13 | 188 | 外部contract。原則変更禁止 |
 | DB migrator | 1 | 20 | schema起動入口。原則変更禁止 |
-| app test | 29 | 2,625 | appのcharacterization／回帰証拠 |
-| Runner test | 12 | 1,643 | Runnerのcharacterization／security証拠 |
+| app test | 30 | 2,731 | appのcharacterization／回帰証拠 |
+| Runner test | 12 | 1,644 | Runnerのcharacterization／security証拠 |
 | Java教材reference source | 18 | 963 | 教材content。クラスタ2で個別に可読性を判断 |
 
-合計は123 Java fileである。module依存は次の向きだけとする。
+合計は127 Java fileである。module依存は次の向きだけとする。
 
 ```text
 app ---------> runner-contract <--------- git-runner
@@ -255,6 +255,8 @@ package間の依存方向は次を基本とする。layer名へ合わせるた�
 5. `StageService`はattempt coordinatorを残し、view組立やstateless補助から抽出する。
 6. persistenceとRunner clientはwire／DB契約を変えず、最後に可読性を判断する。
 
+クラスタ3では、`StageRules`の既存窓口と`StageTargets`を維持したまま、固定教材を`StageCatalog`、入力parse／normalize／表示済みobject照合を`StageCommandPolicy`、fixture検証／hint／snapshot採点を`StageStatePolicy`へ分離した。characterization追加、catalog、command policy、state policyをそれぞれ独立commitとし、各段階で対象限定testを成功させた。`StageService`はattempt、DB遷移、Runner呼出し、recovery、cleanupを同じ同期境界で所有するため変更せず、persistence、Runner client、route、template、fixture、教材内容も維持した。
+
 ### クラスタ4: Git Runner
 
 1. package移動だけを小単位で行う。
@@ -283,6 +285,8 @@ package間の依存方向は次を基本とする。layer名へ合わせるた�
 | 2026-08-23 | `.\scripts\invoke-maven.ps1 -pl app -am test` | Temurin 25／Maven Wrapper 3.9.16、sandbox外 | 失敗 | app 91件中4件失敗。Java問題集compile／Main実行8件は成功 |
 | 2026-08-23 | `.\scripts\invoke-maven.ps1 test` | Temurin 25／Maven Wrapper 3.9.16、sandbox外 | 成功 | 基準線修復後。Runner 36件、app 91件が成功 |
 | 2026-08-23 | `.\scripts\invoke-maven.ps1 test` | Temurin 25／Maven Wrapper 3.9.16、sandbox外 | 成功 | クラスタ2変更後。Runner 36件、app 95件が成功 |
+| 2026-08-23 | StageRules対象限定test | Temurin 25／Maven Wrapper 3.9.16、sandbox外 | 成功 | クラスタ3。catalog 21件、command policy 22件、state policy 47件が成功 |
+| 2026-08-23 | root通常testをメイン・中谷で分担 | Temurin 25／Maven Wrapper 3.9.16、sandbox外 | 成功 | メインは`*Test,!StageControllerTest`でRunner 36件・app 94件、中谷は`StageControllerTest` 6件。合計Runner 36件・app 100件 |
 
 クラスタ1の基準取得時に失敗していたtestは次のとおりである。
 
@@ -321,3 +325,5 @@ Docker／DBのようにユーザー許可と外部環境が必要なbaselineは�
 クラスタ1は、この計画、読解ガイド、基準test結果、既知の開始ブロッカーへ井上レビューを反映したことをもって完了する。コードリファクタリングは、既知の赤いtestを別小差分でgreenにした後、クラスタ2から開始する。
 
 クラスタ2は、基準線をgreenへ戻した独立commit、Java問題contentのI/Oと検証の責務分割、直接的な安全制約test、井上の実装前後レビュー、変更後のroot `test`成功をもって完了する。次のクラスタ3ではGit appを対象とし、Java問題集の責務分割を追加で広げない。
+
+クラスタ3は、`StageRules`のcharacterization、3責務の独立抽出、井上の実装前後レビュー`PASS`、対象限定test、変更後の分担root test成功をもって完了した。次のクラスタ4ではGit Runnerを対象とし、appの責務分割を追加で広げない。
