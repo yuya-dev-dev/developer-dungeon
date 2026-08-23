@@ -80,14 +80,21 @@ class RunnerSecurityDockerIT {
         RunnerWorkspaceService first = service(ledger);
         String containerId = null;
         try {
-            first.create(new WorkspaceRequest(UUID.randomUUID().toString(), UUID.randomUUID().toString(), "STAGE-GIT-01", 0));
+            String attemptId = UUID.randomUUID().toString();
+            var workspace = first.create(new WorkspaceRequest(attemptId, UUID.randomUUID().toString(), "STAGE-GIT-01", 0));
             containerId = ledger.entries().getFirst().containerId();
 
             RunnerWorkspaceService restarted = service(ledger);
             restarted.cleanupOrphansOnStartup();
 
             assertThat(restarted.isReady()).isTrue();
-            assertThat(ledger.entries()).isEmpty();
+            assertThat(ledger.entries()).hasSize(1);
+            ContainerOwnershipLedger.Entry tombstone = ledger.entries().getFirst();
+            assertThat(tombstone.state()).isEqualTo(ContainerOwnershipLedger.State.DELETED);
+            assertThat(tombstone.attemptId()).isEqualTo(attemptId);
+            assertThat(tombstone.workspaceId()).isEqualTo(workspace.workspaceId());
+            assertThat(tombstone.generation()).isZero();
+            assertThat(tombstone.cleanupRequestId()).isNotBlank();
             assertContainerDoesNotExist(containerId);
             containerId = null;
         } finally {
