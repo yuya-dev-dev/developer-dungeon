@@ -90,17 +90,26 @@ interfaceが許可する状態遷移を先に読み、次に`JdbcStagePersistenc
 
 ### 2.6 `RunnerWorkspaceService`
 
-Git Runnerの中心で、約1,000行ある。読む順番は次のとおりとする。
+Git Runnerのstateful coordinatorで、約600行ある。読む順番は次のとおりとする。
 
 1. Controllerから呼ばれる`create`、`execute`、`readFile`、`writeFile`、`snapshotFor`、`destroy`。
-2. `validateStageCommand`と`validateAllowedObject`。
-3. `snapshotFor`から呼ばれるprivateな`snapshot`とGit出力の読取。
-4. workspace／generation検証。
-5. create失敗、TTL、orphan、shutdown cleanup。
+2. workspace／generation検証とrequest replay。
+3. `validateAllowedObject`から`RunnerStagePolicy`へ渡す検証順。
+4. create失敗、TTL、orphan、shutdown cleanup。
 
-このclassのmaps、ledger、cleanup状態は同じmonitorで守られている。後続の分割でもstateの所有者は1つに保つ。
+このclassのmaps、ledger、workspace、request結果、cleanup状態は同じmonitorで守られている。Gitの固定argv、snapshot読取、stage policy、editor policyはpackage-privateなstateless classへ分離したが、stateの所有者は1つに保っている。Stage 4・5固有のpath、ref、reflog fixture観測とDocker lifecycleは、任意入力を受ける共通APIへ広げずcoordinatorに残している。
 
-### 2.7 `DockerGateway`
+### 2.7 Git Runnerのstateless helper
+
+次の順で読むと、player入力からDocker実行までの境界を追いやすい。
+
+1. `RunnerGitArguments`: 全`CommandKind`を固定Git argvへ変換する。任意suffixやshell文字列を受け取らない。
+2. `RunnerSnapshotReader`: container IDとstage keyだけを受け、固定commandと5秒timeoutでtyped snapshotを読む。
+3. `RunnerStagePolicy`: stage／trainingの許可command、branch、object target、初期fixtureをDocker非依存で検証する。
+4. `RunnerEditorPolicy`: Stage 4のfile key、編集状態、UTF-8 byte上限、改行、control character、version tokenを検証する。
+5. `RunnerWorkspaceService`: 上記を決められた順で組み合わせ、registry、idempotency、ledger、TTL、cleanupを所有する。
+
+### 2.8 `DockerGateway`
 
 Docker CLI processを起動する最下層である。任意shellではなく固定argument列を使い、親processの環境をそのまま渡さない。このclassより上でplayer入力をtyped valueへ狭める。
 

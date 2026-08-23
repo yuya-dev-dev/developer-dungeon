@@ -4,12 +4,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.Clock;
 import java.nio.charset.StandardCharsets;
-import java.nio.charset.CharacterCodingException;
-import java.nio.charset.CodingErrorAction;
-import java.nio.CharBuffer;
 import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.HexFormat;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -54,7 +49,7 @@ class RunnerWorkspaceService {
     private static final String STAGE_FIVE_C1_TREE = "cbc2826a3bd49e4947b67c020e61dd5e4ca7adb3";
     private final ConcurrentHashMap<String, Workspace> workspaces = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Set<String>> allowedObjects = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<String, StageTargets> stageTargets = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, RunnerStagePolicy.Targets> stageTargets = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, WorkspaceResponse> createdRequests = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, CommandResponse> executedRequests = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, FileContentResponse> readFileRequests = new ConcurrentHashMap<>();
@@ -68,12 +63,20 @@ class RunnerWorkspaceService {
     private final RunnerCommandValidator validator;
     private final Clock clock;
     private final ContainerOwnershipLedger ledger;
+    private final RunnerGitArguments gitArgumentsBuilder = new RunnerGitArguments();
+    private final RunnerSnapshotReader snapshotReader;
+    private final RunnerStagePolicy stagePolicy;
+    private final RunnerEditorPolicy editorPolicy = new RunnerEditorPolicy();
     private final AtomicBoolean shuttingDown = new AtomicBoolean();
     private final AtomicBoolean degraded = new AtomicBoolean();
 
     @Autowired
     RunnerWorkspaceService(DockerGateway docker, RunnerProperties properties, RunnerCommandValidator validator, Clock clock, ContainerOwnershipLedger ledger) {
         this.docker = docker; this.properties = properties; this.validator = validator; this.clock = clock; this.ledger = ledger;
+        this.snapshotReader = new RunnerSnapshotReader(docker, COMMAND_TIMEOUT, STAGE_FOUR_PATH,
+                STAGE_FIVE_C0, STAGE_FIVE_C1, STAGE_FIVE_C1_TREE);
+        this.stagePolicy = new RunnerStagePolicy(STAGE_FOUR_MAIN_BLOB, STAGE_FOUR_MAIN_TREE,
+                STAGE_FOUR_FEATURE_TREE, STAGE_FIVE_C0, STAGE_FIVE_C1, STAGE_FIVE_C1_TREE);
     }
     RunnerWorkspaceService(DockerGateway docker, RunnerProperties properties, RunnerCommandValidator validator, Clock clock) { this(docker, properties, validator, clock, new MemoryContainerOwnershipLedger(clock)); }
     RunnerWorkspaceService(DockerGateway docker, RunnerProperties properties, RunnerCommandValidator validator) { this(docker, properties, validator, Clock.systemUTC()); }
@@ -155,7 +158,7 @@ class RunnerWorkspaceService {
             verifyCreatedContainer(workspace, imageId);
             validateWorkspace(workspace);
             RepositorySnapshot initial = snapshot(workspace);
-            StageTargets targets = captureStageTargets(request.stageKey(), initial);
+            RunnerStagePolicy.Targets targets = captureStageTargets(request.stageKey(), initial);
             allowedObjects.put(workspaceId, targets.allowedObjects());
             stageTargets.put(workspaceId, targets);
             WorkspaceResponse response = new WorkspaceResponse(workspaceId, request.generation(), initial);
@@ -215,7 +218,8 @@ class RunnerWorkspaceService {
         if (existing != null) { touch(workspace); return existing; }
         try {
             String content = readStageFourFile(workspace);
-            FileContentResponse response = new FileContentResponse(content, versionToken(validatedEditorBytes(content, false)));
+            FileContentResponse response = new FileContentResponse(content,
+                    editorPolicy.versionToken(editorPolicy.validatedStoredBytes(content)));
             readFileRequests.put(idempotencyKey, response);
             touch(workspace);
             return response;
@@ -231,10 +235,8 @@ class RunnerWorkspaceService {
         requireRequest(request.attemptId(), request.requestId(), request.generation());
         Workspace workspace = workspace(request.workspaceId(), request.attemptId(), request.generation());
         requireStageFourFile(workspace, request.fileKey());
-        if (request.versionToken() == null || !request.versionToken().matches("[0-9a-f]{64}")) {
-            throw new IllegalArgumentException("file version is invalid");
-        }
-        NormalizedEditorContent normalized = normalizeEditorContent(request.content());
+        editorPolicy.requireVersionToken(request.versionToken());
+        RunnerEditorPolicy.NormalizedContent normalized = editorPolicy.normalizePlayerContent(request.content());
         String idempotencyKey = requestKey("write:" + workspace.workspaceId(), request.requestId());
         WriteFileResponse existing = writeFileRequests.get(idempotencyKey);
         if (existing != null) { touch(workspace); return existing; }
@@ -247,14 +249,14 @@ class RunnerWorkspaceService {
         }
         String current;
         try {
-            validateStageFourEditState(before);
+            editorPolicy.validateEditState(before);
             current = readStageFourFile(workspace);
         }
         catch (RuntimeException exception) {
             invalidateWorkspaceAfterFileFailure(workspace, request.requestId(), exception);
             throw exception;
         }
-        String currentToken = versionToken(validatedEditorBytes(current, false));
+        String currentToken = editorPolicy.versionToken(editorPolicy.validatedStoredBytes(current));
         if (!MessageDigest.isEqual(currentToken.getBytes(StandardCharsets.US_ASCII), request.versionToken().getBytes(StandardCharsets.US_ASCII))) {
             WriteFileResponse response = new WriteFileResponse(false, currentToken, before);
             writeFileRequests.put(idempotencyKey, response);
@@ -267,9 +269,9 @@ class RunnerWorkspaceService {
                     COMMAND_TIMEOUT, normalized.bytes());
             if (result.exitCode() != 0 || result.outputTruncated()) throw new IllegalStateException("stage file write failed");
             String written = readStageFourFile(workspace);
-            byte[] writtenBytes = validatedEditorBytes(written, false);
+            byte[] writtenBytes = editorPolicy.validatedStoredBytes(written);
             if (!MessageDigest.isEqual(writtenBytes, normalized.bytes())) throw new IllegalStateException("stage file write verification failed");
-            WriteFileResponse response = new WriteFileResponse(true, versionToken(writtenBytes), snapshot(workspace));
+            WriteFileResponse response = new WriteFileResponse(true, editorPolicy.versionToken(writtenBytes), snapshot(workspace));
             writeFileRequests.put(idempotencyKey, response);
             touch(workspace);
             return response;
@@ -308,102 +310,7 @@ class RunnerWorkspaceService {
     }
 
     private RepositorySnapshot snapshot(Workspace workspace) {
-        String head = gitOutput(workspace.containerId(), List.of("rev-parse", "HEAD")).trim();
-        String tree = gitOutput(workspace.containerId(), List.of("rev-parse", "HEAD^{tree}")).trim();
-        String parents = gitOutput(workspace.containerId(), List.of("show", "-s", "--format=%P", "HEAD")).trim();
-        String firstParentTree = parents.isBlank() ? "" : gitOutput(workspace.containerId(), List.of("rev-parse", "HEAD^1^{tree}")).trim();
-        String ancestors = gitOutput(workspace.containerId(), List.of("rev-list", "HEAD")).trim();
-        String status = gitOutput(workspace.containerId(), List.of("status", "--porcelain=v1")).trim();
-        var parentList = parents.isBlank() ? List.<String>of() : List.of(parents.split(" "));
-        var ancestorList = ancestors.isBlank() ? List.<String>of() : List.of(ancestors.split("\\R"));
-        boolean reverting = stateFileExists(workspace, "REVERT_HEAD");
-        boolean cherryPicking = stateFileExists(workspace, "CHERRY_PICK_HEAD");
-        boolean merging = stateFileExists(workspace, "MERGE_HEAD");
-        boolean rebasing = stateFileExists(workspace, "rebase-merge") || stateFileExists(workspace, "rebase-apply");
-        String currentBranch = gitOutput(workspace.containerId(), List.of("branch", "--show-current")).trim();
-        String profileTip = "";
-        String notificationTip = "";
-        RepositorySnapshot.StageThreeState stageThree = RepositorySnapshot.StageThreeState.empty();
-        RepositorySnapshot.StageFourState stageFour = RepositorySnapshot.StageFourState.empty();
-        RepositorySnapshot.StageFiveState stageFive = RepositorySnapshot.StageFiveState.empty();
-        RepositorySnapshot.TrainingState training = RepositorySnapshot.TrainingState.empty();
-        if ("STAGE-GIT-02".equals(workspace.stageKey())) {
-            profileTip = gitOutput(workspace.containerId(), List.of("rev-parse", "refs/heads/feature/profile")).trim();
-            notificationTip = gitOutput(workspace.containerId(), List.of("rev-parse", "refs/heads/feature/notification")).trim();
-        }
-        if ("STAGE-GIT-03".equals(workspace.stageKey())) {
-            String mainTip = gitOutput(workspace.containerId(), List.of("rev-parse", "refs/heads/main")).trim();
-            String searchTip = gitOutput(workspace.containerId(), List.of("rev-parse", "refs/heads/feature/search")).trim();
-            String searchParent = gitOutput(workspace.containerId(), List.of("rev-parse", "refs/heads/feature/search^1")).trim();
-            String searchFileBlobId = gitOutput(workspace.containerId(), List.of("hash-object", "--", "search.txt")).trim();
-            stageThree = new RepositorySnapshot.StageThreeState(mainTip, searchTip, searchParent, searchFileBlobId,
-                    gitLines(workspace.containerId(), List.of("diff", "--name-only", "--no-ext-diff", "--")),
-                    gitLines(workspace.containerId(), List.of("diff", "--cached", "--name-only", "--no-ext-diff", "--")),
-                    unmergedPaths(workspace), gitLines(workspace.containerId(), List.of("ls-files", "--others", "--exclude-standard")),
-                    readStashObjectIds(workspace));
-        }
-        if ("STAGE-GIT-04".equals(workspace.stageKey())) {
-            String mainTip = gitOutput(workspace.containerId(), List.of("rev-parse", "refs/heads/main")).trim();
-            String mainParent = gitOutput(workspace.containerId(), List.of("rev-parse", "refs/heads/main^1")).trim();
-            String featureTip = gitOutput(workspace.containerId(), List.of("rev-parse", "refs/heads/feature/profile-message")).trim();
-            String featureParent = gitOutput(workspace.containerId(), List.of("rev-parse", "refs/heads/feature/profile-message^1")).trim();
-            String mainTree = gitOutput(workspace.containerId(), List.of("rev-parse", "refs/heads/main^{tree}")).trim();
-            String featureTree = gitOutput(workspace.containerId(), List.of("rev-parse", "refs/heads/feature/profile-message^{tree}")).trim();
-            String messagesBlob = gitOutput(workspace.containerId(), List.of("hash-object", "--", STAGE_FOUR_PATH)).trim();
-            stageFour = new RepositorySnapshot.StageFourState(mainTip, mainParent, featureTip, featureParent,
-                    mainTree, featureTree, messagesBlob,
-                    gitLines(workspace.containerId(), List.of("diff", "--name-only", "--no-ext-diff", "--")),
-                    gitLines(workspace.containerId(), List.of("diff", "--cached", "--name-only", "--no-ext-diff", "--")),
-                    unmergedPaths(workspace), gitLines(workspace.containerId(), List.of("ls-files", "--others", "--exclude-standard")));
-        }
-        if ("STAGE-GIT-05".equals(workspace.stageKey())) {
-            String mainTip = gitOutput(workspace.containerId(), List.of("rev-parse", "refs/heads/main")).trim();
-            String paymentRetryTip = nullableLocalBranchTip(workspace, "refs/heads/feature/payment-retry");
-            List<String> localBranches = gitLines(workspace.containerId(), List.of("for-each-ref", "--format=%(refname:short)", "refs/heads"))
-                    .stream().sorted().toList();
-            stageFive = new RepositorySnapshot.StageFiveState(mainTip, STAGE_FIVE_C1, STAGE_FIVE_C0, STAGE_FIVE_C1_TREE,
-                    paymentRetryTip, localBranches);
-        }
-        if (workspace.stageKey().startsWith("TRAINING-GIT-")) {
-            String mainTip = gitOutput(workspace.containerId(), List.of("rev-parse", "refs/heads/main")).trim();
-            String trainingBranchTip = nullableLocalBranchTip(workspace, "refs/heads/feature/onboarding");
-            List<String> headPaths = gitLines(workspace.containerId(), List.of("ls-tree", "-r", "--name-only", "HEAD"));
-            List<String> workingPaths = gitLines(workspace.containerId(), List.of("diff", "--name-only", "--no-ext-diff", "--"));
-            List<String> indexPaths = gitLines(workspace.containerId(), List.of("diff", "--cached", "--name-only", "--no-ext-diff", "--"));
-            List<String> untrackedPaths = gitLines(workspace.containerId(), List.of("ls-files", "--others", "--exclude-standard"));
-            List<String> ignoredPaths = gitLines(workspace.containerId(), List.of("ls-files", "--others", "--ignored", "--exclude-standard"));
-            String introBlob = "TRAINING-GIT-01".equals(workspace.stageKey()) ? fileBlob(workspace, "onboarding/intro.txt") : "";
-            String ignoreBlob = "TRAINING-GIT-02".equals(workspace.stageKey()) ? fileBlob(workspace, ".gitignore") : "";
-            String configBlob = "TRAINING-GIT-02".equals(workspace.stageKey()) ? fileBlob(workspace, "config/application-training.properties") : "";
-            String reportBlob = "TRAINING-GIT-02".equals(workspace.stageKey()) ? fileBlob(workspace, "build/training-report.txt") : "";
-            String handoffBlob = "TRAINING-GIT-03".equals(workspace.stageKey()) ? fileBlob(workspace, "docs/handoff.md") : "";
-            boolean reportExists = "TRAINING-GIT-02".equals(workspace.stageKey()) && pathExists(workspace, "/workspace/build/training-report.txt");
-            training = new RepositorySnapshot.TrainingState(mainTip, trainingBranchTip, headPaths, workingPaths,
-                    indexPaths, untrackedPaths, ignoredPaths, introBlob, ignoreBlob, configBlob, reportBlob,
-                    handoffBlob, reportExists);
-        }
-        return new RepositorySnapshot(head, tree, firstParentTree, parentList, status.isEmpty(), reverting, ancestorList,
-                currentBranch, profileTip, notificationTip, cherryPicking, merging, rebasing, stageThree, stageFour, stageFive, training);
-    }
-
-    private String fileBlob(Workspace workspace, String path) {
-        String value = gitOutput(workspace.containerId(), List.of("hash-object", "--", path)).trim();
-        if (!value.matches("[0-9a-f]{40}")) throw new IllegalStateException("training fixture file is invalid");
-        return value;
-    }
-
-    private boolean pathExists(Workspace workspace, String path) {
-        return docker.run(List.of("exec", workspace.containerId(), "/usr/bin/test", "-f", path), COMMAND_TIMEOUT).exitCode() == 0;
-    }
-
-    private String nullableLocalBranchTip(Workspace workspace, String ref) {
-        var arguments = gitPrefix(workspace.containerId());
-        arguments.addAll(List.of("-C", "/workspace", "show-ref", "--verify", "--quiet", ref));
-        var result = docker.run(arguments, COMMAND_TIMEOUT);
-        if (result.outputTruncated()) throw new IllegalStateException("branch snapshot failed");
-        if (result.exitCode() == 1) return null;
-        if (result.exitCode() != 0) throw new IllegalStateException("branch snapshot failed");
-        return gitOutput(workspace.containerId(), List.of("rev-parse", ref)).trim();
+        return snapshotReader.read(workspace.containerId(), workspace.stageKey());
     }
 
     private String gitOutput(String containerId, List<String> gitArguments) {
@@ -422,89 +329,12 @@ class RunnerWorkspaceService {
         if (result.exitCode() != 0 || result.outputTruncated()) throw new IllegalStateException("snapshot failed");
         return result.stdout();
     }
-    private boolean stateFileExists(Workspace workspace, String name) {
-        var result = docker.run(List.of("exec", workspace.containerId(), "/usr/bin/test", "-e", "/workspace/.git/" + name), COMMAND_TIMEOUT);
-        if (result.outputTruncated() || (result.exitCode() != 0 && result.exitCode() != 1)) {
-            throw new IllegalStateException("Git state file check failed");
-        }
-        return result.exitCode() == 0;
-    }
     private List<String> gitLines(String containerId, List<String> gitArguments) {
         String output = gitOutput(containerId, gitArguments);
         return output.isBlank() ? List.of() : output.lines().filter(line -> !line.isBlank()).toList();
     }
-    private List<String> unmergedPaths(Workspace workspace) {
-        String output = gitOutput(workspace.containerId(), List.of("ls-files", "--unmerged"));
-        if (output.isBlank()) return List.of();
-        var paths = new java.util.LinkedHashSet<String>();
-        for (String line : output.lines().toList()) {
-            int separator = line.indexOf('\t');
-            if (separator <= 0 || separator == line.length() - 1) throw new IllegalStateException("invalid unmerged path output");
-            paths.add(line.substring(separator + 1));
-        }
-        return List.copyOf(paths);
-    }
-    private List<String> readStashObjectIds(Workspace workspace) {
-        var arguments = gitPrefix(workspace.containerId());
-        arguments.addAll(List.of("-C", "/workspace", "-c", "core.hooksPath=/opt/empty-hooks", "-c", "core.attributesFile=/dev/null",
-                "-c", "credential.helper=", "-c", "core.pager=cat", "-c", "core.editor=:", "-c", "protocol.file.allow=never",
-                "-c", "user.name=Developer Dungeon Player", "-c", "user.email=player@developer-dungeon.invalid", "stash", "list", "--format=%H"));
-        var result = docker.run(arguments, COMMAND_TIMEOUT);
-        if (result.exitCode() != 0 || result.outputTruncated()) throw new IllegalStateException("stash snapshot failed");
-        if (result.stdout().isBlank()) return List.of();
-        List<String> objectIds = result.stdout().lines().toList();
-        if (objectIds.stream().anyMatch(id -> !id.matches("[0-9a-f]{40}")) || new java.util.LinkedHashSet<>(objectIds).size() != objectIds.size()) {
-            throw new IllegalStateException("invalid stash snapshot");
-        }
-        return List.copyOf(objectIds);
-    }
-
     List<String> gitArguments(String containerId, GitCommand command) {
-        var arguments = gitPrefix(containerId);
-        arguments.add("-C"); arguments.add("/workspace");
-        arguments.add("-c"); arguments.add("core.hooksPath=/opt/empty-hooks"); arguments.add("-c"); arguments.add("core.attributesFile=/dev/null");
-        arguments.add("-c"); arguments.add("credential.helper="); arguments.add("-c"); arguments.add("core.pager=cat"); arguments.add("-c"); arguments.add("core.editor=:"); arguments.add("-c"); arguments.add("protocol.file.allow=never");
-        arguments.add("-c"); arguments.add("user.name=Developer Dungeon Player"); arguments.add("-c"); arguments.add("user.email=player@developer-dungeon.invalid");
-        switch (command.kind()) {
-            case STATUS -> arguments.addAll(List.of("status", "--short"));
-            case LOG_ONELINE -> arguments.addAll(List.of("log", "--oneline", "--no-decorate", "--abbrev=12"));
-            case LOG_ONELINE_ALL_DECORATE -> arguments.addAll(List.of("log", "--oneline", "--all", "--decorate", "--abbrev=12"));
-            case BRANCH -> arguments.add("branch");
-            case SHOW -> { arguments.addAll(List.of("show", "--no-ext-diff", "--no-textconv")); arguments.add(command.objectId()); }
-            case SWITCH -> { arguments.add("switch"); arguments.add(command.branchName()); }
-            case CHERRY_PICK -> { arguments.add("cherry-pick"); arguments.add(command.objectId()); }
-            case RESET_HARD -> { arguments.addAll(List.of("reset", "--hard")); arguments.add(command.objectId()); }
-            case REVERT_NO_EDIT -> { arguments.addAll(List.of("revert", "--no-edit")); arguments.add(command.objectId()); }
-            case REVERT_NO_COMMIT -> { arguments.addAll(List.of("revert", "--no-commit")); arguments.add(command.objectId()); }
-            case COMMIT_RESTORE_SETTINGS -> arguments.addAll(List.of("commit", "-m", "restore-required-settings"));
-            case DIFF -> arguments.addAll(List.of("diff", "--no-ext-diff", "--no-textconv", "--"));
-            case DIFF_STAGED -> arguments.addAll(List.of("diff", "--staged", "--no-ext-diff", "--no-textconv", "--"));
-            case STASH_PUSH -> arguments.addAll(List.of("stash", "push"));
-            case STASH_LIST -> arguments.addAll(List.of("stash", "list"));
-            case STASH_POP -> arguments.addAll(List.of("stash", "pop"));
-            case STASH_APPLY -> arguments.addAll(List.of("stash", "apply"));
-            case STASH_DROP -> arguments.addAll(List.of("stash", "drop"));
-            case LOG_GRAPH_ALL -> arguments.addAll(List.of("log", "--oneline", "--all", "--decorate", "--graph", "--abbrev=12"));
-            case MERGE_PROFILE_MESSAGE -> arguments.addAll(List.of("merge", "--no-edit", "feature/profile-message"));
-            case ADD_PROFILE_MESSAGES -> arguments.addAll(List.of("add", "--", STAGE_FOUR_PATH));
-            case COMMIT_NO_EDIT -> arguments.addAll(List.of("commit", "--no-edit"));
-            case COMMIT_ALL_NO_EDIT -> arguments.addAll(List.of("commit", "-a", "--no-edit"));
-            case REFLOG_HEAD -> arguments.addAll(List.of("reflog", "show", "--format=%h%x09%gs", "--abbrev=12", "--max-count=8", "HEAD"));
-            case CREATE_PAYMENT_RETRY_BRANCH -> arguments.addAll(List.of("branch", "feature/payment-retry", command.objectId()));
-            case SWITCH_PAYMENT_RETRY -> arguments.addAll(List.of("switch", "feature/payment-retry"));
-            case SWITCH_CREATE_PAYMENT_RETRY -> { arguments.addAll(List.of("switch", "-c", "feature/payment-retry")); arguments.add(command.objectId()); }
-            case ADD_TRAINING_INTRO -> arguments.addAll(List.of("add", "--", "onboarding/intro.txt"));
-            case COMMIT_TRAINING_ONE -> arguments.addAll(List.of("commit", "-m", "complete-training-01"));
-            case UNSTAGE_TRAINING_REPORT -> arguments.addAll(List.of("restore", "--staged", "--", "build/training-report.txt"));
-            case ADD_TRAINING_IGNORE -> arguments.addAll(List.of("add", "--", ".gitignore"));
-            case ADD_TRAINING_CONFIG -> arguments.addAll(List.of("add", "--", "config/application-training.properties"));
-            case COMMIT_TRAINING_TWO -> arguments.addAll(List.of("commit", "-m", "complete-training-02"));
-            case SWITCH_CREATE_TRAINING_BRANCH -> arguments.addAll(List.of("switch", "-c", "feature/onboarding"));
-            case SWITCH_TRAINING_BRANCH -> arguments.addAll(List.of("switch", "feature/onboarding"));
-            case ADD_TRAINING_HANDOFF -> arguments.addAll(List.of("add", "--", "docs/handoff.md"));
-            case COMMIT_TRAINING_THREE -> arguments.addAll(List.of("commit", "-m", "complete-training-03"));
-        }
-        return arguments;
+        return gitArgumentsBuilder.forPlayerCommand(containerId, command);
     }
     private ArrayList<String> gitPrefix(String containerId) {
         var arguments = new ArrayList<String>();
@@ -582,152 +412,19 @@ class RunnerWorkspaceService {
         if (!allowedObjects.getOrDefault(workspace.workspaceId(), Set.of()).contains(command.objectId())) {
             throw new IllegalArgumentException("object is not allowed for this stage");
         }
-        if (!"commit".equals(gitOutput(workspace.containerId(), List.of("cat-file", "-t", command.objectId())).trim())) {
+        if (!snapshotReader.isCommit(workspace.containerId(), command.objectId())) {
             throw new IllegalArgumentException("object is not a commit");
         }
-        StageTargets targets = stageTargets.get(workspace.workspaceId());
-        if ((command.kind() == CommandKind.REVERT_NO_EDIT || command.kind() == CommandKind.REVERT_NO_COMMIT)
-                && !command.objectId().equals(targets.revertTarget())) {
-            throw new IllegalArgumentException("only the stage's accidental commit can be reverted");
-        }
+        stagePolicy.validateRevertTarget(command, stageTargets.get(workspace.workspaceId()));
     }
     private void validateStageCommand(Workspace workspace, GitCommand command) {
-        StageTargets targets = stageTargets.get(workspace.workspaceId());
-        if (workspace.stageKey().startsWith("TRAINING-GIT-")) {
-            validateTrainingCommand(workspace.stageKey(), command.kind());
-            return;
-        }
-        if ("STAGE-GIT-01".equals(workspace.stageKey())) {
-            if (command.kind() != CommandKind.STATUS && command.kind() != CommandKind.LOG_ONELINE
-                    && command.kind() != CommandKind.SHOW && command.kind() != CommandKind.REVERT_NO_EDIT
-                    && command.kind() != CommandKind.REVERT_NO_COMMIT
-                    && command.kind() != CommandKind.COMMIT_RESTORE_SETTINGS) {
-                throw new IllegalArgumentException("command is not allowed for this stage");
-            }
-            return;
-        }
-        if ("STAGE-GIT-04".equals(workspace.stageKey())) {
-            if (command.kind() != CommandKind.STATUS && command.kind() != CommandKind.LOG_GRAPH_ALL
-                    && command.kind() != CommandKind.DIFF && command.kind() != CommandKind.BRANCH
-                    && command.kind() != CommandKind.MERGE_PROFILE_MESSAGE && command.kind() != CommandKind.ADD_PROFILE_MESSAGES
-                    && command.kind() != CommandKind.COMMIT_NO_EDIT && command.kind() != CommandKind.COMMIT_ALL_NO_EDIT) {
-                throw new IllegalArgumentException("command is not allowed for this stage");
-            }
-            return;
-        }
-        if ("STAGE-GIT-05".equals(workspace.stageKey())) {
-            if (command.kind() != CommandKind.STATUS && command.kind() != CommandKind.LOG_ONELINE_ALL_DECORATE
-                    && command.kind() != CommandKind.REFLOG_HEAD && command.kind() != CommandKind.SHOW
-                    && command.kind() != CommandKind.CREATE_PAYMENT_RETRY_BRANCH
-                    && command.kind() != CommandKind.SWITCH_PAYMENT_RETRY
-                    && command.kind() != CommandKind.SWITCH_CREATE_PAYMENT_RETRY) {
-                throw new IllegalArgumentException("command is not allowed for this stage");
-            }
-            if ((command.kind() == CommandKind.CREATE_PAYMENT_RETRY_BRANCH
-                    || command.kind() == CommandKind.SWITCH_CREATE_PAYMENT_RETRY)
-                    && !command.objectId().equals(targets.recoveryTarget())) {
-                throw new IllegalArgumentException("only the reflog recovery commit can be used");
-            }
-            return;
-        }
-        if ("STAGE-GIT-03".equals(workspace.stageKey())) {
-            if (command.kind() != CommandKind.STATUS && command.kind() != CommandKind.DIFF && command.kind() != CommandKind.DIFF_STAGED
-                    && command.kind() != CommandKind.BRANCH && command.kind() != CommandKind.STASH_PUSH && command.kind() != CommandKind.STASH_LIST
-                    && command.kind() != CommandKind.STASH_POP && command.kind() != CommandKind.STASH_APPLY
-                    && command.kind() != CommandKind.STASH_DROP && command.kind() != CommandKind.SWITCH) {
-                throw new IllegalArgumentException("command is not allowed for this stage");
-            }
-            if (command.kind() == CommandKind.SWITCH && !"feature/search".equals(command.branchName())) {
-                throw new IllegalArgumentException("only the stage's search branch can be selected");
-            }
-            return;
-        }
-        if (command.kind() != CommandKind.STATUS && command.kind() != CommandKind.LOG_ONELINE_ALL_DECORATE
-                && command.kind() != CommandKind.BRANCH && command.kind() != CommandKind.SHOW
-                && command.kind() != CommandKind.SWITCH && command.kind() != CommandKind.CHERRY_PICK
-                && command.kind() != CommandKind.RESET_HARD) {
-            throw new IllegalArgumentException("command is not allowed for this stage");
-        }
-        if (command.kind() == CommandKind.CHERRY_PICK && !command.objectId().equals(targets.cherryPickTarget())) {
-            throw new IllegalArgumentException("only the stage's notification commit can be cherry-picked");
-        }
-        if (command.kind() == CommandKind.RESET_HARD && !command.objectId().equals(targets.resetTarget())) {
-            throw new IllegalArgumentException("only the stage's original branch tip can be reset");
-        }
-        if (command.kind() == CommandKind.SWITCH && !"feature/profile".equals(command.branchName()) && !"feature/notification".equals(command.branchName())) {
-            throw new IllegalArgumentException("only the stage's branches can be selected");
-        }
+        stagePolicy.validateCommand(workspace.stageKey(), command, stageTargets.get(workspace.workspaceId()));
     }
     void validateTrainingCommand(String stageKey, CommandKind kind) {
-        boolean allowed = switch (stageKey) {
-            case "TRAINING-GIT-01" -> kind == CommandKind.STATUS || kind == CommandKind.DIFF
-                    || kind == CommandKind.DIFF_STAGED || kind == CommandKind.LOG_ONELINE
-                    || kind == CommandKind.ADD_TRAINING_INTRO || kind == CommandKind.COMMIT_TRAINING_ONE;
-            case "TRAINING-GIT-02" -> kind == CommandKind.STATUS || kind == CommandKind.DIFF
-                    || kind == CommandKind.DIFF_STAGED || kind == CommandKind.LOG_ONELINE
-                    || kind == CommandKind.UNSTAGE_TRAINING_REPORT || kind == CommandKind.ADD_TRAINING_IGNORE
-                    || kind == CommandKind.ADD_TRAINING_CONFIG || kind == CommandKind.COMMIT_TRAINING_TWO;
-            case "TRAINING-GIT-03" -> kind == CommandKind.STATUS || kind == CommandKind.DIFF
-                    || kind == CommandKind.DIFF_STAGED || kind == CommandKind.LOG_ONELINE || kind == CommandKind.BRANCH
-                    || kind == CommandKind.SWITCH_CREATE_TRAINING_BRANCH || kind == CommandKind.SWITCH_TRAINING_BRANCH
-                    || kind == CommandKind.ADD_TRAINING_HANDOFF || kind == CommandKind.COMMIT_TRAINING_THREE;
-            default -> false;
-        };
-        if (!allowed) throw new IllegalArgumentException("command is not allowed for this training");
+        stagePolicy.validateTrainingCommand(stageKey, kind);
     }
-    private StageTargets captureStageTargets(String stageKey, RepositorySnapshot initial) {
-        if (stageKey.startsWith("TRAINING-GIT-")) {
-            validateTrainingInitial(stageKey, initial);
-            return new StageTargets(null, null, null, null, Set.of(initial.headObjectId()));
-        }
-        if ("STAGE-GIT-01".equals(stageKey)) {
-            return new StageTargets(initial.headObjectId(), null, null, null, Set.copyOf(initial.ancestorObjectIds()));
-        }
-        if ("STAGE-GIT-03".equals(stageKey)) {
-            var state = initial.stageThree();
-            if (!"main".equals(initial.currentBranch()) || !initial.headObjectId().equals(state.mainTip()) || state.mainTip().isBlank()
-                    || state.featureSearchTip().isBlank() || !state.mainTip().equals(state.featureSearchParent()) || initial.clean()
-                    || !state.workingTreePaths().equals(List.of("search.txt")) || !state.indexPaths().isEmpty() || !state.unmergedPaths().isEmpty()
-                    || !state.untrackedPaths().isEmpty() || !state.stashObjectIds().isEmpty() || initial.revertInProgress()
-                    || initial.cherryPickInProgress() || initial.mergeInProgress() || initial.rebaseInProgress()) {
-                throw new IllegalStateException("stage fixture is invalid");
-            }
-            return new StageTargets(null, null, null, null, Set.of());
-        }
-        if ("STAGE-GIT-04".equals(stageKey)) {
-            var state = initial.stageFour();
-            if (!"main".equals(initial.currentBranch()) || !initial.headObjectId().equals(state.mainTip())
-                    || state.mainTip().isBlank() || state.mainParent().isBlank() || state.featureProfileMessageTip().isBlank()
-                    || !state.mainParent().equals(state.featureProfileMessageParent())
-                    || !STAGE_FOUR_MAIN_BLOB.equals(state.messagesBlobId())
-                    || !STAGE_FOUR_MAIN_TREE.equals(state.mainTreeId()) || !STAGE_FOUR_FEATURE_TREE.equals(state.featureTreeId())
-                    || !initial.clean()
-                    || !state.workingTreePaths().isEmpty() || !state.indexPaths().isEmpty() || !state.unmergedPaths().isEmpty()
-                    || !state.untrackedPaths().isEmpty() || initial.revertInProgress() || initial.cherryPickInProgress()
-                    || initial.mergeInProgress() || initial.rebaseInProgress()) {
-                throw new IllegalStateException("stage fixture is invalid");
-            }
-            return new StageTargets(null, null, null, null, Set.of());
-        }
-        if ("STAGE-GIT-05".equals(stageKey)) {
-            var state = initial.stageFive();
-            if (!"main".equals(initial.currentBranch()) || !STAGE_FIVE_C0.equals(initial.headObjectId())
-                    || !STAGE_FIVE_C0.equals(state.mainTip()) || !STAGE_FIVE_C1.equals(state.recoveryTargetId())
-                    || !STAGE_FIVE_C0.equals(state.recoveryTargetParent()) || !STAGE_FIVE_C1_TREE.equals(state.recoveryTargetTreeId())
-                    || state.paymentRetryTip() != null || !state.localBranches().equals(List.of("main")) || !initial.clean()
-                    || initial.revertInProgress() || initial.cherryPickInProgress() || initial.mergeInProgress() || initial.rebaseInProgress()) {
-                throw new IllegalStateException("stage fixture is invalid");
-            }
-            return new StageTargets(null, null, null, STAGE_FIVE_C1, Set.of(STAGE_FIVE_C0, STAGE_FIVE_C1));
-        }
-        String c1 = initial.headObjectId();
-        String c0 = initial.featureNotificationTip();
-        if (!"feature/profile".equals(initial.currentBranch()) || !c1.equals(initial.featureProfileTip())
-                || c0.isBlank() || initial.headParents().size() != 1 || !c0.equals(initial.headParents().getFirst())
-                || !initial.clean() || initial.cherryPickInProgress()) {
-            throw new IllegalStateException("stage fixture is invalid");
-        }
-        return new StageTargets(null, c0, c1, null, Set.of(c0, c1));
+    private RunnerStagePolicy.Targets captureStageTargets(String stageKey, RepositorySnapshot initial) {
+        return stagePolicy.captureTargets(stageKey, initial);
     }
     private void validateWorkspace(Workspace workspace) {
         var configArguments = gitPrefix(workspace.containerId());
@@ -753,31 +450,7 @@ class RunnerWorkspaceService {
     }
 
     private void validateTrainingInitial(String stageKey, RepositorySnapshot snapshot) {
-        var state = snapshot.training();
-        boolean common = "main".equals(snapshot.currentBranch()) && snapshot.headObjectId().equals(state.mainTip())
-                && state.trainingBranchTip() == null && snapshot.headParents().isEmpty()
-                && !snapshot.clean() && !snapshot.revertInProgress() && !snapshot.cherryPickInProgress()
-                && !snapshot.mergeInProgress() && !snapshot.rebaseInProgress() && state.untrackedPaths().isEmpty();
-        boolean valid = switch (stageKey) {
-            case "TRAINING-GIT-01" -> common
-                    && state.headPaths().equals(List.of("onboarding/intro.txt"))
-                    && state.workingTreePaths().equals(List.of("onboarding/intro.txt"))
-                    && state.indexPaths().isEmpty() && state.ignoredPaths().isEmpty()
-                    && !state.introBlobId().isBlank();
-            case "TRAINING-GIT-02" -> common
-                    && state.headPaths().equals(List.of(".gitignore", "config/application-training.properties"))
-                    && state.workingTreePaths().equals(List.of(".gitignore", "config/application-training.properties"))
-                    && state.indexPaths().equals(List.of("build/training-report.txt"))
-                    && state.ignoredPaths().isEmpty() && state.reportExists()
-                    && !state.ignoreBlobId().isBlank() && !state.configBlobId().isBlank() && !state.reportBlobId().isBlank();
-            case "TRAINING-GIT-03" -> common
-                    && state.headPaths().equals(List.of("docs/handoff.md"))
-                    && state.workingTreePaths().equals(List.of("docs/handoff.md"))
-                    && state.indexPaths().isEmpty() && state.ignoredPaths().isEmpty()
-                    && !state.handoffBlobId().isBlank();
-            default -> false;
-        };
-        if (!valid) throw new IllegalStateException("training fixture is invalid");
+        stagePolicy.validateTrainingInitial(stageKey, snapshot);
     }
 
     private void validateStageFourFixturePaths(Workspace workspace) {
@@ -816,57 +489,14 @@ class RunnerWorkspaceService {
     }
 
     private void requireStageFourFile(Workspace workspace, StageFileKey fileKey) {
-        if (!"STAGE-GIT-04".equals(workspace.stageKey()) || fileKey != StageFileKey.PROFILE_MESSAGES) {
-            throw new IllegalArgumentException("file is not allowed for this stage");
-        }
+        editorPolicy.requireAllowedFile(workspace.stageKey(), fileKey);
     }
 
     private String readStageFourFile(Workspace workspace) {
         var result = docker.run(List.of("exec", workspace.containerId(), "/opt/image-rootfs/stage-four-file", "read"), COMMAND_TIMEOUT);
         if (result.exitCode() != 0 || result.outputTruncated()) throw new IllegalStateException("stage file read failed");
-        validatedEditorBytes(result.stdout(), false);
+        editorPolicy.validatedStoredBytes(result.stdout());
         return result.stdout();
-    }
-
-    private void validateStageFourEditState(RepositorySnapshot snapshot) {
-        var state = snapshot.stageFour();
-        if (!"main".equals(snapshot.currentBranch()) || !snapshot.mergeInProgress() || snapshot.revertInProgress()
-                || snapshot.cherryPickInProgress() || snapshot.rebaseInProgress()
-                || !onlyStageFourPath(state.workingTreePaths()) || !onlyStageFourPath(state.indexPaths())
-                || !onlyStageFourPath(state.unmergedPaths()) || !onlyStageFourPath(state.untrackedPaths())) {
-            throw new IllegalArgumentException("stage file cannot be edited in the current repository state");
-        }
-    }
-
-    private boolean onlyStageFourPath(List<String> paths) {
-        return paths.stream().allMatch(STAGE_FOUR_PATH::equals);
-    }
-
-    private NormalizedEditorContent normalizeEditorContent(String content) {
-        if (content == null) throw new IllegalArgumentException("file content is required");
-        String normalized = content.replace("\r\n", "\n");
-        return new NormalizedEditorContent(normalized, validatedEditorBytes(normalized, true));
-    }
-
-    private byte[] validatedEditorBytes(String content, boolean playerInput) {
-        if (content == null || content.indexOf('\r') >= 0 || content.codePoints().anyMatch(code ->
-                Character.isISOControl(code) && code != '\n' && code != '\t')) {
-            throw new IllegalArgumentException(playerInput ? "file content contains an invalid control character" : "stage file content is invalid");
-        }
-        try {
-            var encoded = StandardCharsets.UTF_8.newEncoder().onMalformedInput(CodingErrorAction.REPORT)
-                    .onUnmappableCharacter(CodingErrorAction.REPORT).encode(CharBuffer.wrap(content));
-            byte[] bytes = new byte[encoded.remaining()]; encoded.get(bytes);
-            if (bytes.length > 2048) throw new IllegalArgumentException("file content is too large");
-            return bytes;
-        } catch (CharacterCodingException exception) {
-            throw new IllegalArgumentException("file content is not valid UTF-8", exception);
-        }
-    }
-
-    private String versionToken(byte[] content) {
-        try { return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(content)); }
-        catch (NoSuchAlgorithmException exception) { throw new IllegalStateException("SHA-256 is unavailable", exception); }
     }
 
     private void invalidateWorkspaceAfterFileFailure(Workspace workspace, String requestId, RuntimeException exception) {
@@ -990,11 +620,5 @@ class RunnerWorkspaceService {
         cleanupPending.add(workspace.workspaceId());
         log.warn("Challenge container cleanup failed: workspaceId={}, reason={}, attempts={}", workspace.workspaceId(), reason, attempts);
     }
-    private record NormalizedEditorContent(String content, byte[] bytes) {
-        NormalizedEditorContent { bytes = bytes.clone(); }
-        @Override public byte[] bytes() { return bytes.clone(); }
-    }
-    private record StageTargets(String revertTarget, String resetTarget, String cherryPickTarget, String recoveryTarget,
-                                Set<String> allowedObjects) { }
     private record Workspace(String workspaceId, String attemptId, long generation, String stageKey, String containerId, Instant createdAt, Instant lastActivityAt) { }
 }

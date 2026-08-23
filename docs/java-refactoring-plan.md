@@ -65,14 +65,14 @@
 | 分類 | file数 | 行数 | 扱い |
 |---|---:|---:|---|
 | app本体 | 42 | 2,174 | クラスタ2・3で責務分割済み |
-| Git Runner本体 | 11 | 1,492 | クラスタ4の対象 |
+| Git Runner本体 | 15 | 1,561 | クラスタ4で4つのstateless責務を分離 |
 | runner-contract | 13 | 188 | 外部contract。原則変更禁止 |
 | DB migrator | 1 | 20 | schema起動入口。原則変更禁止 |
 | app test | 30 | 2,731 | appのcharacterization／回帰証拠 |
-| Runner test | 12 | 1,644 | Runnerのcharacterization／security証拠 |
+| Runner test | 16 | 2,030 | Runnerのcharacterization／security証拠 |
 | Java教材reference source | 18 | 963 | 教材content。クラスタ2で個別に可読性を判断 |
 
-合計は127 Java fileである。module依存は次の向きだけとする。
+合計は135 Java fileである。module依存は次の向きだけとする。
 
 ```text
 app ---------> runner-contract <--------- git-runner
@@ -111,7 +111,11 @@ Java教材reference --X--> runtime component
 | command validation | `RunnerCommandValidator` | command kindとargumentの再検証 | 4。stateless候補 |
 | Docker gateway | `DockerGateway` | 固定Docker CLI process実行 | 4。秘密値を継承しない境界を維持 |
 | ownership ledger | `ContainerOwnershipLedger`、`FileContainerOwnershipLedger`、`MemoryContainerOwnershipLedger` | 所有containerの永続／memory台帳 | 4 |
-| workspace coordinator | `RunnerWorkspaceService` | workspace registry、request結果、Docker lifecycle、Git、snapshot、fixture、editor、TTL、cleanup、shutdown | 4。単一状態所有者を維持して段階抽出 |
+| workspace coordinator | `RunnerWorkspaceService` | workspace registry、request結果、Docker lifecycle、TTL、cleanup、shutdown | 4で単一状態所有者を維持 |
+| Git argv | `RunnerGitArguments` | typed commandから固定Git argvへの変換 | 4で分離済み |
+| snapshot | `RunnerSnapshotReader` | 固定Git観測からtyped snapshotを構築 | 4で分離済み |
+| stage policy | `RunnerStagePolicy` | 許可command、branch、object target、初期fixture検証 | 4で分離済み |
+| editor policy | `RunnerEditorPolicy` | file key、内容、改行、byte上限、version token検証 | 4で分離済み |
 
 ### 3.3 contract、migrator、test、教材source
 
@@ -124,7 +128,7 @@ Java教材reference --X--> runtime component
 
 | class | 行数 | 混在している責務 | 方針 |
 |---|---:|---|---|
-| `RunnerWorkspaceService` | 約1,000 | lifecycle、Docker、Git、snapshot、fixture、editor、idempotency、TTL、cleanup | stateful coordinatorを残し、stateless処理から1責務ずつ抽出 |
+| `RunnerWorkspaceService` | 約600 | lifecycle、Docker、fixture固有観測、idempotency、TTL、cleanup | クラスタ4でstateless責務を抽出済み。追加分割はクラスタ5で再評価 |
 | `StageRules` | 約575 | 8教材定義、parse、normalize、hint、対象capture、採点、表示済みID | 教材catalog、command policy、grading policyを別rollback単位で抽出 |
 | `StageService` | 約339 | attempt memory、DB遷移、Runner call、recovery、clear、reset、view生成 | attempt lifecycle coordinatorを1つに固定し、stateを持たない処理だけを先に分離 |
 | `FileContainerOwnershipLedger` | 約187 | file format、atomic更新、ownership検証 | I/Oとdata変換の境界を確認してから判断 |
@@ -267,6 +271,28 @@ package間の依存方向は次を基本とする。layer名へ合わせるた�
 6. lifecycle coordinator、registry、ledger、cleanupは最後まで単一所有者を維持する。
 7. coordinator自体の追加分割は、先行抽出後の行数と理解度を再評価して別承認する。
 
+クラスタ4では、`RunnerWorkspaceService`を唯一のstateful coordinatorとして維持し、次の4単位だけを順番に抽出する。各単位にはpackage-private classの直接characterization testを追加し、単独でrollbackできるcommitにする。
+
+1. `RunnerGitArguments`: `GitCommand`から固定Docker argvを構築する。共通化は`docker exec`と固定環境変数までに限定し、通常snapshot、stash、branch確認、fixtureのlocal config観測は用途別suffixを維持する。任意argvや任意suffixを受けるAPIは作らず、返却値は毎回新しいimmutable listとする。
+2. `RunnerSnapshotReader`: container IDとstage keyから固定手順で`RepositorySnapshot`とfixture観測値を読む。任意path、任意ref、任意argvを受けるpackage APIは作らず、既存の5秒timeout、exit code 0／1／error、truncation、state file、stash異常の意味を維持する。
+3. `RunnerStagePolicy`: Dockerへ依存しない純粋policyとして、stage kind、branch、object target、初期fixtureを検証する。service所有の`allowedObjects`やworkspace stateを持たず、`RepositorySnapshot`と型付きimmutable observationだけを受け取る。
+4. `RunnerEditorPolicy`: file key、repository edit state、改行正規化、UTF-8／control character／2,048 byte上限、SHA-256 version tokenを純粋に扱う。Docker read／write、request replay、response保存、cleanupはcoordinatorに残す。
+
+player指定object IDを扱う実行順は、次の順序から変更しない。
+
+1. `RunnerCommandValidator`による型と形式の検査。
+2. workspace／generationとrequest replayの確認。
+3. service所有`allowedObjects`との完全一致確認。
+4. `RunnerSnapshotReader`の固定`git cat-file -t`によるcommit型確認。
+5. Docker非依存の`RunnerStagePolicy`によるstage kind／branch／target検査。
+6. 固定argvによるplayer command実行。
+
+クラスタ4では、上記4単位を独立commitで実装した。`RunnerWorkspaceService`はmaps、workspace、request結果、ledger、TTL、cleanup、shutdownの唯一の所有者として残し、約1,000行から約600行へ縮小した。`runner-contract`、HTTP route、Spring wiring、challenge image、fixture、教材内容、error message、timeout、resource limitは変更していない。元実装でstage allowlistより前に行っていたrevert対象検証だけを同じ順序で維持し、allowlist外、non-commit、誤revert対象、request replayのDocker call provenanceをservice境界testで固定した。
+
+未知、未表示、現在workspaceの`allowedObjects`にないobject IDではDockerを呼ばない。`allowedObjects`に含まれるがstageの誤targetであるIDは、現行どおり固定`git cat-file -t`を1回実行した後に`RunnerStagePolicy`が拒否し、player commandは実行しない。replay時には追加Docker呼出しを行わない。editorの純粋入力検証は現行どおりreplay lookup前、snapshot依存のstate検証は現行どおりworkspace cleanup対象のcatch境界内に置く。version比較、replay保存、Docker書込み、書込み後検証の順序も変えない。
+
+直接unit testでは、全`CommandKind`のargv要素と順序、snapshotのexit code／truncation／state file／stash異常、editorの2,048／2,049 UTF-8 byte、複数byte文字、CRLF／単独CR、control character、SHA-256 token、例外型・message・causeを固定する。`RunnerStagePolicyTest`では、全production stage／trainingの許可・拒否`CommandKind`、branch名、object target、不足または不整合のあるtyped observation、初期fixtureの正常系と代表的な近似不正、未知stageのfail-closedを表形式で固定する。policy testはDocker、snapshot reader、workspace mapへ依存させない。テスト専用public APIやSpring wiringは追加しない。
+
 ### クラスタ5: 全体統合
 
 1. 全120 Java fileを再点検する。
@@ -287,6 +313,9 @@ package間の依存方向は次を基本とする。layer名へ合わせるた�
 | 2026-08-23 | `.\scripts\invoke-maven.ps1 test` | Temurin 25／Maven Wrapper 3.9.16、sandbox外 | 成功 | クラスタ2変更後。Runner 36件、app 95件が成功 |
 | 2026-08-23 | StageRules対象限定test | Temurin 25／Maven Wrapper 3.9.16、sandbox外 | 成功 | クラスタ3。catalog 21件、command policy 22件、state policy 47件が成功 |
 | 2026-08-23 | root通常testをメイン・中谷で分担 | Temurin 25／Maven Wrapper 3.9.16、sandbox外 | 成功 | メインは`*Test,!StageControllerTest`でRunner 36件・app 94件、中谷は`StageControllerTest` 6件。合計Runner 36件・app 100件 |
+| 2026-08-23 | Git Runner変更前Docker IT（class単位） | Temurin 25／Maven Wrapper 3.9.16、Docker Desktop 29.5.3 | 成功 | Alternative 7件、Security 2件、Stage 2 1件、Stage 3 1件、Stage 4 2件、Stage 5 3件、Training 3件。合計19件。終了後のRunner管理containerは0件 |
+| 2026-08-24 | Git Runner変更後対象unit test | Temurin 25／Maven Wrapper 3.9.16、sandbox外 | 成功 | ledger 7件、command validator 3件、stage policy 5件、token filter 2件、workspace／idempotency 24件。合計41件 |
+| 2026-08-24 | Git Runner変更後Docker IT（class単位） | Temurin 25／Maven Wrapper 3.9.16、Docker Desktop 29.5.3 | 成功 | Alternative 7件、Security 2件、Stage 2 1件、Stage 3 1件、Stage 4 2件、Stage 5 3件、Training 3件。合計19件。終了後のRunner管理containerは0件 |
 
 クラスタ1の基準取得時に失敗していたtestは次のとおりである。
 
@@ -297,7 +326,7 @@ package間の依存方向は次を基本とする。layer名へ合わせるた�
 
 この失敗はクラスタ1の文書変更によるものではなかった。現仕様とproductionの固定commandを根拠にtest fixtureと古い表示期待だけを独立commit `d7b4707`で修正し、正式なroot `test`をgreenへ戻してからクラスタ2へ着手した。
 
-通常のMaven `test`は`*IT`を実行しない。Docker／DB testは未実行である。
+通常のMaven `test`は`*IT`を実行しない。Docker ITのクラスタ4変更前baselineは上表のとおり実行済みで、DB ITは未実行である。
 
 ### 8.2 各クラスタの着手gate
 
@@ -327,3 +356,5 @@ Docker／DBのようにユーザー許可と外部環境が必要なbaselineは�
 クラスタ2は、基準線をgreenへ戻した独立commit、Java問題contentのI/Oと検証の責務分割、直接的な安全制約test、井上の実装前後レビュー、変更後のroot `test`成功をもって完了する。次のクラスタ3ではGit appを対象とし、Java問題集の責務分割を追加で広げない。
 
 クラスタ3は、`StageRules`のcharacterization、3責務の独立抽出、井上の実装前後レビュー`PASS`、対象限定test、変更後の分担root test成功をもって完了した。次のクラスタ4ではGit Runnerを対象とし、appの責務分割を追加で広げない。
+
+クラスタ4は、Git argv、snapshot、stage policy、editor policyの4つをpackage-privateなstateless classへ独立抽出し、`RunnerWorkspaceService`の単一状態所有、security boundary、wire contract、fixtureを維持した。井上の実装前後レビューは`PASS`で、変更後対象unit test 41件とDocker IT 19件が成功し、Runner管理containerが0件であることを確認して完了した。次のクラスタ5では全体統合だけを扱う。
