@@ -4,12 +4,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.Clock;
 import java.nio.charset.StandardCharsets;
-import java.nio.charset.CharacterCodingException;
-import java.nio.charset.CodingErrorAction;
-import java.nio.CharBuffer;
 import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.HexFormat;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -71,6 +66,7 @@ class RunnerWorkspaceService {
     private final RunnerGitArguments gitArgumentsBuilder = new RunnerGitArguments();
     private final RunnerSnapshotReader snapshotReader;
     private final RunnerStagePolicy stagePolicy;
+    private final RunnerEditorPolicy editorPolicy = new RunnerEditorPolicy();
     private final AtomicBoolean shuttingDown = new AtomicBoolean();
     private final AtomicBoolean degraded = new AtomicBoolean();
 
@@ -222,7 +218,8 @@ class RunnerWorkspaceService {
         if (existing != null) { touch(workspace); return existing; }
         try {
             String content = readStageFourFile(workspace);
-            FileContentResponse response = new FileContentResponse(content, versionToken(validatedEditorBytes(content, false)));
+            FileContentResponse response = new FileContentResponse(content,
+                    editorPolicy.versionToken(editorPolicy.validatedStoredBytes(content)));
             readFileRequests.put(idempotencyKey, response);
             touch(workspace);
             return response;
@@ -238,10 +235,8 @@ class RunnerWorkspaceService {
         requireRequest(request.attemptId(), request.requestId(), request.generation());
         Workspace workspace = workspace(request.workspaceId(), request.attemptId(), request.generation());
         requireStageFourFile(workspace, request.fileKey());
-        if (request.versionToken() == null || !request.versionToken().matches("[0-9a-f]{64}")) {
-            throw new IllegalArgumentException("file version is invalid");
-        }
-        NormalizedEditorContent normalized = normalizeEditorContent(request.content());
+        editorPolicy.requireVersionToken(request.versionToken());
+        RunnerEditorPolicy.NormalizedContent normalized = editorPolicy.normalizePlayerContent(request.content());
         String idempotencyKey = requestKey("write:" + workspace.workspaceId(), request.requestId());
         WriteFileResponse existing = writeFileRequests.get(idempotencyKey);
         if (existing != null) { touch(workspace); return existing; }
@@ -254,14 +249,14 @@ class RunnerWorkspaceService {
         }
         String current;
         try {
-            validateStageFourEditState(before);
+            editorPolicy.validateEditState(before);
             current = readStageFourFile(workspace);
         }
         catch (RuntimeException exception) {
             invalidateWorkspaceAfterFileFailure(workspace, request.requestId(), exception);
             throw exception;
         }
-        String currentToken = versionToken(validatedEditorBytes(current, false));
+        String currentToken = editorPolicy.versionToken(editorPolicy.validatedStoredBytes(current));
         if (!MessageDigest.isEqual(currentToken.getBytes(StandardCharsets.US_ASCII), request.versionToken().getBytes(StandardCharsets.US_ASCII))) {
             WriteFileResponse response = new WriteFileResponse(false, currentToken, before);
             writeFileRequests.put(idempotencyKey, response);
@@ -274,9 +269,9 @@ class RunnerWorkspaceService {
                     COMMAND_TIMEOUT, normalized.bytes());
             if (result.exitCode() != 0 || result.outputTruncated()) throw new IllegalStateException("stage file write failed");
             String written = readStageFourFile(workspace);
-            byte[] writtenBytes = validatedEditorBytes(written, false);
+            byte[] writtenBytes = editorPolicy.validatedStoredBytes(written);
             if (!MessageDigest.isEqual(writtenBytes, normalized.bytes())) throw new IllegalStateException("stage file write verification failed");
-            WriteFileResponse response = new WriteFileResponse(true, versionToken(writtenBytes), snapshot(workspace));
+            WriteFileResponse response = new WriteFileResponse(true, editorPolicy.versionToken(writtenBytes), snapshot(workspace));
             writeFileRequests.put(idempotencyKey, response);
             touch(workspace);
             return response;
@@ -493,57 +488,14 @@ class RunnerWorkspaceService {
     }
 
     private void requireStageFourFile(Workspace workspace, StageFileKey fileKey) {
-        if (!"STAGE-GIT-04".equals(workspace.stageKey()) || fileKey != StageFileKey.PROFILE_MESSAGES) {
-            throw new IllegalArgumentException("file is not allowed for this stage");
-        }
+        editorPolicy.requireAllowedFile(workspace.stageKey(), fileKey);
     }
 
     private String readStageFourFile(Workspace workspace) {
         var result = docker.run(List.of("exec", workspace.containerId(), "/opt/image-rootfs/stage-four-file", "read"), COMMAND_TIMEOUT);
         if (result.exitCode() != 0 || result.outputTruncated()) throw new IllegalStateException("stage file read failed");
-        validatedEditorBytes(result.stdout(), false);
+        editorPolicy.validatedStoredBytes(result.stdout());
         return result.stdout();
-    }
-
-    private void validateStageFourEditState(RepositorySnapshot snapshot) {
-        var state = snapshot.stageFour();
-        if (!"main".equals(snapshot.currentBranch()) || !snapshot.mergeInProgress() || snapshot.revertInProgress()
-                || snapshot.cherryPickInProgress() || snapshot.rebaseInProgress()
-                || !onlyStageFourPath(state.workingTreePaths()) || !onlyStageFourPath(state.indexPaths())
-                || !onlyStageFourPath(state.unmergedPaths()) || !onlyStageFourPath(state.untrackedPaths())) {
-            throw new IllegalArgumentException("stage file cannot be edited in the current repository state");
-        }
-    }
-
-    private boolean onlyStageFourPath(List<String> paths) {
-        return paths.stream().allMatch(STAGE_FOUR_PATH::equals);
-    }
-
-    private NormalizedEditorContent normalizeEditorContent(String content) {
-        if (content == null) throw new IllegalArgumentException("file content is required");
-        String normalized = content.replace("\r\n", "\n");
-        return new NormalizedEditorContent(normalized, validatedEditorBytes(normalized, true));
-    }
-
-    private byte[] validatedEditorBytes(String content, boolean playerInput) {
-        if (content == null || content.indexOf('\r') >= 0 || content.codePoints().anyMatch(code ->
-                Character.isISOControl(code) && code != '\n' && code != '\t')) {
-            throw new IllegalArgumentException(playerInput ? "file content contains an invalid control character" : "stage file content is invalid");
-        }
-        try {
-            var encoded = StandardCharsets.UTF_8.newEncoder().onMalformedInput(CodingErrorAction.REPORT)
-                    .onUnmappableCharacter(CodingErrorAction.REPORT).encode(CharBuffer.wrap(content));
-            byte[] bytes = new byte[encoded.remaining()]; encoded.get(bytes);
-            if (bytes.length > 2048) throw new IllegalArgumentException("file content is too large");
-            return bytes;
-        } catch (CharacterCodingException exception) {
-            throw new IllegalArgumentException("file content is not valid UTF-8", exception);
-        }
-    }
-
-    private String versionToken(byte[] content) {
-        try { return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(content)); }
-        catch (NoSuchAlgorithmException exception) { throw new IllegalStateException("SHA-256 is unavailable", exception); }
     }
 
     private void invalidateWorkspaceAfterFileFailure(Workspace workspace, String requestId, RuntimeException exception) {
@@ -666,10 +618,6 @@ class RunnerWorkspaceService {
         int attempts = cleanupAttempts.merge(workspace.workspaceId(), 1, Integer::sum);
         cleanupPending.add(workspace.workspaceId());
         log.warn("Challenge container cleanup failed: workspaceId={}, reason={}, attempts={}", workspace.workspaceId(), reason, attempts);
-    }
-    private record NormalizedEditorContent(String content, byte[] bytes) {
-        NormalizedEditorContent { bytes = bytes.clone(); }
-        @Override public byte[] bytes() { return bytes.clone(); }
     }
     private record Workspace(String workspaceId, String attemptId, long generation, String stageKey, String containerId, Instant createdAt, Instant lastActivityAt) { }
 }
