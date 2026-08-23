@@ -32,10 +32,6 @@ final class RunnerStagePolicy {
         if ("STAGE-GIT-01".equals(stageKey)) {
             requireAllowed(command.kind(), Set.of(CommandKind.STATUS, CommandKind.LOG_ONELINE, CommandKind.SHOW,
                     CommandKind.REVERT_NO_EDIT, CommandKind.REVERT_NO_COMMIT, CommandKind.COMMIT_RESTORE_SETTINGS));
-            if ((command.kind() == CommandKind.REVERT_NO_EDIT || command.kind() == CommandKind.REVERT_NO_COMMIT)
-                    && !command.objectId().equals(targets.revertTarget())) {
-                throw new IllegalArgumentException("only the stage's accidental commit can be reverted");
-            }
             return;
         }
         if ("STAGE-GIT-04".equals(stageKey)) {
@@ -79,6 +75,13 @@ final class RunnerStagePolicy {
         if (command.kind() == CommandKind.SWITCH && !"feature/profile".equals(command.branchName())
                 && !"feature/notification".equals(command.branchName())) {
             throw new IllegalArgumentException("only the stage's branches can be selected");
+        }
+    }
+
+    void validateRevertTarget(GitCommand command, Targets targets) {
+        if ((command.kind() == CommandKind.REVERT_NO_EDIT || command.kind() == CommandKind.REVERT_NO_COMMIT)
+                && !command.objectId().equals(targets.revertTarget())) {
+            throw new IllegalArgumentException("only the stage's accidental commit can be reverted");
         }
     }
 

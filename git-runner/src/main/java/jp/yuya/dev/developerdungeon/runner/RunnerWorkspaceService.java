@@ -415,6 +415,7 @@ class RunnerWorkspaceService {
         if (!snapshotReader.isCommit(workspace.containerId(), command.objectId())) {
             throw new IllegalArgumentException("object is not a commit");
         }
+        stagePolicy.validateRevertTarget(command, stageTargets.get(workspace.workspaceId()));
     }
     private void validateStageCommand(Workspace workspace, GitCommand command) {
         stagePolicy.validateCommand(workspace.stageKey(), command, stageTargets.get(workspace.workspaceId()));

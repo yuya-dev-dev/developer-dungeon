@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.times;
@@ -70,9 +71,49 @@ class RunnerWorkspaceServiceIdempotencyTest {
         DockerGateway docker = fixtureDocker();
         var service = new RunnerWorkspaceService(docker, new RunnerProperties("a".repeat(43), IMAGE, FINGERPRINT, "C:\\docker.exe"), new RunnerCommandValidator());
         var workspace = service.create(new WorkspaceRequest("11111111-1111-1111-1111-111111111111", "22222222-2222-2222-2222-222222222222", "STAGE-GIT-01", 0));
+        clearInvocations(docker);
 
         assertThatThrownBy(() -> service.execute(new ExecuteRequest("11111111-1111-1111-1111-111111111111", "33333333-3333-3333-3333-333333333333", workspace.workspaceId(), 0,
-                new GitCommand(CommandKind.REVERT_NO_EDIT, "b".repeat(40))))).isInstanceOf(IllegalArgumentException.class);
+                new GitCommand(CommandKind.REVERT_NO_EDIT, "b".repeat(40)))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("only the stage's accidental commit can be reverted");
+
+        verify(docker, times(1)).run(argThat(arguments -> arguments.contains("cat-file")), any(Duration.class));
+        verify(docker, times(0)).run(argThat(arguments -> arguments.contains("revert")), any(Duration.class));
+    }
+
+    @Test
+    void rejectsObjectOutsideTheCapturedAllowlistBeforeInspectingOrExecutingIt() {
+        DockerGateway docker = fixtureDocker();
+        var service = new RunnerWorkspaceService(docker, new RunnerProperties("a".repeat(43), IMAGE, FINGERPRINT, "C:\\docker.exe"), new RunnerCommandValidator());
+        var workspace = service.create(new WorkspaceRequest("11111111-1111-1111-1111-111111111111", "22222222-2222-2222-2222-222222222222", "STAGE-GIT-01", 0));
+        clearInvocations(docker);
+
+        assertThatThrownBy(() -> service.execute(new ExecuteRequest("11111111-1111-1111-1111-111111111111", "33333333-3333-3333-3333-333333333333", workspace.workspaceId(), 0,
+                new GitCommand(CommandKind.SHOW, "d".repeat(40)))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("object is not allowed for this stage");
+
+        verify(docker, times(0)).run(argThat(arguments -> arguments.contains("cat-file")), any(Duration.class));
+        verify(docker, times(0)).run(argThat(arguments -> arguments.contains("--no-ext-diff")), any(Duration.class));
+    }
+
+    @Test
+    void rejectsAllowedNonCommitBeforeExecutingThePlayerCommand() {
+        DockerGateway docker = fixtureDocker();
+        var service = new RunnerWorkspaceService(docker, new RunnerProperties("a".repeat(43), IMAGE, FINGERPRINT, "C:\\docker.exe"), new RunnerCommandValidator());
+        var workspace = service.create(new WorkspaceRequest("11111111-1111-1111-1111-111111111111", "22222222-2222-2222-2222-222222222222", "STAGE-GIT-01", 0));
+        clearInvocations(docker);
+        when(docker.run(argThat(arguments -> arguments.contains("cat-file") && arguments.contains("-t")), any(Duration.class)))
+                .thenReturn(result("blob\n"));
+
+        assertThatThrownBy(() -> service.execute(new ExecuteRequest("11111111-1111-1111-1111-111111111111", "33333333-3333-3333-3333-333333333333", workspace.workspaceId(), 0,
+                new GitCommand(CommandKind.SHOW, "b".repeat(40)))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("object is not a commit");
+
+        verify(docker, times(1)).run(argThat(arguments -> arguments.contains("cat-file")), any(Duration.class));
+        verify(docker, times(0)).run(argThat(arguments -> arguments.contains("--no-ext-diff")), any(Duration.class));
     }
 
     @Test
@@ -82,7 +123,9 @@ class RunnerWorkspaceServiceIdempotencyTest {
         var workspace = service.create(new WorkspaceRequest("11111111-1111-1111-1111-111111111111", "22222222-2222-2222-2222-222222222222", "STAGE-GIT-01", 0));
 
         assertThatThrownBy(() -> service.execute(new ExecuteRequest("11111111-1111-1111-1111-111111111111", "33333333-3333-3333-3333-333333333333", workspace.workspaceId(), 0,
-                new GitCommand(CommandKind.CHERRY_PICK, "c".repeat(40))))).isInstanceOf(IllegalArgumentException.class);
+                new GitCommand(CommandKind.CHERRY_PICK, "c".repeat(40)))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("command is not allowed for this stage");
 
         verify(docker, times(0)).run(argThat(arguments -> arguments.contains("cherry-pick")), any(Duration.class));
     }
@@ -128,10 +171,12 @@ class RunnerWorkspaceServiceIdempotencyTest {
         var workspace = service.create(new WorkspaceRequest("11111111-1111-1111-1111-111111111111", "22222222-2222-2222-2222-222222222222", "STAGE-GIT-01", 0));
         var request = new ExecuteRequest("11111111-1111-1111-1111-111111111111", "33333333-3333-3333-3333-333333333333", workspace.workspaceId(), 0,
                 new GitCommand(CommandKind.SHOW, "c".repeat(40)));
+        clearInvocations(docker);
 
         service.execute(request);
         service.execute(request);
 
+        verify(docker, times(1)).run(argThat(arguments -> arguments.contains("cat-file")), any(Duration.class));
         verify(docker, times(1)).run(argThat(arguments -> arguments.contains("--no-ext-diff")), any(Duration.class));
     }
 

@@ -73,8 +73,9 @@ class RunnerStagePolicyTest {
 
     @Test
     void rejectsWrongBranchAndObjectTargetsWithTheExistingMessages() {
-        assertTargetFailure("STAGE-GIT-01", new GitCommand(CommandKind.REVERT_NO_EDIT, C),
-                "only the stage's accidental commit can be reverted");
+        assertThatThrownBy(() -> policy.validateRevertTarget(new GitCommand(CommandKind.REVERT_NO_EDIT, C), targets("STAGE-GIT-01")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("only the stage's accidental commit can be reverted");
         assertTargetFailure("STAGE-GIT-02", new GitCommand(CommandKind.CHERRY_PICK, C),
                 "only the stage's notification commit can be cherry-picked");
         assertTargetFailure("STAGE-GIT-02", new GitCommand(CommandKind.RESET_HARD, C),
