@@ -33,7 +33,7 @@ class RunnerWorkspaceServiceIdempotencyTest {
     @Test
     void duplicateCreateRequestUsesTheExistingWorkspace() {
         DockerGateway docker = fixtureDocker();
-        var service = new RunnerWorkspaceService(docker, new RunnerProperties("a".repeat(43), IMAGE, FINGERPRINT, "C:\\docker.exe"), new RunnerCommandValidator());
+        RunnerWorkspaceService service = service(docker);
         var request = new WorkspaceRequest("11111111-1111-1111-1111-111111111111", "22222222-2222-2222-2222-222222222222", "STAGE-GIT-01", 0);
 
         var first = service.create(request);
@@ -46,7 +46,7 @@ class RunnerWorkspaceServiceIdempotencyTest {
     @Test
     void rejectsInvalidRequestIdentityBeforeCallingDocker() {
         DockerGateway docker = mock(DockerGateway.class);
-        var service = new RunnerWorkspaceService(docker, new RunnerProperties("a".repeat(43), IMAGE, FINGERPRINT, "C:\\docker.exe"), new RunnerCommandValidator());
+        RunnerWorkspaceService service = service(docker);
 
         assertThatThrownBy(() -> service.create(new WorkspaceRequest("not-a-uuid", "22222222-2222-2222-2222-222222222222", "STAGE-GIT-01", 0)))
                 .isInstanceOf(IllegalArgumentException.class);
@@ -58,7 +58,7 @@ class RunnerWorkspaceServiceIdempotencyTest {
         DockerGateway docker = fixtureDocker();
         when(docker.run(argThat(arguments -> arguments.getFirst().equals("container")), any(Duration.class)))
                 .thenReturn(result(IMAGE + "|{}"));
-        var service = new RunnerWorkspaceService(docker, new RunnerProperties("a".repeat(43), IMAGE, FINGERPRINT, "C:\\docker.exe"), new RunnerCommandValidator());
+        RunnerWorkspaceService service = service(docker);
 
         assertThatThrownBy(() -> service.create(new WorkspaceRequest("11111111-1111-1111-1111-111111111111", "22222222-2222-2222-2222-222222222222", "STAGE-GIT-01", 0)))
                 .isInstanceOf(IllegalStateException.class);
@@ -69,7 +69,7 @@ class RunnerWorkspaceServiceIdempotencyTest {
     @Test
     void rejectsRevertOfAnAncestorOtherThanTheAccidentalCommit() {
         DockerGateway docker = fixtureDocker();
-        var service = new RunnerWorkspaceService(docker, new RunnerProperties("a".repeat(43), IMAGE, FINGERPRINT, "C:\\docker.exe"), new RunnerCommandValidator());
+        RunnerWorkspaceService service = service(docker);
         var workspace = service.create(new WorkspaceRequest("11111111-1111-1111-1111-111111111111", "22222222-2222-2222-2222-222222222222", "STAGE-GIT-01", 0));
         clearInvocations(docker);
 
@@ -85,7 +85,7 @@ class RunnerWorkspaceServiceIdempotencyTest {
     @Test
     void rejectsObjectOutsideTheCapturedAllowlistBeforeInspectingOrExecutingIt() {
         DockerGateway docker = fixtureDocker();
-        var service = new RunnerWorkspaceService(docker, new RunnerProperties("a".repeat(43), IMAGE, FINGERPRINT, "C:\\docker.exe"), new RunnerCommandValidator());
+        RunnerWorkspaceService service = service(docker);
         var workspace = service.create(new WorkspaceRequest("11111111-1111-1111-1111-111111111111", "22222222-2222-2222-2222-222222222222", "STAGE-GIT-01", 0));
         clearInvocations(docker);
 
@@ -101,7 +101,7 @@ class RunnerWorkspaceServiceIdempotencyTest {
     @Test
     void rejectsAllowedNonCommitBeforeExecutingThePlayerCommand() {
         DockerGateway docker = fixtureDocker();
-        var service = new RunnerWorkspaceService(docker, new RunnerProperties("a".repeat(43), IMAGE, FINGERPRINT, "C:\\docker.exe"), new RunnerCommandValidator());
+        RunnerWorkspaceService service = service(docker);
         var workspace = service.create(new WorkspaceRequest("11111111-1111-1111-1111-111111111111", "22222222-2222-2222-2222-222222222222", "STAGE-GIT-01", 0));
         clearInvocations(docker);
         when(docker.run(argThat(arguments -> arguments.contains("cat-file") && arguments.contains("-t")), any(Duration.class)))
@@ -119,7 +119,7 @@ class RunnerWorkspaceServiceIdempotencyTest {
     @Test
     void rejectsStageTwoCommandForStageOneBeforeExecutingGit() {
         DockerGateway docker = fixtureDocker();
-        var service = new RunnerWorkspaceService(docker, new RunnerProperties("a".repeat(43), IMAGE, FINGERPRINT, "C:\\docker.exe"), new RunnerCommandValidator());
+        RunnerWorkspaceService service = service(docker);
         var workspace = service.create(new WorkspaceRequest("11111111-1111-1111-1111-111111111111", "22222222-2222-2222-2222-222222222222", "STAGE-GIT-01", 0));
 
         assertThatThrownBy(() -> service.execute(new ExecuteRequest("11111111-1111-1111-1111-111111111111", "33333333-3333-3333-3333-333333333333", workspace.workspaceId(), 0,
@@ -135,7 +135,7 @@ class RunnerWorkspaceServiceIdempotencyTest {
         DockerGateway docker = fixtureDocker();
         when(docker.run(argThat(arguments -> arguments.contains("/usr/bin/test") && arguments.stream().anyMatch(argument -> argument.contains("CHERRY_PICK_HEAD"))), any(Duration.class)))
                 .thenReturn(new DockerGateway.ProcessResult(2, "", "permission denied", false));
-        var service = new RunnerWorkspaceService(docker, new RunnerProperties("a".repeat(43), IMAGE, FINGERPRINT, "C:\\docker.exe"), new RunnerCommandValidator());
+        RunnerWorkspaceService service = service(docker);
 
         assertThatThrownBy(() -> service.create(new WorkspaceRequest("11111111-1111-1111-1111-111111111111", "22222222-2222-2222-2222-222222222222", "STAGE-GIT-01", 0)))
                 .isInstanceOf(IllegalStateException.class).hasMessage("Git state file check failed");
@@ -146,7 +146,7 @@ class RunnerWorkspaceServiceIdempotencyTest {
         DockerGateway docker = fixtureDocker();
         when(docker.run(argThat(arguments -> arguments.contains("rev-list")), any(Duration.class)))
                 .thenReturn(new DockerGateway.ProcessResult(0, "c".repeat(40), "", true));
-        var service = new RunnerWorkspaceService(docker, new RunnerProperties("a".repeat(43), IMAGE, FINGERPRINT, "C:\\docker.exe"), new RunnerCommandValidator());
+        RunnerWorkspaceService service = service(docker);
 
         assertThatThrownBy(() -> service.create(new WorkspaceRequest("11111111-1111-1111-1111-111111111111", "22222222-2222-2222-2222-222222222222", "STAGE-GIT-01", 0)))
                 .isInstanceOf(IllegalStateException.class).hasMessage("snapshot failed");
@@ -155,7 +155,7 @@ class RunnerWorkspaceServiceIdempotencyTest {
     @Test
     void runsGitWithFixedConfigurationAndNoExternalDiffOrTextConversion() {
         DockerGateway docker = fixtureDocker();
-        var service = new RunnerWorkspaceService(docker, new RunnerProperties("a".repeat(43), IMAGE, FINGERPRINT, "C:\\docker.exe"), new RunnerCommandValidator());
+        RunnerWorkspaceService service = service(docker);
         var workspace = service.create(new WorkspaceRequest("11111111-1111-1111-1111-111111111111", "22222222-2222-2222-2222-222222222222", "STAGE-GIT-01", 0));
 
         service.execute(new ExecuteRequest("11111111-1111-1111-1111-111111111111", "33333333-3333-3333-3333-333333333333", workspace.workspaceId(), 0,
@@ -167,7 +167,7 @@ class RunnerWorkspaceServiceIdempotencyTest {
     @Test
     void duplicateExecuteRequestRunsGitOnlyOnce() {
         DockerGateway docker = fixtureDocker();
-        var service = new RunnerWorkspaceService(docker, new RunnerProperties("a".repeat(43), IMAGE, FINGERPRINT, "C:\\docker.exe"), new RunnerCommandValidator());
+        RunnerWorkspaceService service = service(docker);
         var workspace = service.create(new WorkspaceRequest("11111111-1111-1111-1111-111111111111", "22222222-2222-2222-2222-222222222222", "STAGE-GIT-01", 0));
         var request = new ExecuteRequest("11111111-1111-1111-1111-111111111111", "33333333-3333-3333-3333-333333333333", workspace.workspaceId(), 0,
                 new GitCommand(CommandKind.SHOW, "c".repeat(40)));
@@ -211,7 +211,7 @@ class RunnerWorkspaceServiceIdempotencyTest {
     @Test
     void createAddsIdentityAndFingerprintLabelsToTheContainer() {
         DockerGateway docker = fixtureDocker();
-        var service = new RunnerWorkspaceService(docker, new RunnerProperties("a".repeat(43), IMAGE, FINGERPRINT, "C:\\docker.exe"), new RunnerCommandValidator());
+        RunnerWorkspaceService service = service(docker);
 
         service.create(new WorkspaceRequest("11111111-1111-1111-1111-111111111111", "22222222-2222-2222-2222-222222222222", "STAGE-GIT-01", 0));
 
@@ -223,7 +223,7 @@ class RunnerWorkspaceServiceIdempotencyTest {
     @Test
     void cleanupFailurePreventsNewContainerCreationUntilDeletionSucceeds() {
         DockerGateway docker = fixtureDocker();
-        var service = new RunnerWorkspaceService(docker, new RunnerProperties("a".repeat(43), IMAGE, FINGERPRINT, "C:\\docker.exe"), new RunnerCommandValidator());
+        RunnerWorkspaceService service = service(docker);
         var workspace = service.create(new WorkspaceRequest("11111111-1111-1111-1111-111111111111", "22222222-2222-2222-2222-222222222222", "STAGE-GIT-01", 0));
         when(docker.run(argThat(arguments -> arguments.getFirst().equals("rm")), any(Duration.class))).thenReturn(new DockerGateway.ProcessResult(1, "", "cleanup denied", false));
 
@@ -243,7 +243,7 @@ class RunnerWorkspaceServiceIdempotencyTest {
             if (arguments.getFirst().equals("image")) return result(IMAGE + "|linux/amd64|{\"io.developer-dungeon.challenge.build-input-sha256\":\"" + FINGERPRINT + "\"}");
             throw new IllegalStateException("uncertain Docker result");
         });
-        var service = new RunnerWorkspaceService(docker, new RunnerProperties("a".repeat(43), IMAGE, FINGERPRINT, "C:\\docker.exe"), new RunnerCommandValidator());
+        RunnerWorkspaceService service = service(docker);
 
         assertThatThrownBy(() -> service.create(new WorkspaceRequest("11111111-1111-1111-1111-111111111111", "22222222-2222-2222-2222-222222222222", "STAGE-GIT-01", 0)))
                 .isInstanceOf(IllegalStateException.class);
@@ -393,7 +393,7 @@ class RunnerWorkspaceServiceIdempotencyTest {
     @Test
     void shutdownMakesRunnerUnreadyAndRejectsCreateBeforeDocker() {
         DockerGateway docker = mock(DockerGateway.class);
-        var service = new RunnerWorkspaceService(docker, new RunnerProperties("a".repeat(43), IMAGE, FINGERPRINT, "C:\\docker.exe"), new RunnerCommandValidator());
+        RunnerWorkspaceService service = service(docker);
 
         service.beginShutdown();
 
@@ -401,6 +401,12 @@ class RunnerWorkspaceServiceIdempotencyTest {
         assertThatThrownBy(() -> service.create(new WorkspaceRequest("11111111-1111-1111-1111-111111111111", "22222222-2222-2222-2222-222222222222", "STAGE-GIT-01", 0)))
                 .hasMessage("Git Runner is shutting down");
         verify(docker, times(0)).run(any(), any(Duration.class));
+    }
+
+    private RunnerWorkspaceService service(DockerGateway docker) {
+        RunnerProperties properties = new RunnerProperties("a".repeat(43), IMAGE, FINGERPRINT,
+                "C:\\docker.exe");
+        return new RunnerWorkspaceService(docker, properties, new RunnerCommandValidator());
     }
 
     private String ownedContainerInspection(String attemptId, String workspaceId) {
