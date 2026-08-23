@@ -3,7 +3,7 @@
 ## 文書情報
 
 - 状態: Git編Phase 5改善単位1〜7D、Chapter 0「Git基礎研修」、Javaクラス設計問題集MVPとJava専用GitHub Pages版はmain反映・公開済み
-- 現在地: Javaコード大規模リファクタリングのクラスタ3を完了。次はクラスタ4でGit Runnerを小さなrollback単位に分ける
+- 現在地: Javaコード大規模リファクタリングのクラスタ4を完了。PR反映後はクラスタ5の全体統合へ進む
 - 上位文書: [`docs/requirements.md`](docs/requirements.md)
 - 関連文書: [`docs/vertical-slice.md`](docs/vertical-slice.md)、[`docs/test-strategy.md`](docs/test-strategy.md)、[`docs/phase-2-hardening-plan.md`](docs/phase-2-hardening-plan.md)
 
@@ -271,6 +271,7 @@ Java入門書を終えた利用者が、要求仕様から複数classの責務�
 15. クラスタ2の実装後レビューで井上のP2 3件を修正し、再レビューを`PASS`した。最終root `test`はRunner 36件、app 95件が成功し、Docker／DB integration testを必要とする境界には変更を加えていない。
 16. クラスタ3では`StageRules`の外部境界を維持し、固定教材catalog、command parse／normalize、fixture／hint／snapshot採点を3つのstateless責務へ分離した。`StageService`のattempt lifecycle、DB、Runner、cleanupの単一所有は維持した。
 17. クラスタ3の井上実装後レビューは重大な指摘なしの`PASS`。最終通常testはメインと中谷で重複なく分担し、Runner 36件、app 100件が成功した。
+18. クラスタ4では`RunnerWorkspaceService`の単一状態所有を維持し、固定Git argv、snapshot読取、stage policy、editor policyを4つのstateless classへ独立抽出した。wire contract、route、Spring wiring、challenge image、fixture、教材内容、timeout、resource limitは変更していない。井上の実装前後レビューは`PASS`で、変更後対象unit test 41件、Docker IT 19件が成功し、Runner管理containerが0件であることを確認した。
 
 詳細は[`docs/requirements.md`](docs/requirements.md)、[`docs/game-design.md`](docs/game-design.md)、[`docs/git-mvp-stages.md`](docs/git-mvp-stages.md)、[`docs/architecture.md`](docs/architecture.md)、[`docs/test-strategy.md`](docs/test-strategy.md)を正本とする。
 
