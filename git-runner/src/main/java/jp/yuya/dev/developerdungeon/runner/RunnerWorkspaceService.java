@@ -68,6 +68,7 @@ class RunnerWorkspaceService {
     private final RunnerCommandValidator validator;
     private final Clock clock;
     private final ContainerOwnershipLedger ledger;
+    private final RunnerGitArguments gitArgumentsBuilder = new RunnerGitArguments();
     private final AtomicBoolean shuttingDown = new AtomicBoolean();
     private final AtomicBoolean degraded = new AtomicBoolean();
 
@@ -460,51 +461,7 @@ class RunnerWorkspaceService {
     }
 
     List<String> gitArguments(String containerId, GitCommand command) {
-        var arguments = gitPrefix(containerId);
-        arguments.add("-C"); arguments.add("/workspace");
-        arguments.add("-c"); arguments.add("core.hooksPath=/opt/empty-hooks"); arguments.add("-c"); arguments.add("core.attributesFile=/dev/null");
-        arguments.add("-c"); arguments.add("credential.helper="); arguments.add("-c"); arguments.add("core.pager=cat"); arguments.add("-c"); arguments.add("core.editor=:"); arguments.add("-c"); arguments.add("protocol.file.allow=never");
-        arguments.add("-c"); arguments.add("user.name=Developer Dungeon Player"); arguments.add("-c"); arguments.add("user.email=player@developer-dungeon.invalid");
-        switch (command.kind()) {
-            case STATUS -> arguments.addAll(List.of("status", "--short"));
-            case LOG_ONELINE -> arguments.addAll(List.of("log", "--oneline", "--no-decorate", "--abbrev=12"));
-            case LOG_ONELINE_ALL_DECORATE -> arguments.addAll(List.of("log", "--oneline", "--all", "--decorate", "--abbrev=12"));
-            case BRANCH -> arguments.add("branch");
-            case SHOW -> { arguments.addAll(List.of("show", "--no-ext-diff", "--no-textconv")); arguments.add(command.objectId()); }
-            case SWITCH -> { arguments.add("switch"); arguments.add(command.branchName()); }
-            case CHERRY_PICK -> { arguments.add("cherry-pick"); arguments.add(command.objectId()); }
-            case RESET_HARD -> { arguments.addAll(List.of("reset", "--hard")); arguments.add(command.objectId()); }
-            case REVERT_NO_EDIT -> { arguments.addAll(List.of("revert", "--no-edit")); arguments.add(command.objectId()); }
-            case REVERT_NO_COMMIT -> { arguments.addAll(List.of("revert", "--no-commit")); arguments.add(command.objectId()); }
-            case COMMIT_RESTORE_SETTINGS -> arguments.addAll(List.of("commit", "-m", "restore-required-settings"));
-            case DIFF -> arguments.addAll(List.of("diff", "--no-ext-diff", "--no-textconv", "--"));
-            case DIFF_STAGED -> arguments.addAll(List.of("diff", "--staged", "--no-ext-diff", "--no-textconv", "--"));
-            case STASH_PUSH -> arguments.addAll(List.of("stash", "push"));
-            case STASH_LIST -> arguments.addAll(List.of("stash", "list"));
-            case STASH_POP -> arguments.addAll(List.of("stash", "pop"));
-            case STASH_APPLY -> arguments.addAll(List.of("stash", "apply"));
-            case STASH_DROP -> arguments.addAll(List.of("stash", "drop"));
-            case LOG_GRAPH_ALL -> arguments.addAll(List.of("log", "--oneline", "--all", "--decorate", "--graph", "--abbrev=12"));
-            case MERGE_PROFILE_MESSAGE -> arguments.addAll(List.of("merge", "--no-edit", "feature/profile-message"));
-            case ADD_PROFILE_MESSAGES -> arguments.addAll(List.of("add", "--", STAGE_FOUR_PATH));
-            case COMMIT_NO_EDIT -> arguments.addAll(List.of("commit", "--no-edit"));
-            case COMMIT_ALL_NO_EDIT -> arguments.addAll(List.of("commit", "-a", "--no-edit"));
-            case REFLOG_HEAD -> arguments.addAll(List.of("reflog", "show", "--format=%h%x09%gs", "--abbrev=12", "--max-count=8", "HEAD"));
-            case CREATE_PAYMENT_RETRY_BRANCH -> arguments.addAll(List.of("branch", "feature/payment-retry", command.objectId()));
-            case SWITCH_PAYMENT_RETRY -> arguments.addAll(List.of("switch", "feature/payment-retry"));
-            case SWITCH_CREATE_PAYMENT_RETRY -> { arguments.addAll(List.of("switch", "-c", "feature/payment-retry")); arguments.add(command.objectId()); }
-            case ADD_TRAINING_INTRO -> arguments.addAll(List.of("add", "--", "onboarding/intro.txt"));
-            case COMMIT_TRAINING_ONE -> arguments.addAll(List.of("commit", "-m", "complete-training-01"));
-            case UNSTAGE_TRAINING_REPORT -> arguments.addAll(List.of("restore", "--staged", "--", "build/training-report.txt"));
-            case ADD_TRAINING_IGNORE -> arguments.addAll(List.of("add", "--", ".gitignore"));
-            case ADD_TRAINING_CONFIG -> arguments.addAll(List.of("add", "--", "config/application-training.properties"));
-            case COMMIT_TRAINING_TWO -> arguments.addAll(List.of("commit", "-m", "complete-training-02"));
-            case SWITCH_CREATE_TRAINING_BRANCH -> arguments.addAll(List.of("switch", "-c", "feature/onboarding"));
-            case SWITCH_TRAINING_BRANCH -> arguments.addAll(List.of("switch", "feature/onboarding"));
-            case ADD_TRAINING_HANDOFF -> arguments.addAll(List.of("add", "--", "docs/handoff.md"));
-            case COMMIT_TRAINING_THREE -> arguments.addAll(List.of("commit", "-m", "complete-training-03"));
-        }
-        return arguments;
+        return gitArgumentsBuilder.forPlayerCommand(containerId, command);
     }
     private ArrayList<String> gitPrefix(String containerId) {
         var arguments = new ArrayList<String>();

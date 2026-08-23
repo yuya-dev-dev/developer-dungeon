@@ -1,6 +1,7 @@
 package jp.yuya.dev.developerdungeon.runner;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.ArrayList;
 import java.util.EnumMap;
@@ -14,7 +15,7 @@ class RunnerGitArgumentsTest {
     private static final String CONTAINER = "fixed-container";
     private static final String OBJECT = "0123456789abcdef0123456789abcdef01234567";
     private static final String BRANCH = "feature/profile";
-    private final RunnerWorkspaceService service = new RunnerWorkspaceService(null, null, null);
+    private final RunnerGitArguments arguments = new RunnerGitArguments();
 
     @Test
     void buildsTheExactFixedArgvForEveryCommandKind() {
@@ -25,7 +26,7 @@ class RunnerGitArgumentsTest {
             List<String> expected = new ArrayList<>(commonPrefix());
             expected.addAll(suffixes.get(kind));
 
-            assertThat(service.gitArguments(CONTAINER, new GitCommand(kind, OBJECT, BRANCH)))
+            assertThat(arguments.forPlayerCommand(CONTAINER, new GitCommand(kind, OBJECT, BRANCH)))
                     .as(kind.name())
                     .containsExactlyElementsOf(expected);
         }
@@ -33,11 +34,12 @@ class RunnerGitArgumentsTest {
 
     @Test
     void returnsAnIndependentListForEachCall() {
-        List<String> first = service.gitArguments(CONTAINER, new GitCommand(CommandKind.STATUS));
-        List<String> second = service.gitArguments(CONTAINER, new GitCommand(CommandKind.STATUS));
+        List<String> first = arguments.forPlayerCommand(CONTAINER, new GitCommand(CommandKind.STATUS));
+        List<String> second = arguments.forPlayerCommand(CONTAINER, new GitCommand(CommandKind.STATUS));
 
         assertThat(first).isNotSameAs(second);
-        first.set(first.size() - 1, "changed");
+        assertThatThrownBy(() -> first.set(first.size() - 1, "changed"))
+                .isInstanceOf(UnsupportedOperationException.class);
         assertThat(second.getLast()).isEqualTo("--short");
     }
 
