@@ -2,8 +2,8 @@
 
 ## 文書情報
 
-- 状態: クラスタ3のGit app責務分割まで反映
-- 対象: `009f53d`を調査基準とし、クラスタ2・3で整理したJava本体とtestを反映
+- 状態: Javaコード大規模リファクタリングのクラスタ5完了状態を反映
+- 対象: クラスタ2〜5で整理したJava本体とtest
 - 目的: Javaを学び始めた開発者が、処理を読む順番とstateの所有者を把握できるようにする
 - 計画: [`java-refactoring-plan.md`](java-refactoring-plan.md)
 
@@ -84,6 +84,8 @@ interfaceが許可する状態遷移を先に読み、次に`JdbcStagePersistenc
 
 `MemoryStagePersistence`は主にunit test用であり、JDBC実装と意味がずれないことが重要である。
 
+`MemoryStagePersistence`を読むときは、登録済みrequest、attempt version、command開始／終了の順に追う。古いversionで競合するrequestも先に登録され、同じrequest IDの再送がduplicateになる順序は永続化契約であり、testで固定している。
+
 ### 2.5 `RunnerClient`から`RunnerController`
 
 `RunnerClient`はtoken付きHTTP requestへ変換し、`RunnerController`はtyped requestを`RunnerWorkspaceService`へ渡す。Browserのraw commandをRunnerへ渡さない。
@@ -98,6 +100,8 @@ Git Runnerのstateful coordinatorで、約600行ある。読む順番は次の�
 4. create失敗、TTL、orphan、shutdown cleanup。
 
 このclassのmaps、ledger、workspace、request結果、cleanup状態は同じmonitorで守られている。Gitの固定argv、snapshot読取、stage policy、editor policyはpackage-privateなstateless classへ分離したが、stateの所有者は1つに保っている。Stage 4・5固有のpath、ref、reflog fixture観測とDocker lifecycleは、任意入力を受ける共通APIへ広げずcoordinatorに残している。
+
+`MemoryContainerOwnershipLedger`はRunnerが所有するcontainer identityのmemory実装である。登録、snapshot、削除はすべて同じmonitorで直列化され、返す集合は内部stateのcopyである。同期方式や所有判定を可読性だけを理由に変更しない。
 
 ### 2.7 Git Runnerのstateless helper
 

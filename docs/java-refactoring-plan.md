@@ -301,6 +301,10 @@ player指定object IDを扱う実行順は、次の順序から変更しない�
 4. 読解ガイドとarchitectureを実装後の構造へ更新する。
 5. unit、DB、Docker integration、主要画面を最終確認する。
 
+クラスタ5では、追跡対象135 Java fileを再点検し、`TODO`、`FIXME`、`HACK`、`@Deprecated`が残っていないことを確認した。公開constructor／overloadは実call siteまたはcontract上の用途があるため削除しなかった。追加の責務分割は行わず、`StageService.Attempt`、`MemoryStagePersistence`、`MemoryContainerOwnershipLedger`の状態と処理順を読みやすく整え、`RunnerWorkspaceServiceIdempotencyTest`の既定準備だけをhelperへまとめた。wire contract、DB、route、Spring wiring、教材、fixture、error message、同期方式、lifecycleは変更していない。
+
+memory persistenceにはrequest登録がversion競合より先に行われる契約、memory ledgerにはcopy返却と削除の契約を直接testで追加した。井上の実装前レビューと、P2修正後の実装後再レビューはいずれも`PASS`である。
+
 ## 8. テストgate
 
 ### 8.1 クラスタ1で取得した基準
@@ -316,6 +320,10 @@ player指定object IDを扱う実行順は、次の順序から変更しない�
 | 2026-08-23 | Git Runner変更前Docker IT（class単位） | Temurin 25／Maven Wrapper 3.9.16、Docker Desktop 29.5.3 | 成功 | Alternative 7件、Security 2件、Stage 2 1件、Stage 3 1件、Stage 4 2件、Stage 5 3件、Training 3件。合計19件。終了後のRunner管理containerは0件 |
 | 2026-08-24 | Git Runner変更後対象unit test | Temurin 25／Maven Wrapper 3.9.16、sandbox外 | 成功 | ledger 7件、command validator 3件、stage policy 5件、token filter 2件、workspace／idempotency 24件。合計41件 |
 | 2026-08-24 | Git Runner変更後Docker IT（class単位） | Temurin 25／Maven Wrapper 3.9.16、Docker Desktop 29.5.3 | 成功 | Alternative 7件、Security 2件、Stage 2 1件、Stage 3 1件、Stage 4 2件、Stage 5 3件、Training 3件。合計19件。終了後のRunner管理containerは0件 |
+| 2026-08-24 | クラスタ5全体統合後root通常test | Temurin 25／Maven Wrapper 3.9.16、sandbox外 | 成功 | Runner 60件、app 104件。合計164件 |
+| 2026-08-24 | クラスタ5全体統合後DB IT | Temurin 25／Maven Wrapper 3.9.16、Docker Desktop 29.5.3 | 成功 | `JdbcJavaProgressRepositoryIT` 1件、`JdbcStagePersistenceIT` 2件。合計3件 |
+| 2026-08-24 | クラスタ5全体統合後Docker IT | Temurin 25／Maven Wrapper 3.9.16、Docker Desktop 29.5.3 | 成功 | Alternative、Security、Stage 2〜5、Trainingの合計19件。終了後のRunner管理containerは0件 |
+| 2026-08-24 | クラスタ5主要画面確認 | Temurin 25、Docker Desktop 29.5.3 | 成功 | タイトル、Git一覧、Stage 1、command一覧、Java問題一覧、Java問題詳細を実Browserで確認。HTTP 500とconsole errorなし |
 
 クラスタ1の基準取得時に失敗していたtestは次のとおりである。
 
@@ -358,3 +366,5 @@ Docker／DBのようにユーザー許可と外部環境が必要なbaselineは�
 クラスタ3は、`StageRules`のcharacterization、3責務の独立抽出、井上の実装前後レビュー`PASS`、対象限定test、変更後の分担root test成功をもって完了した。次のクラスタ4ではGit Runnerを対象とし、appの責務分割を追加で広げない。
 
 クラスタ4は、Git argv、snapshot、stage policy、editor policyの4つをpackage-privateなstateless classへ独立抽出し、`RunnerWorkspaceService`の単一状態所有、security boundary、wire contract、fixtureを維持した。井上の実装前後レビューは`PASS`で、変更後対象unit test 41件とDocker IT 19件が成功し、Runner管理containerが0件であることを確認して完了した。次のクラスタ5では全体統合だけを扱う。
+
+クラスタ5は、全Java fileの再点検、残存constructor／overloadの根拠確認、状態を持つmemory実装とtest fixtureの限定的な可読性改善、恒久的なJava実装規則の文書化を行った。井上の実装前後レビューは`PASS`で、対象限定test、root通常test 164件、DB IT 3件、Docker IT 19件、主要6画面が成功し、全5クラスタを完了した。
