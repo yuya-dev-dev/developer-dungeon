@@ -2,8 +2,8 @@
 
 ## 文書情報
 
-- 状態: Git編Phase 5改善単位1〜7D、Chapter 0「Git基礎研修」、Javaクラス設計問題集MVPはmain反映済み。Java専用GitHub Pages版を実装中
-- 現在地: Javaクラス設計問題集の3テーマ×3難易度、固定模範code、3状態進捗までmainへ反映済み。PC・Docker停止中もスマートフォンから閲覧できるJava専用静的版をGitHub Pagesへ配信する
+- 状態: Git編Phase 5改善単位1〜7D、Chapter 0「Git基礎研修」、Javaクラス設計問題集MVPとJava専用GitHub Pages版はmain反映・公開済み
+- 現在地: Javaコード大規模リファクタリングのクラスタ1で文書作成と井上レビューを完了。クラスタ2の前に既知8件のtest失敗を別の小差分で解消する
 - 上位文書: [`docs/requirements.md`](docs/requirements.md)
 - 関連文書: [`docs/vertical-slice.md`](docs/vertical-slice.md)、[`docs/test-strategy.md`](docs/test-strategy.md)、[`docs/phase-2-hardening-plan.md`](docs/phase-2-hardening-plan.md)
 
@@ -31,7 +31,7 @@
 | 4 | 5ステージ完成 | 完了・PR #10までmain反映済み |
 | 5 | MVP検証と改善 | 改善単位1〜7C main反映済み、改善単位7D実装・レビュー・対象限定テスト完了 |
 | 6 | Git編拡張の逐次評価 | Chapter 0実装・main反映済み。Chapter 2以降は未着手 |
-| 7 | Javaクラス設計問題集 | MVP main反映済み。Java専用GitHub Pages版を実装中 |
+| 7 | Javaクラス設計問題集 | MVPとJava専用GitHub Pages版をmain反映・公開済み |
 | 8 | その他の将来技術編の再評価 | 未着手 |
 
 ## 4. Phase 0 企画・要件定義・全体設計
@@ -265,7 +265,8 @@ Java入門書を終えた利用者が、要求仕様から複数classの責務�
 9. ライブworkspaceの完了を宣言する復旧報告、`POST /report`、report待機用状態機械、TTL、sweeperは採用しない。自動clearと即時cleanupを維持する。
 10. Javaクラス設計問題集MVPの3テーマ×3難易度、合計9問の仕様と、固定content、3状態進捗、route、package、security、test境界を確定し、専用作業branchで実装した。
 11. 9問の模範code compile、同一商品複数行の在庫不変条件、画面escape、route、V5 migrationと最小権限を対象限定テストで確認し、井上の実装後レビューをPASSしてmainへ反映した。
-12. Java問題集だけをGitHub Pagesへ静的配信し、Git編、Runner、Docker、管理DBを公開せず、PC停止中もスマートフォンから9問を閲覧できる公開URLを用意する。
+12. Java問題集だけをGitHub Pagesへ静的配信し、Git編、Runner、Docker、管理DBを公開せず、PC停止中もスマートフォンから9問を閲覧できる公開URLを用意した。
+13. Javaコード大規模リファクタリングのクラスタ1として、[`docs/java-refactoring-plan.md`](docs/java-refactoring-plan.md)と[`docs/code-reading-guide.md`](docs/code-reading-guide.md)を作成し、井上レビューのP1・P2を反映した。コード変更前のbaselineで既存test 8件の失敗を確認したため、クラスタ2の前に別の小差分で必ずgreenへ戻す。
 
 詳細は[`docs/requirements.md`](docs/requirements.md)、[`docs/game-design.md`](docs/game-design.md)、[`docs/git-mvp-stages.md`](docs/git-mvp-stages.md)、[`docs/architecture.md`](docs/architecture.md)、[`docs/test-strategy.md`](docs/test-strategy.md)を正本とする。
 
