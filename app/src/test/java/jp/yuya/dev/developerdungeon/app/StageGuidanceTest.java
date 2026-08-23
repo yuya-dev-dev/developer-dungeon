@@ -30,7 +30,8 @@ class StageGuidanceTest {
 
         assertThat(rules.hints(rules.definition("STAGE-GIT-01"), 3, targets).getFirst()).contains("<commit-id>");
         assertThat(rules.hints(rules.definition("STAGE-GIT-02"), 3, targets).getFirst()).contains("<branch>", "<commit-id>");
-        assertThat(rules.hints(rules.definition("STAGE-GIT-03"), 3, targets).getFirst()).contains("<branch>");
+        assertThat(rules.hints(rules.definition("STAGE-GIT-03"), 3, targets).getFirst())
+                .contains("git switch feature/search", "git stash pop", "git stash apply", "git stash drop");
         assertThat(rules.hints(rules.definition("STAGE-GIT-04"), 3, targets).getFirst()).contains("<branch>", "<file>");
         assertThat(rules.hints(rules.definition("STAGE-GIT-05"), 3, targets).getFirst()).contains("<branch>", "<commit-id>");
 
