@@ -319,21 +319,57 @@ class StageService {
     }
 
     private final class Attempt {
-        final StageDefinition definition; final String attemptId; final String workspaceId; final long generation; final StageRules.StageTargets targets;
-        RepositorySnapshot snapshot; int highestHint; int playerResets; int systemRecoveryCount; long commandSequence; long version;
-        boolean closed; Integer lastExitCode; StageFeedbackKind feedbackKind = StageFeedbackKind.INITIAL;
-        String cleanupRequestId; final HashSet<String> displayedShortIds = new HashSet<>();
+        final StageDefinition definition;
+        final String attemptId;
+        final String workspaceId;
+        final long generation;
+        final StageRules.StageTargets targets;
+
+        RepositorySnapshot snapshot;
+        int highestHint;
+        int playerResets;
+        int systemRecoveryCount;
+        long commandSequence;
+        long version;
+        boolean closed;
+        String cleanupRequestId;
+
+        final HashSet<String> displayedShortIds = new HashSet<>();
         final HashMap<String, StageView> completedCommandRequests = new HashMap<>();
         final HashMap<String, StageView> completedWriteRequests = new HashMap<>();
+
+        Integer lastExitCode;
+        StageFeedbackKind feedbackKind = StageFeedbackKind.INITIAL;
         String lastOutput = "まずは状態を調べてみましょう。";
         StageGrade grade = new StageGrade(false, 0, "未復旧");
+
         Attempt(StageDefinition definition, String attemptId, String workspaceId, long generation, RepositorySnapshot snapshot, StageRules.StageTargets targets,
                 int highestHint, int playerResets, int systemRecoveryCount, long commandSequence, long version) {
-            this.definition=definition; this.attemptId=attemptId; this.workspaceId=workspaceId; this.generation=generation; this.snapshot=snapshot; this.targets=targets;
-            this.highestHint=highestHint; this.playerResets=playerResets; this.systemRecoveryCount=systemRecoveryCount; this.commandSequence=commandSequence; this.version=version;
+            this.definition = definition;
+            this.attemptId = attemptId;
+            this.workspaceId = workspaceId;
+            this.generation = generation;
+            this.snapshot = snapshot;
+            this.targets = targets;
+            this.highestHint = highestHint;
+            this.playerResets = playerResets;
+            this.systemRecoveryCount = systemRecoveryCount;
+            this.commandSequence = commandSequence;
+            this.version = version;
         }
-        void apply(StagePersistence.SavedAttempt saved) { version=saved.version(); highestHint=saved.highestHint(); playerResets=saved.playerResets(); systemRecoveryCount=saved.systemRecoveries(); commandSequence=saved.lastSequence(); }
-        StageView view() { return new StageView(UUID.randomUUID().toString(), lastOutput, lastExitCode, feedbackKind, snapshot, highestHint, playerResets, systemRecoveryCount,
-                commandSequence, grade.cleared(), grade.stars(), grade.message(), rules.hints(definition, highestHint, targets)); }
+
+        void apply(StagePersistence.SavedAttempt saved) {
+            version = saved.version();
+            highestHint = saved.highestHint();
+            playerResets = saved.playerResets();
+            systemRecoveryCount = saved.systemRecoveries();
+            commandSequence = saved.lastSequence();
+        }
+
+        StageView view() {
+            return new StageView(UUID.randomUUID().toString(), lastOutput, lastExitCode, feedbackKind, snapshot,
+                    highestHint, playerResets, systemRecoveryCount, commandSequence, grade.cleared(), grade.stars(),
+                    grade.message(), rules.hints(definition, highestHint, targets));
+        }
     }
 }

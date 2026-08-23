@@ -147,6 +147,20 @@ Javaクラス設計問題集は、問題提示、固定の模範code表示、3�
 * 同じタスク内の関連変更は、細かな編集ごとに中断せずまとめて実装する
 * ドキュメントは、今回の変更によって記載内容が実際に変わる場合のみ更新する
 
+### 7.1 Java実装の可読性と責務境界
+
+今後のJava実装は、`docs/architecture.md`の責務境界と`docs/code-reading-guide.md`の読解順を維持する。
+
+* state、同期、lifecycleを持つcoordinatorは、そのstateの唯一の所有者とする。同じstateを複数classへ分散しない
+* 入力検証、変換、判定を分離する場合は、原則としてstateを持たない小さなpolicyまたはhelperとする
+* 2つ目の具体的な利用箇所がない段階で、汎用interface、基底class、任意入力を受ける共通APIを先回りして作らない
+* wire contract、DB schema、route、error messageなどの外部契約は、明示した変更計画なしに可読性改善へ混ぜない
+* 1行に複数のfield宣言、assignment、制御構文、`return`を詰め込まず、処理順が上から追える形にする
+* 変数名とtest helper名は役割または前提を表す語を使い、意味のない1文字名や過度に一般的な名前を避ける
+* compatibility constructorやoverloadは、実利用、外部契約、または明確な可読性上の価値がある場合だけ残す
+* test helperは重要な前提、実行順、security条件を隠さない。共通化は同じ既定準備の重複除去に限定する
+* state所有者またはpackage責務を変える場合は、実装前に理由と影響を明示し、必要に応じて`docs/architecture.md`を同時更新する
+
 実装完了後は次を確認する。
 
 * 変更したファイルの差分

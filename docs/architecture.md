@@ -134,6 +134,12 @@ com.developerdungeon.gitrunner
 
 Runnerは管理DBへ接続せず、ゲーム上のclear条件を判断しない。
 
+### 6.1 Java実装で維持する責務境界
+
+`StageService`と`RunnerWorkspaceService`のようなstateful coordinatorは、attemptまたはworkspaceのstate、同期、lifecycleを一か所で所有する。検証、変換、採点、固定command構築を分離するときは、coordinatorのstateを複製せず、immutableな入力と出力を使うstateless policyまたはhelperへ委譲する。
+
+共通化は既存の具体的な重複を減らす場合に限る。将来利用だけを理由に汎用interface、基底class、任意path・任意argv・任意commandを受けるAPIを導入しない。可読性改善ではwire contract、route、DB schema、error message、教材contentを変更せず、外部契約を変える必要がある場合は別の設計変更として扱う。
+
 ## 7. Runner API
 
 APIは`127.0.0.1`限定とし、起動時に共有したtokenでappを認証する。playerへ直接公開しない。IPv6 wildcard、`0.0.0.0`、LAN addressへbindしない。
