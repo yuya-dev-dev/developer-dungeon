@@ -1,6 +1,7 @@
 package jp.yuya.dev.developerdungeon.app;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -23,6 +24,24 @@ class MemoryStagePersistenceTest {
 
         assertThat(first).isTrue();
         assertThat(duplicate).isFalse();
+    }
+
+    @Test
+    void newCommandRequestIsRememberedBeforeTheVersionConflictIsReported() {
+        MemoryStagePersistence persistence = new MemoryStagePersistence();
+        UUID attemptId = UUID.randomUUID();
+        StagePersistence.SavedAttempt active = activeAttempt(persistence, attemptId);
+        UUID requestId = UUID.randomUUID();
+
+        assertThatThrownBy(() -> persistence.beginCommand(attemptId, active.version() - 1, requestId, 1, 0,
+                "git status", "STATUS", NOW))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("attempt persistence conflict");
+
+        // recordRejected intentionally uses the same request-registration order.
+        assertThat(persistence.beginCommand(attemptId, active.version(), requestId, 1, 0,
+                "git status", "STATUS", NOW)).isFalse();
+        assertThat(persistence.findOpen("STAGE-GIT-01")).containsSame(active);
     }
 
     @Test
