@@ -69,7 +69,7 @@ Browser -> Spring Boot app -> Git Runner controller -> challenge container
 - DBは使用しない。
 - 初期対応環境、固定version、challenge image IDの生成・更新手順、Runner token方式は[`architecture.md`](architecture.md)の7.0と15.1を正本とする。
 - 正式な起動入口は`scripts/start-local.ps1`とし、直接の個別起動は開発時診断に限定する。
-- launcherはPowerShell 7.6.3 LTS x64でのみ動作し、32 byte乱数をpaddingなしbase64url tokenへ変換する。全起動経路を`try/finally`で管理し、失敗段階を問わず開始済み子processを逆順に回収する。
+- launcherはPowerShell 7.6.5 LTS x64でのみ動作し、32 byte乱数をpaddingなしbase64url tokenへ変換する。全起動経路を`try/finally`で管理し、失敗段階を問わず開始済み子processを逆順に回収する。
 
 ## 6. 画面
 

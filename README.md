@@ -14,7 +14,7 @@ Javaクラス設計問題集は、GitHub Pagesで公開するJava専用静的版
 
 企画・要件・全体設計の文書一式はユーザー承認済みです。初期対応環境はWindows 11 x86_64＋Docker DesktopのWSL 2 backend／Linux containerに限定し、実装基準versionとRunner方式は[`docs/architecture.md`](docs/architecture.md)を正本とします。
 
-正式なlocal起動はPowerShell 7.6.3 LTS x64の`scripts/start-local.ps1`へ一本化します。JDK、Docker Desktop、WSL、Maven Wrapper、challenge image IDのpreflightに失敗した場合は、app／Runnerを起動しません。
+正式なlocal起動はPowerShell 7.6.5 LTS x64の`scripts/start-local.ps1`へ一本化します。JDK、Docker Desktop、WSL、Maven Wrapper、challenge image IDのpreflightに失敗した場合は、app／Runnerを起動しません。
 
 進捗と次段階への条件は[`roadmap.md`](roadmap.md)を参照してください。
 

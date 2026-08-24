@@ -146,7 +146,7 @@ APIは`127.0.0.1`限定とし、起動時に共有したtokenでappを認証す�
 
 ### 7.0 起動時認証
 
-- repository内の専用PowerShell 7.6.3 LTS x64 launcherが、`.NET RandomNumberGenerator`から起動ごとに32 byteを生成し、paddingなしbase64urlの43 ASCII文字へcanonical encodeした256-bit tokenを作る。標準Base64の`+`、`/`、`=`や任意Unicodeをtokenへ許可しない。
+- repository内の専用PowerShell 7.6.5 LTS x64 launcherが、`.NET RandomNumberGenerator`から起動ごとに32 byteを生成し、paddingなしbase64urlの43 ASCII文字へcanonical encodeした256-bit tokenを作る。標準Base64の`+`、`/`、`=`や任意Unicodeをtokenへ許可しない。
 - launcherは`System.Diagnostics.ProcessStartInfo`で固定されたapp／Runner jarと固定引数だけを別JVM processとして起動し、同名tokenを各子process専用の環境変数へ設定する。launcher自身のprocess環境、command line、設定ファイル、一時ファイルへtokenを書き出さない。
 - appはRunner URLとtokenをmemoryだけに保持し、すべてのRunner requestで専用headerとして送信する。Browserへtokenを返さない。
 - Runnerは専用headerを必須とし、UTF-8 byte列を一定時間比較する。token不在、不一致、重複headerはGitやDockerを起動せず拒否する。
@@ -513,7 +513,7 @@ stack trace、host path、credentialをBrowserへ返さない。
 | Spring Boot | 4.1.0 | app／Runner |
 | Apache Maven | 3.9.16 | Wrapperが取得して実行するbuild tool本体 |
 | Maven Wrapper | 3.3.4、`only-script` | plugin 3.3.4で生成して追跡する`mvnw`／`mvnw.cmd`／properties |
-| PowerShell | 7.6.3 LTS x64 | launcher、challenge image build script |
+| PowerShell | 7.6.5 LTS x64 | launcher、challenge image build script |
 | Docker Desktop | 4.79.0、WSL 2 backend、Linux container | 初期対応環境 |
 | WSL | 2.1.5以上 | Docker Desktop公式最低要件 |
 | challenge base | `alpine:3.23.3@sha256:59855d3dceb3ae53991193bd03301e082b2a7faa56a514b03527ae0ec2ce3a95`、`linux/amd64` | challenge image build |
@@ -533,7 +533,7 @@ Wrapperは`org.apache.maven.plugins:maven-wrapper-plugin:3.3.4:wrapper -Dtype=on
 
 `scripts/lib/LocalRuntime.psm1`に副作用のない共通preflight関数を置き、launcherとchallenge image build scriptの双方から呼ぶ。共通preflightはPowerShell、Windows architecture、WSL、Docker Desktop、daemon到達、Linux container mode、`linux/amd64`を検査し、取得不能、parse不能、不一致ではbuildとartifact更新と子process起動を行わない。launcherはさらにJDKとchallenge image identityを検査する。
 
-- PowerShellのedition、version `7.6.3`、process architecture `x64`
+- PowerShellのedition、version `7.6.5`、process architecture `x64`
 - Windows 11 x86_64
 - `JAVA_HOME`配下の固定`java.exe`について、vendor `Eclipse Adoptium`、runtime version `25.0.3+9`、architecture `amd64`。PATH上の別`java`へfallbackしない
 - `wsl.exe --version`でWSL 2.1.5以上

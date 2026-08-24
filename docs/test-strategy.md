@@ -177,7 +177,7 @@ Phase 2で追加する対象、実containerの検査方法、lifecycle異常系�
 
 ### 7.1 Launcher contract test（Docker不要）
 
-PowerShell 7.6.3 LTS x64だけで実行する自己完結したcontract testを用意し、外部moduleを暗黙に要求しない。process起動、preflight、token生成、artifact parse、cleanupを関数境界へ分離し、fake child processとfixture出力で次を自動確認する。
+PowerShell 7.6.5 LTS x64だけで実行する自己完結したcontract testを用意し、外部moduleを暗黙に要求しない。process起動、preflight、token生成、artifact parse、cleanupを関数境界へ分離し、fake child processとfixture出力で次を自動確認する。
 
 | ID | 観点 |
 |---|---|

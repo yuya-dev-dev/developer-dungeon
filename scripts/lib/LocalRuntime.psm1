@@ -85,8 +85,8 @@ function Test-MavenWrapperIntegrity {
 function Test-LocalRuntimePrerequisites {
     [CmdletBinding()]
     param([switch]$RequireJava)
-    if ($PSVersionTable.PSEdition -ne 'Core' -or $PSVersionTable.PSVersion.ToString() -ne '7.6.3' -or [Environment]::Is64BitProcess -ne $true) {
-        throw 'PowerShell 7.6.3 x64 is required.'
+    if ($PSVersionTable.PSEdition -ne 'Core' -or $PSVersionTable.PSVersion.ToString() -ne '7.6.5' -or [Environment]::Is64BitProcess -ne $true) {
+        throw 'PowerShell 7.6.5 x64 is required.'
     }
     if (-not [Environment]::Is64BitOperatingSystem -or [Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT -or [Environment]::OSVersion.Version.Build -lt 22000) {
         throw 'Windows 11 x64 is required.'
