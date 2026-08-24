@@ -30,4 +30,4 @@ jobs:
             **/pom.xml
             .mvn/wrapper/maven-wrapper.properties
       - name: Verify reactor
-        run: ./mvnw --batch-mode --no-transfer-progress verify
+        run: bash ./mvnw --batch-mode --no-transfer-progress verify

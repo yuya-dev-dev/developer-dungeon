@@ -33,7 +33,7 @@ jobs:
         run: docker info
       - name: Run persistence tests
         run: >-
-          ./mvnw --batch-mode --no-transfer-progress
+          bash ./mvnw --batch-mode --no-transfer-progress
           -pl app -am
           -Dtest=JdbcStagePersistenceIT,JdbcJavaProgressRepositoryIT
           -Dsurefire.failIfNoSpecifiedTests=false
