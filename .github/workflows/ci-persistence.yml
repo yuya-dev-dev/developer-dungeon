@@ -1,0 +1,62 @@
+name: Persistence CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: persistence-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  persistence-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.0.2
+      - name: Set up Java
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: maven
+          cache-dependency-path: |
+            **/pom.xml
+            .mvn/wrapper/maven-wrapper.properties
+      - name: Confirm Docker is available
+        run: docker info
+      - name: Run persistence tests
+        run: >-
+          ./mvnw --batch-mode --no-transfer-progress
+          -pl app -am
+          -Dtest=JdbcStagePersistenceIT,JdbcJavaProgressRepositoryIT
+          -Dsurefire.failIfNoSpecifiedTests=false
+          test
+      - name: Confirm persistence tests ran without skips
+        shell: pwsh
+        run: |
+          $reports = @(
+            "app/target/surefire-reports/TEST-jp.yuya.dev.developerdungeon.app.JdbcStagePersistenceIT.xml",
+            "app/target/surefire-reports/TEST-jp.yuya.dev.developerdungeon.app.javalearning.JdbcJavaProgressRepositoryIT.xml"
+          )
+
+          foreach ($reportPath in $reports) {
+            if (-not (Test-Path -LiteralPath $reportPath)) {
+              throw "Expected Surefire report was not created: $reportPath"
+            }
+
+            [xml] $report = Get-Content -LiteralPath $reportPath -Raw
+            $suite = $report.testsuite
+            if ([int] $suite.tests -lt 1) {
+              throw "No tests ran in $reportPath"
+            }
+            if ([int] $suite.failures -ne 0 -or [int] $suite.errors -ne 0 -or [int] $suite.skipped -ne 0) {
+              throw "Persistence tests did not complete successfully: $reportPath"
+            }
+          }
