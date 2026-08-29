@@ -103,6 +103,7 @@ stage固有観点：
 - command formのlength、empty、改行validation
 - CSRFなしPOSTの拒否
 - Host／Origin方針
+- appの`LoopbackRequestFilter`がBrowser requestのHost／Originを検証し、Runnerの`RunnerTokenFilter`はloopback internal APIのtokenを検証する責務分担
 - error categoryごとのplayer向け表示
 - stack trace、host path、credentialをviewへ渡さない
 - Git出力、commit message、diff、editor内容、error、固定会話、clear scene内のHTML、script、event属性をplain textとしてescapeする
@@ -386,6 +387,15 @@ PostgreSQL Testcontainersを使用し、次を確認する。
 ```
 
 `clean test`、`clean verify`、coverage、performance測定を一律に実行しない。
+
+### 13.1 GitHub Actionsの品質gate
+
+| workflow | trigger | command | 現在の確認範囲 |
+|---|---|---|---|
+| `Fast CI` | pull request、`main` push、手動 | `bash ./mvnw --batch-mode --no-transfer-progress verify` | 通常のSurefire testと全moduleのpackage。現在164件（Runner 60件、app 104件） |
+| `Persistence CI` | pull request、`main` push、手動 | `-pl app -am -Dtest=JdbcStagePersistenceIT,JdbcJavaProgressRepositoryIT ... test` | PostgreSQL Testcontainers IT 3件。Docker不在、report欠落、0件、skipを成功扱いしない |
+
+両workflowはJava 25、Maven cache、15分timeout、最小`contents: read`権限、同一refの古いrunを停止するconcurrencyを使用する。Fast CIの`verify`はFailsafeを設定していないため`*IT`を含まない。Runner Docker IT 19件はWindows向け正式local preflightをUbuntuへそのまま流用せず、challenge image buildの共通処理とSecurity CIを別変更で整備するまでローカル対象限定testとする。
 
 ## 14. 失敗時
 
