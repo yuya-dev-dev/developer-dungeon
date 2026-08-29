@@ -86,53 +86,44 @@ developer-dungeon/
 
 ## 5. Spring Boot appのpackage責務
 
+Git編の既存実装は、物理的には主として次の単一packageに置く。`web`、`application`、`domain`などはpackage名ではなく、同package内で維持する論理的な責務familyである。見た目だけを理由に全面package移動は行わない。
+
 ```text
-com.developerdungeon.git
-  web
-  application
-  domain
-  stage
-  runner
-  persistence
-  config
+jp.yuya.dev.developerdungeon.app
 ```
 
-| package | 責務 |
-|---|---|
-| `web` | Controller、form validation、Thymeleaf view model、error表示 |
-| `application` | stage開始、command実行、hint、判定、reset、progress更新 |
-| `domain` | Attempt、GitCommand、RepositorySnapshot、ClearResult、StarRating |
-| `stage` | 5つの固定StageDefinition、command policy、clear policy、hint |
-| `runner` | Runner client、contract変換、timeout/error mapping |
-| `persistence` | stage_attempt、command_historyのrepository |
-| `config` | loopback、Runner接続、profile、DB設定 |
+| 論理責務family | 現在の主なclass | 責務 |
+|---|---|---|
+| Web | `StageController`、`AppInternalController` | route、form validation、Thymeleaf view model、internal operation |
+| Application coordinator | `StageService` | attemptの単一state ownership、command実行、reset、recovery、persistenceとRunnerの調整 |
+| Stage policy | `StageRules`、`StageCatalog`、`StageCommandPolicy`、`StageStatePolicy` | 固定Stage定義、command parse／normalize、hint、snapshot採点 |
+| Domain／view value | `StageDefinition`、`StageGrade`、`StageOutcome`、`StageView` | stage定義、判定結果、表示用immutable value |
+| Runner adapter | `RunnerClient`、`RunnerClientProperties` | contract変換、Runner HTTP、timeout／error mapping |
+| Persistence | `StagePersistence`、`JdbcStagePersistence`、`MemoryStagePersistence` | `stage_attempt`と`command_history`の保存 |
+| Security／configuration | `LoopbackRequestFilter`、`SecurityConfiguration`、`AppConfiguration` | Browser側Host／Origin／CSRF、loopback、Runner接続、profile、DB設定 |
 
-ControllerからRunner clientやpersistenceへ直接処理を流さず、application use caseを経由する。
+Java問題集は独立性が高いため、実在する`app.javalearning.web`、`application`、`domain`、`content`、`persistence`へ分割している。入口画面は`app.portal`に置く。Git編をこの構造へ機械的に合わせない。
+
+ControllerからRunner clientやpersistenceへ直接処理を流さず、stateful coordinatorまたはJava問題集のapplication serviceを経由する。
 
 ## 6. Git Runnerのpackage責務
 
+Runnerの物理packageは次の一つである。表の分類は、package階層ではなく`RunnerWorkspaceService`から委譲する論理責務familyを示す。
+
 ```text
-com.developerdungeon.gitrunner
-  api
-  validation
-  sandbox
-  git
-  snapshot
-  cleanup
-  config
+jp.yuya.dev.developerdungeon.runner
 ```
 
-| package | 責務 |
-|---|---|
-| `api` | loopback endpoint、Runner token検証、contract DTO |
-| `validation` | stage別command/argumentの再検証 |
-| `sandbox` | fixed Docker argv、container作成・停止・削除 |
-| `git` | challenge container内の固定Git executable実行、出力制限 |
-| `snapshot` | 採点用のrefs、trees、status、途中状態の取得 |
-| `cleanup` | TTL、ローカル所有台帳、container identityに基づくorphan回収 |
-| `config` | fixed image、limit、name prefix、Docker executable path |
+| 論理責務family | 現在の主なclass | 責務 |
+|---|---|---|
+| Internal API | `RunnerController`、`RunnerTokenFilter` | loopback endpoint、Runner token検証、contract DTOの受渡し |
+| Validation | `RunnerCommandValidator`、`RunnerStagePolicy`、`RunnerEditorPolicy` | stage別command、argument、限定editor入力の再検証 |
+| Git／snapshot | `RunnerGitArguments`、`RunnerSnapshotReader` | fixed Git argv、出力制限、採点用snapshot読取 |
+| Sandbox lifecycle | `RunnerWorkspaceService`、`DockerGateway` | workspaceの単一state ownership、fixed Docker argv、container作成・停止・削除 |
+| Cleanup ownership | `ContainerOwnershipLedger`、`FileContainerOwnershipLedger`、`MemoryContainerOwnershipLedger` | TTL、ローカル所有台帳、container identityに基づくorphan回収 |
+| Configuration | `RunnerConfiguration`、`RunnerProperties` | fixed image、limit、name prefix、Docker executable path |
 
-Runnerは管理DBへ接続せず、ゲーム上のclear条件を判断しない。
+Runnerは管理DBへ接続せず、ゲーム上のclear条件を判断しない。責務を分離するときも、workspace stateと同期を`RunnerWorkspaceService`以外へ複製しない。
 
 ### 6.1 Java実装で維持する責務境界
 
@@ -143,6 +134,8 @@ Runnerは管理DBへ接続せず、ゲーム上のclear条件を判断しない�
 ## 7. Runner API
 
 APIは`127.0.0.1`限定とし、起動時に共有したtokenでappを認証する。playerへ直接公開しない。IPv6 wildcard、`0.0.0.0`、LAN addressへbindしない。
+
+Browserからappへのrequestはapp側の`LoopbackRequestFilter`とSpring SecurityがHost、Origin、CSRFを検証する。appからRunnerへのinternal requestはloopback bindと`RunnerTokenFilter`の固定token検証で保護し、Runner側でBrowser向けOrigin／CSRF検証を重複実装しない。
 
 ### 7.0 起動時認証
 
@@ -178,7 +171,7 @@ RunnerがDocker CLI processを起動するときは親環境をそのまま継�
 
 `readFile`と`writeFile`は`STAGE-GIT-04`だけで有効にする。requestからhost path、container ID、image、mount、network、Docker optionを受け取らない。
 
-`health`と`shutdown`はlauncher専用のinternal operationとし、上表のworkspace operationとrouteを分離する。いずれも同じRunner token、loopback bind、Host検証を必須とし、player session、CSRF token、workspace IDでは呼び出せない。
+`health`と`shutdown`はlauncher専用のinternal operationとし、上表のworkspace operationとrouteを分離する。いずれも同じRunner tokenと`127.0.0.1` bindを必須とし、player session、CSRF token、workspace IDでは呼び出せない。Host／Origin／CSRFの検証はBrowserからappへの境界で行い、Runner internal APIの認証条件には含めない。
 
 ### 7.2 GitCommand
 

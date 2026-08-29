@@ -2,8 +2,9 @@
 
 ## 文書情報
 
-- 状態: クラスタ3完了。3つのrollback単位、井上レビュー、分担root testまで完了
-- 調査基準commit: `009f53d`（PR #25マージ後の`main`）。実装状態はクラスタ3作業branchを反映
+- 状態: クラスタ1〜5完了。責務分割、可読性改善、井上レビュー、通常／DB／Docker testまで完了
+- 調査開始commit: `009f53d`（PR #25マージ後の`main`）
+- 完了基準commit: `f7ef5a4`（PR #30マージ後の`main`）
 - 目的: Javaを学び始めた開発者が、処理の入口、責務、状態の所有者を追いやすいコードへ段階的に整理する
 - 上位制約: [`architecture.md`](architecture.md)、[`threat-model.md`](threat-model.md)、[`test-strategy.md`](test-strategy.md)
 - 読み方: [`code-reading-guide.md`](code-reading-guide.md)
@@ -64,15 +65,15 @@
 
 | 分類 | file数 | 行数 | 扱い |
 |---|---:|---:|---|
-| app本体 | 42 | 2,174 | クラスタ2・3で責務分割済み |
-| Git Runner本体 | 15 | 1,561 | クラスタ4で4つのstateless責務を分離 |
+| app本体 | 42 | 2,381 | クラスタ2・3で責務分割済み |
+| Git Runner本体 | 15 | 1,719 | クラスタ4で4つのstateless責務を分離 |
 | runner-contract | 13 | 188 | 外部contract。原則変更禁止 |
 | DB migrator | 1 | 20 | schema起動入口。原則変更禁止 |
-| app test | 30 | 2,731 | appのcharacterization／回帰証拠 |
-| Runner test | 16 | 2,030 | Runnerのcharacterization／security証拠 |
+| app test | 31 | 2,814 | appのcharacterization／回帰証拠 |
+| Runner test | 17 | 2,359 | Runnerのcharacterization／security証拠 |
 | Java教材reference source | 18 | 963 | 教材content。クラスタ2で個別に可読性を判断 |
 
-合計は135 Java fileである。module依存は次の向きだけとする。
+合計は137 Java fileである。file数はsourceの構成数であり、Surefireが実行するtest case数とは区別する。module依存は次の向きだけとする。
 
 ```text
 app ---------> runner-contract <--------- git-runner
@@ -121,7 +122,7 @@ Java教材reference --X--> runtime component
 
 - `runner-contract`の13 typeはappとRunnerのwire contractであり、可読性だけを理由にrename、統合、package移動を行わない。
 - `DatabaseMigrator`はFlywayの独立起動入口である。変更理由がなければ維持する。
-- 41 test fileは変更前後の証拠である。本体のpackage移動時は対応testも移すが、test都合でproduction可視性を`public`へ広げない。
+- 48 test fileは変更前後の証拠である。test都合でproduction可視性を`public`へ広げない。
 - 18 reference sourceは9問ごとに別compile／Main実行される教材である。共通base classやframeworkへ統合しない。
 
 ## 4. 現在の主要な可読性課題
@@ -177,63 +178,21 @@ commandの順序は次を維持する。
 
 初期に抽出できるのは、独自map、lock、retry、lifecycle状態を持たないsnapshot reader、fixture validator、editor content policy、Git argv builderである。cleanupやregistryを別beanへ移して所有者を複数にしない。
 
-## 6. 目標packageと移動規則
+## 6. 現行packageと論理責務
 
-実装のrootとSpring component scanを維持する。
+リファクタリング後も、Git編の物理packageは主として`jp.yuya.dev.developerdungeon.app`、Runnerは`jp.yuya.dev.developerdungeon.runner`の単一packageである。初期案にあった`app.git.*`や`runner.api`などへの機械的なpackage移動は採用していない。Java問題集だけは、独立した教材境界として`app.javalearning.web`、`application`、`domain`、`content`、`persistence`へ分割している。
 
-```text
-jp.yuya.dev.developerdungeon.app
-  config
-  portal
-  javalearning
-    web
-    application
-    domain
-    content
-    persistence
-  git
-    web
-    application
-    domain
-    stage
-    runner
-    persistence
-
-jp.yuya.dev.developerdungeon.runner
-  api
-  config
-  validation
-  lifecycle
-  git
-  snapshot
-  sandbox
-  cleanup
-```
-
-`DeveloperDungeonApplication`と`GitRunnerApplication`のscan起点より下へ置き、scan範囲を広げない。package移動では次を守る。
-
-- 機械的package移動と責務抽出を同じrollback単位へ混ぜない。
-- package移動だけの単位ではlogic、可視性、命名を変更しない。
-- 対応testを同じpackageへ移し、testのためだけにproduction classを`public`へしない。
-- 各移動後にcompile、Spring bean注入、既存route／serialization testを確認する。
-- [`architecture.md`](architecture.md)の概念package表は、実移動が完了したクラスタで実際のFQCNへ合わせる。
-
-package間の依存方向は次を基本とする。layer名へ合わせるためだけのinterfaceは追加しない。
-
-| 呼出元 | 依存を許可する先 | 禁止する向き |
+| 物理package | 論理責務family | 主なclass／境界 |
 |---|---|---|
-| `app.git.web` | `application`と画面用の不変値 | persistence実装、Runner HTTP、Dockerを直接呼ばない |
-| `app.git.application` | `domain`、`stage`、`runner`、persistence interface | Web template、Controllerへ逆依存しない |
-| `app.git.stage` | `domain`、必要最小限の`runner-contract` | Web、persistence実装、Dockerへ依存しない |
-| `app.git.domain` | JDKの型だけを基本とする | Spring、Web、persistence実装、Runner、Dockerへ依存しない |
-| `app.git.runner` | `runner-contract`と固定HTTP client | Web、stage教材、persistenceへ依存しない |
-| `app.git.persistence` | domain／applicationが要求する永続化contract、JDBC | Web、Runner、Dockerへ依存しない |
-| `runner.api` | `lifecycle`と`runner-contract` | Docker／Gitを直接呼ばない |
-| `runner.lifecycle` | `validation`、`git`、`snapshot`、`sandbox`、台帳I/O | APIへ逆依存しない |
-| `runner.validation`／`git`／`snapshot`／`sandbox` | JDK、固定設定、必要最小限の`runner-contract` | lifecycle stateを独自に持たない |
-| `runner.cleanup` | stateless helperまたは台帳I/Oだけ | registry、retry、TTL判断、cleanup pending、degraded状態を所有しない |
+| `app` | Web | `StageController`、`AppInternalController` |
+| `app` | Application coordinator | `StageService` |
+| `app` | Stage policy | `StageRules`、`StageCatalog`、`StageCommandPolicy`、`StageStatePolicy` |
+| `app` | Runner adapter／persistence／security | `RunnerClient`、`StagePersistence`、`LoopbackRequestFilter` |
+| `runner` | Internal API／validation | `RunnerController`、`RunnerTokenFilter`、`RunnerCommandValidator`、`RunnerStagePolicy` |
+| `runner` | Git／snapshot／editor policy | `RunnerGitArguments`、`RunnerSnapshotReader`、`RunnerEditorPolicy` |
+| `runner` | Stateful lifecycle／cleanup ownership | `RunnerWorkspaceService`、`DockerGateway`、`ContainerOwnershipLedger` |
 
-循環依存を作らず、stateの所有者を`application`側coordinatorとRunnerの`lifecycle` coordinatorへ限定する。
+論理familyは依存方向と読み順を示す分類であり、実在しないpackage名ではない。循環依存を作らず、attempt stateは`StageService`、workspace stateは`RunnerWorkspaceService`だけが所有する。2つ目の実利用がないinterfaceや、見た目だけを理由にしたpackage階層は追加しない。詳細は[`architecture.md`](architecture.md)5章・6章を正本とする。
 
 ## 7. 実装クラスタとrollback単位
 
@@ -252,7 +211,7 @@ package間の依存方向は次を基本とする。layer名へ合わせるた�
 
 ### クラスタ3: Git app
 
-1. package移動だけを小単位で行う。
+1. 現行の単一packageを維持し、変更対象classのallowlistを固定する。
 2. `StageRules`から固定教材catalogを抽出する。
 3. command parse／normalize policyを抽出する。
 4. grading／hint／displayed object policyを抽出する。
@@ -263,7 +222,7 @@ package間の依存方向は次を基本とする。layer名へ合わせるた�
 
 ### クラスタ4: Git Runner
 
-1. package移動だけを小単位で行う。
+1. 現行の単一packageを維持し、変更対象classのallowlistを固定する。
 2. stateless Git argv builderを抽出する。
 3. snapshot readerを抽出する。
 4. fixture／stage command validatorを抽出する。
@@ -295,13 +254,13 @@ player指定object IDを扱う実行順は、次の順序から変更しない�
 
 ### クラスタ5: 全体統合
 
-1. 全120 Java fileを再点検する。
+1. 全137 Java fileを再点検する。
 2. 残る重複、命名、不要compatibility constructorを根拠付きで判断する。
 3. testのfixtureとhelperを、意図が見えにくい箇所だけ整理する。
 4. 読解ガイドとarchitectureを実装後の構造へ更新する。
 5. unit、DB、Docker integration、主要画面を最終確認する。
 
-クラスタ5では、追跡対象135 Java fileを再点検し、`TODO`、`FIXME`、`HACK`、`@Deprecated`が残っていないことを確認した。公開constructor／overloadは実call siteまたはcontract上の用途があるため削除しなかった。追加の責務分割は行わず、`StageService.Attempt`、`MemoryStagePersistence`、`MemoryContainerOwnershipLedger`の状態と処理順を読みやすく整え、`RunnerWorkspaceServiceIdempotencyTest`の既定準備だけをhelperへまとめた。wire contract、DB、route、Spring wiring、教材、fixture、error message、同期方式、lifecycleは変更していない。
+クラスタ5では、追跡対象137 Java fileを再点検し、`TODO`、`FIXME`、`HACK`、`@Deprecated`が残っていないことを確認した。公開constructor／overloadは実call siteまたはcontract上の用途があるため削除しなかった。追加の責務分割は行わず、`StageService.Attempt`、`MemoryStagePersistence`、`MemoryContainerOwnershipLedger`の状態と処理順を読みやすく整え、`RunnerWorkspaceServiceIdempotencyTest`の既定準備だけをhelperへまとめた。wire contract、DB、route、Spring wiring、教材、fixture、error message、同期方式、lifecycleは変更していない。
 
 memory persistenceにはrequest登録がversion競合より先に行われる契約、memory ledgerにはcopy返却と削除の契約を直接testで追加した。井上の実装前レビューと、P2修正後の実装後再レビューはいずれも`PASS`である。
 
@@ -334,7 +293,7 @@ memory persistenceにはrequest登録がversion競合より先に行われる契
 
 この失敗はクラスタ1の文書変更によるものではなかった。現仕様とproductionの固定commandを根拠にtest fixtureと古い表示期待だけを独立commit `d7b4707`で修正し、正式なroot `test`をgreenへ戻してからクラスタ2へ着手した。
 
-通常のMaven `test`は`*IT`を実行しない。Docker ITのクラスタ4変更前baselineは上表のとおり実行済みで、DB ITは未実行である。
+通常のMaven `test`と現在のFast CIの`verify`は`*IT`を実行しない。DB IT 3件とDocker IT 19件は上表のとおり別commandで実行済みであり、DB ITはPersistence CIでも明示実行する。
 
 ### 8.2 各クラスタの着手gate
 
