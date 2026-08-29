@@ -1,115 +1,88 @@
 # Developer Dungeon
 
-Developer Dungeonは、新人エンジニアが複数の開発現場で技術的な問題を解決しながら成長する、ゲーム型学習Webアプリケーションです。
+[![Fast CI](https://github.com/yuya-dev-dev/developer-dungeon/actions/workflows/ci-fast.yml/badge.svg)](https://github.com/yuya-dev-dev/developer-dungeon/actions/workflows/ci-fast.yml)
+[![Persistence CI](https://github.com/yuya-dev-dev/developer-dungeon/actions/workflows/ci-persistence.yml/badge.svg)](https://github.com/yuya-dev-dev/developer-dungeon/actions/workflows/ci-persistence.yml)
 
-現在のリポジトリには、実Gitを使うゲーム型の**Git編**と、要求仕様から複数classの責務を考える**Javaクラス設計問題集**があります。Git編は入力したコマンド列ではなく修復後のリポジトリ状態を採点し、Java問題集は自動採点を行わず、VS Codeでの演習と3状態の自己申告進捗を支えます。
+Developer Dungeonは、実際の開発作業に近い形でGitとJavaクラス設計を学ぶWebアプリケーションです。
 
-## 現在の状態
+- **Git編**: 隔離された使い捨てrepositoryを操作し、コマンド列ではなく最終状態でクリア判定します。
+- **Javaクラス設計問題集**: 要求仕様を読み、手元のIDEで実装し、学習進捗を自分で管理します。
 
-Phase 4までの企画・要件・全体設計と実装はユーザー承認済みです。安全な縦切り版、Git Runner hardening、PostgreSQLによるMVP基盤を経て、Chapter 1のSTAGE-GIT-01（revert）からSTAGE-GIT-05（reflog）までとPhase 5改善単位1〜7Dを実装しました。Gitの基本を広く浅く復習するChapter 0のTRAINING-GIT-01〜03に加え、図書館貸出・自動販売機・ショッピングカートを初級／中級／上級で扱うJavaクラス設計問題9問も実装しています。
+## 公開デモ
 
-Javaクラス設計問題集は、GitHub Pagesで公開するJava専用静的版も提供します。公開URLは[`https://yuya-dev-dev.github.io/developer-dungeon/`](https://yuya-dev-dev.github.io/developer-dungeon/)です。PC、Docker Desktop、管理DBを起動せずスマートフォンから閲覧でき、進捗は利用中の端末・ブラウザ内だけに保存されます。Git編は安全な隔離実行環境が必要なため公開版へ含めず、従来どおりlocalで実行します。
+### [Javaクラス設計問題集をブラウザで試す](https://yuya-dev-dev.github.io/developer-dungeon/)
 
-現在の1日縦切り版は、安全な使い捨てGit実行環境を含みます。player入力をhost上で直接実行せず、別processのGit Runnerとdisposable challenge containerを使用します。
+PCやDockerを起動せず、スマートフォンからも利用できます。図書館貸出、自動販売機、ショッピングカートを初級・中級・上級の9問で学べます。進捗は利用中のブラウザだけに保存されます。
 
-企画・要件・全体設計の文書一式はユーザー承認済みです。初期対応環境はWindows 11 x86_64＋Docker DesktopのWSL 2 backend／Linux containerに限定し、実装基準versionとRunner方式は[`docs/architecture.md`](docs/architecture.md)を正本とします。
+Git編は安全な隔離実行環境を必要とするため、ローカル実行限定です。
 
-正式なlocal起動はPowerShell 7.6.5 LTS x64の`scripts/start-local.ps1`へ一本化します。JDK、Docker Desktop、WSL、Maven Wrapper、challenge image IDのpreflightに失敗した場合は、app／Runnerを起動しません。
+## Git編の学習フロー
 
-進捗と次段階への条件は[`roadmap.md`](roadmap.md)を参照してください。
+![Gitの公開済み変更を安全に取り消してCLEARする流れ](docs/assets/demo/git-stage-01-flow.gif)
 
-## 画面
+実際のGit repositoryを観察し、誤った公開commitを特定して`git revert`で取り消しています。入力した手順を唯一解として照合せず、修復後のbranch、commit、working treeなどの状態を採点するため、同じ目標へ到達する妥当な別解も扱えます。
 
-| タイトル・編選択 | Git編ステージ選択 |
-|---|---|
-| ![タイトル・編選択画面](docs/assets/screenshots/title-screen.png) | ![Git編ステージ選択画面](docs/assets/screenshots/git-stage-list.png) |
+## 収録コンテンツ
 
-| ステージ画面 | Gitコマンド一覧 |
-|---|---|
-| ![第2現場のステージ画面](docs/assets/screenshots/stage-git-02.png) | ![Gitコマンド一覧](docs/assets/screenshots/command-reference.png) |
+| 学習トラック | 内容 | 現在の範囲 |
+|---|---|---|
+| Git基礎研修 | 状態確認、履歴確認、branch操作を広く浅く復習 | 3課題 |
+| Git事故対応 | revert、cherry-pick、stash、merge conflict、reflog | 5ステージ |
+| Javaクラス設計 | 要求仕様からclass、field、method、責務を設計 | 3テーマ × 3難易度 |
 
-## ゲームの中心
+Java問題集ではサイト内エディタや自動採点を設けていません。問題を読み、VS Codeなどで実装・実行し、必要に応じて模範設計例を開いて比較するという学習に集中させています。
 
-- 主人公は架空の開発会社へ入社した新人エンジニア
-- 複数のプロジェクト現場でGit事故を解決する
-- 現実のGit用語とコマンドをそのまま使用する
-- 状態の観察、仮説、安全な操作、振り返りを1つのgame loopにする
-- 信頼済みsnapshotによる自動クリア後に、復旧完了の根拠を考える非採点・非永続の自己確認を行う
-- 4段階hintと累積3スターで、探索を罰せず自力判断を評価する
-- 安定版MVPはGit基礎研修3件と、revert、cherry-pick、stash、merge conflict、reflogを扱う事故対応5stage
-- Phase 5改善では正確な構文をworkspaceへ常時表示せず、Stage非依存のcommand参照と段階ヒントへ分離する
-- Stage 4ではmerge conflict中だけ固定ファイル用のversion token付き限定エディタを表示し、双方の要件と2親のmerge commitを状態採点する
-- Stage 5ではHEAD reflogに残る表示済みcommit IDだけを使い、削除済みbranchを元のcommitへ復旧できたかを状態採点する
+![Javaクラス設計問題集の問題選択画面](docs/assets/screenshots/java/problem-list.png)
 
-## 現在の範囲
+## アーキテクチャ
 
-含む：
+```mermaid
+flowchart LR
+    Browser[Browser] --> App[Spring Boot / Thymeleaf]
+    App --> DB[(PostgreSQL)]
+    App -->|loopback + shared token| Runner[Git Runner]
+    Runner -->|allowlisted Git operation| Container[Disposable challenge container]
+    Pages[GitHub Pages] --> JavaPractice[Java practice / localStorage]
+```
 
-- Git編の1日縦切り版
-- Git編の安定版MVP（Chapter 0の基礎研修3件＋Chapter 1の事故対応5stage）
-- Javaクラス設計問題集MVP（3テーマ×3難易度、固定模範code、3状態進捗）
-- Java / Spring Boot / Thymeleaf
-- Git専用Runner
-- attemptごとの使い捨てDocker container
-- 安定版MVPからPostgreSQL / Flyway
+Git編では画面、進行管理、採点を担うapplicationと、Git操作を担うRunnerを別processに分離しています。各attemptのworkspaceは使い捨てcontainer内に作成し、終了・失敗・timeout時に破棄します。Java公開版は許可した静的成果物だけをGitHub Pagesへ配信し、Runnerや管理DBを含めません。
 
-含まない：
+詳しい責務境界は[`docs/architecture.md`](docs/architecture.md)を参照してください。
 
-- Javaコードレビュー編、SQL編、Docker障害対応編
-- ログイン、複数player、ランキング、Git編・Runner・管理DBの外部公開
-- 汎用Runner、plugin、microservice、stage作成UI
-- ライブworkspaceの完了をプレイヤーが宣言する復旧報告と、その待機用TTL・状態機械
-- rebase、bisect、実remoteを使う高難度stage
+## セキュリティ設計
 
-将来編は同じ主人公と世界観で展開できる候補ですが、Git編MVPの完成と検証後に改めて判断します。
+playerが入力するGitコマンドを扱うため、通常のフォーム入力より厳しい境界を設けています。
 
-## 安全設計
+- host OSやSpring Boot processでplayer由来コマンドを直接実行しない
+- shellを経由せず、ステージごとにGit operationと引数を許可する
+- Docker socket、host bind mount、管理DB、秘密値をchallenge containerへ渡さない
+- network、実行時間、CPU、memory、PID、出力サイズを制限する
+- command文字列ではなく、信頼済みrepository snapshotから状態を判定する
 
-player入力から実Gitを動かす機能は、通常のWeb入力より高い危険性を持ちます。
+脅威と対策は[`docs/threat-model.md`](docs/threat-model.md)に整理しています。
 
-- host OSやSpring Boot processでplayer由来Gitを実行しない
-- shellを経由しない
-- stage別にcommandと引数を許可する
-- appとGit Runnerを別processにする
-- attemptごとにdisposable challenge containerを使用する
-- challenge containerへDocker socket、host bind mount、管理DB、外部networkを渡さない
-- time、CPU、memory、PID、workspace、outputを制限する
-- command履歴ではなく、信頼できるrepository snapshotで採点する
+## テストと品質ゲート
 
-詳細は[`docs/threat-model.md`](docs/threat-model.md)を参照してください。
+| ゲート | 確認内容 | 現在のテスト数 |
+|---|---|---:|
+| [Fast CI](https://github.com/yuya-dev-dev/developer-dungeon/actions/workflows/ci-fast.yml) | application、domain、template、security境界 | 164 |
+| [Persistence CI](https://github.com/yuya-dev-dev/developer-dungeon/actions/workflows/ci-persistence.yml) | PostgreSQL / Flyway統合 | 3 |
+| Local Docker integration | Runnerと使い捨てchallenge container | 19 |
 
-## 文書
+Pull Requestでは高速CIとPostgreSQL統合CIを分離して実行します。Docker Desktopを必要とするRunner統合テストは、ローカルの対象環境で実行します。方針とテスト層は[`docs/test-strategy.md`](docs/test-strategy.md)を参照してください。
 
-| 文書 | 内容 |
-|---|---|
-| [`AGENTS.md`](AGENTS.md) | 作業ルール、Git分担、井上・中谷・バムの役割 |
-| [`docs/requirements.md`](docs/requirements.md) | 確定要件、MVP範囲、完成条件 |
-| [`docs/game-design.md`](docs/game-design.md) | 世界観、game loop、hint、3スター |
-| [`docs/chapter-0-training.md`](docs/chapter-0-training.md) | Chapter 0のGit基礎研修3件の操作、fixture、採点仕様 |
-| [`docs/git-mvp-stages.md`](docs/git-mvp-stages.md) | Chapter 1のGit事故対応5stageの状態と採点仕様 |
-| [`docs/java-class-design-practice.md`](docs/java-class-design-practice.md) | Javaクラス設計問題集MVPの9問、画面、進捗、模範code |
-| [`docs/threat-model.md`](docs/threat-model.md) | 信頼境界、脅威、必須security制御 |
-| [`docs/architecture.md`](docs/architecture.md) | component、module、Runner、DB、Docker境界 |
-| [`docs/vertical-slice.md`](docs/vertical-slice.md) | 1日縦切り版の範囲と完成条件 |
-| [`docs/test-strategy.md`](docs/test-strategy.md) | 自動・統合・手動testの方針 |
-| [`docs/phase-5-experience-improvement-plan.md`](docs/phase-5-experience-improvement-plan.md) | 内部パイロットの所見、採用した改善、実装分割、再確認条件 |
-| [`roadmap.md`](roadmap.md) | 開発段階、完成条件、次へ進む条件 |
+## 技術スタック
 
-文書の優先順位は、`AGENTS.md`、要件定義、脅威モデル、ゲーム・stage仕様、アーキテクチャ、縦切り仕様、テスト戦略、ロードマップ、READMEの順です。
+- Java 25 / Spring Boot 4.1.0 / Maven Wrapper
+- Thymeleaf / HTML / CSS / JavaScript
+- PostgreSQL / Flyway
+- Docker Desktop / Linux container / Git 2.52.0
+- GitHub Actions / GitHub Pages
+- PowerShell 7.6.5 LTS（ローカル起動script）
 
-## 開発体制
+## ローカル実行
 
-- メインエージェント: ユーザーとの要件調整、文書、実装、テストコード、差分確認
-- バム: 新規・大幅更新した物語、シナリオ、主人公の成長、ゲームとしての面白さのレビュー
-- 井上: 企画・要件・全体設計文書の最終一括レビュー、非軽微な実装の事前／事後レビュー
-- 中谷: CSS・HTMLだけの編集を除く非軽微な実装後の対象限定test
-- ユーザー: `git add`、commit、push、PR、merge、手動確認
-
-作業用branchの作成と切り替えはメインエージェントが担当します。
-
-## 実行方法
-
-Dockerを伴う検証の実行許可後、次の順で起動します。
+初期対応環境はWindows 11 x86_64、Docker DesktopのWSL 2 backend、Linux containerです。PowerShell 7.6.5 LTS x64で実行してください。
 
 ```powershell
 .\scripts\build-challenge-image.ps1
@@ -117,6 +90,21 @@ Dockerを伴う検証の実行許可後、次の順で起動します。
 .\scripts\start-local.ps1
 ```
 
-Browserで`http://127.0.0.1:8080`を開きます。Dockerを起動しない単体テストは`.\scripts\invoke-maven.ps1 test`で実行します。このlauncherは、Codexやterminalが古い`JAVA_HOME`を継承していても、必須のEclipse Temurin 25.0.3+9 x64を検出して、そのMaven processにだけ適用します。
+起動後、`http://127.0.0.1:8080`を開きます。`start-local.ps1`はJDK、Docker Desktop、WSL、Maven Wrapper、challenge imageを事前確認し、要件を満たさない場合はapplicationとRunnerを起動しません。
 
-Java公開版の成果物は`.\scripts\build-public-java-site.ps1`で許可リストに従って生成します。`main`へ対象変更が反映されるとGitHub Actionsが生成物だけをGitHub Pagesへ配信します。公開版にSpring Boot、Git Runner、Docker、DB接続、秘密値は含まれません。
+Dockerを使わない通常テストは次のコマンドで実行できます。
+
+```powershell
+.\scripts\invoke-maven.ps1 test
+```
+
+## ドキュメント
+
+| 文書 | 内容 |
+|---|---|
+| [`docs/requirements.md`](docs/requirements.md) | 機能要件、非機能要件、MVP範囲 |
+| [`docs/architecture.md`](docs/architecture.md) | component、module、Runner、DB、Docker境界 |
+| [`docs/threat-model.md`](docs/threat-model.md) | 信頼境界、脅威、security制御 |
+| [`docs/test-strategy.md`](docs/test-strategy.md) | 自動・統合・手動テストの役割 |
+| [`docs/java-class-design-practice.md`](docs/java-class-design-practice.md) | Java問題集の9問、画面、進捗、模範code |
+| [`roadmap.md`](roadmap.md) | 完了済みの改善と今後の候補 |
