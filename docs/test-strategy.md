@@ -2,13 +2,13 @@
 
 ## 文書情報
 
-- 状態: Chapter 1の5ステージとPhase 5改善単位1〜7Dの対象限定テストは完了。Chapter 0の3研修もApp／Runner／Docker／PostgreSQLの対象限定テスト完了
-- 上位文書: [`requirements.md`](requirements.md)、[`git-mvp-stages.md`](git-mvp-stages.md)、[`threat-model.md`](threat-model.md)、[`architecture.md`](architecture.md)
+- 状態: Git編とJava問題集の既存テストは完了、PostgreSQL実習問題集はPhase 1テスト設計案
+- 上位文書: [`requirements.md`](requirements.md)、[`git-mvp-stages.md`](git-mvp-stages.md)、[`sql-practice.md`](sql-practice.md)、[`threat-model.md`](threat-model.md)、[`architecture.md`](architecture.md)
 - 関連文書: [`vertical-slice.md`](vertical-slice.md)、[`phase-5-experience-improvement-plan.md`](phase-5-experience-improvement-plan.md)、[`../AGENTS.md`](../AGENTS.md)
 
 ## 1. この文書が決めること
 
-この文書は、Git編の要件、Chapter 0の3研修、Chapter 1の5ステージ、Runner隔離、永続化、Web操作をどのテストで検証するかを定める。
+この文書は、Git編、Java問題集、PostgreSQL実習問題集の要件、Runner隔離、永続化、Web操作をどのテストで検証するかを定める。
 
 テストは変更内容を確認できる最小範囲から実行し、設定を確認せずに一律のfull suite、coverage、performance測定を行わない。
 
@@ -414,3 +414,136 @@ PostgreSQL Testcontainersを使用し、次を確認する。
 - 実行しなかったtestと未確認範囲が明記されている。
 - security受け入れ条件をmockだけでなく実containerで確認している。
 - failureを無視、skip、期待値の弱体化で解消していない。
+
+## 16. PostgreSQL実習問題集のテスト戦略
+
+### 16.1 Content contract test
+
+固定resourceだけを読み、Dockerなしで次を検証する。
+
+- Tutorial 1件、4章8問、34小課題のkey、順序、重複なし
+- 全問題で業務題材と主要技術テーマの組み合わせが重複していないこと
+- Problem、subtask、table、fixture、hint、模範SQL、grading mappingの必須field
+- 各問題4〜5小課題、模範SQL1案、hint最大3段階
+- Problem/subtask key、`schemaVersion`、`fixtureVersion`、`gradingVersion`がpresentation、Runner fixture、inspectorで一致すること
+- 公開schema・fixtureを正規化したfingerprintがapp resource、contract manifest、Runner imageで一致し、column／型／constraint／preview driftでbuildが失敗すること
+- Fixture、模範SQL、期待dataに実在個人情報、credential、host pathがないこと
+- Browserへ配信するcontentにfixture admin SQL、trusted inspector、期待dataが含まれないこと
+
+### 16.2 SQL policy unit test
+
+- 許可された単一`SELECT`、DML、DDL、transaction scriptの分類
+- String literal、quoted identifier、line／block comment内のkeywordを誤分類しないこと
+- Psql meta command、空入力、oversize、複数statementの問題別拒否
+- `CREATE ROLE`、`ALTER SYSTEM`、`COPY PROGRAM`、`CREATE EXTENSION`、`LOAD`、`DO`等の拒否
+- Unicode空白、改行、nested comment、dollar quote、semicolon、CTEを使ったbypass候補
+- Parser failureまたは未知statementを許可へfallbackしないこと
+- `SQL-08-01`が単一read-only `SELECT`だけを許可すること
+- `SQL-08-02`／`05`は末尾`COMMIT`、`03`は末尾`ROLLBACK`、`04`は構文上末尾`COMMIT`だけを許可し、早期終端、終端後statement、複数`BEGIN`、`SAVEPOINT`系を拒否すること
+- 許可した`pg_catalog` function OIDだけをproblem別に通し、`pg_sleep`、`set_config`、sequence、large object、file／network、extension由来、user-defined、未知または`VOLATILE`なcallをSELECT／DML／CHECK／DEFAULT内でも拒否すること
+
+Policy testの成功だけでsecurity成立としない。同じ危険操作がlearner roleと実containerでも失敗することを16.6で確認する。
+
+### 16.3 判定unit test
+
+- `SELECT`のcolumn、値、重複、`NULL`、型、row multiset比較
+- `ORDER BY`必須時だけrow順を評価すること
+- 表示formatだけが異なる同値numericと、意味の異なる丸めを区別すること
+- DMLで対象row、非対象row、不変条件を評価すること
+- DDLでconstraint名やcolumn順の差を許容しつつ、欠落constraintを拒否すること
+- `SQL-07-05`のfixed constraint testが常にrollbackし、合否にかかわらずplayer dataを変えないこと
+- `SQL-07-05`の5 probeが独立transactionで全件実行され、期待SQLSTATEを確認し、途中error後も継続し、最後のread-only inspectionでplayer data不変を確認すること
+- Transaction成功、rollback、部分更新、総残高不変条件
+- 模範SQLと異なる安全な別解の合格例
+- 偶然row数だけ一致する誤更新、全件更新、近似不正解の拒否
+
+### 16.4 Application／Web test
+
+- Phase 1中はSQL編card／routeを公開せず、Phase 2で`/sql/problems`提供と同時にcardを追加すること
+- Phase 2以降は`/`からSQL編、`/sql/problems`、tutorial、実装済み問題へのrouteを提供すること
+- 未知problem／subtask、改ざんgeneration、invalid requestの404／拒否
+- Editor、問題、table、hint、模範SQL、result、小課題のescape
+- CSRF、execute連打、grade中reset、古いgeneration、同一request ID再送
+- `SUCCESS_QUERY`、`SUCCESS_COMMAND`、`INPUT_REJECTED`、`POSTGRES_ERROR`、`LIMIT_EXCEEDED`、`RESULT_UNKNOWN`、`SYSTEM_UNAVAILABLE`の表示
+- JavaScriptなしの`textarea`／normal form fallback
+- `localStorage`破損／利用不能時のclient fallbackはbrowser-level testまたは対象manual確認
+- Raw SQL、trusted query、credential、container IDをHTMLまたはlogへ出さないこと
+
+### 16.5 Persistence integration test
+
+Management PostgreSQL Testcontainersで次を確認する。
+
+- Flyway migrationとapp roleの最小grant
+- `NOT_STARTED`、`IN_PROGRESS`、`COMPLETED`のprogress遷移
+- Attempt state、generation、passed subtask、stable request ID
+- Status／state allowlist、`generation >= 1`、completed_at整合、pending request整合をDB constraintでも拒否すること
+- 同一progress statusと同一subtask合格の再送が時刻を書き換えず冪等に収束すること
+- SQL operation ledgerがrequest IDをattempt／generation／operation／subtaskへbindingし、raw SQLとresult rowを持たないこと
+- 同じrequest IDの同一bindingと異なるbindingをどちらも再実行せず、後者を不正requestとして拒否すること
+- Execute／grade／resetの並行更新とoptimistic conflict
+- Resetで旧generationを再利用せず、過去のproblem完了記録を消さないこと
+- Raw SQL、result row、PostgreSQL error本文を保存するcolumnがないこと
+- SQL進捗tableからGit／Java進捗への不要なforeign keyがないこと
+
+### 16.6 SQL Runner Docker integration test
+
+固定SQL challenge imageを使い、実containerで次を確認する。
+
+- Problemごとのfixture再現性とPostgreSQL version
+- Learner roleのgrant、superuser／createdb／createrole／replication／bypassrlsなし
+- Management credential、host mount、Docker socket、external network、host portなし
+- Allowed `SELECT`、DML、DDL、transactionの実挙動
+- Dangerous statement、server file、program、extension、他database／schema accessの拒否
+- Statement、lock、idle transaction、row、output、CPU、memory、PID、disk上限
+- Result set、command tag、SQLSTATE、error位置の構造化とsanitization
+- 固定`ON_ERROR_STOP=1`で最初のPostgreSQL error後に後続statementを実行せず、connection終了後にopen transactionがrollbackされること
+- HTML、ANSI、control character、巨大cellを含むresultの安全な打切り
+- Timeoutと通信断を`RESULT_UNKNOWN`へし、同containerを再利用しないこと
+- App／Runner再起動後のoperation ledger照合、重複request固定拒否、generation違い、reset競合でDMLを二重確定しないこと
+- Reset、完了、例外、shutdown、startup recoveryでSQL labelの所有containerだけを回収すること
+- Git challenge container、management PostgreSQL、無関係containerを回収しないこと
+
+### 16.7 教材scenario integration test
+
+8問34小課題について、最低限次を自動確認する。
+
+- Fixture適用後に模範SQLが実行できる。
+- 模範SQLで各subtaskが合格する。
+- 問題ごとに1件以上の妥当な別解が合格する。
+- 問題ごとに1件以上の近似不正解が不合格になる。
+- [`sql-practice.md`](sql-practice.md) §7.9の公開schema、fixture、固定入力、期待column／row／順序またはDB状態を全34小課題で確認する。
+- 更新問題はresetでbyte単位のdump一致ではなく、信頼済み初期状態へ意味上戻る。
+- 後続subtaskが前の更新へ依存する問題は、順序どおり完了できる。
+- `SQL-08`は成功transaction、明示rollback、constraint error後rollback、終端後statement拒否を確認する。
+
+全34小課題を1つの巨大test classへまとめず、problem単位でfailure箇所を特定できる形にする。
+
+### 16.8 Manual確認
+
+- PC viewportで問題、editor、主要button、result先頭が過度なscrollなしに確認できる。
+- Keyboardだけでeditor、実行、判定、sidebar、模範SQLへ移動できる。
+- SQL選択範囲の有無と実行対象が分かる。
+- 長いresult、長いerror、横長table、empty resultが読める。
+- Tutorialだけで最初の本問題の実行方法を理解できる。
+- Reset前に破棄内容が分かり、誤操作後に復帰できる。
+- Orangeを主色にせず、deep navy／blue／cyan／whiteで十分なcontrastがある。
+
+### 16.9 Phase別gate
+
+| Phase | 必須gate |
+|---|---|
+| Phase 2縦切り | Contentのtutorial／`SQL-01`、policy／判定unit、Web、persistence、SQL Runner Docker security、代表manual |
+| Phase 3 MVP | 8問34小課題scenario、全route、全progress、別解／近似不正解、reset |
+| Phase 4 hardening | Security受け入れ条件、concurrency、timeout／recovery、startup cleanup、Git／Java回帰、主要画面manual |
+
+Docker、DB、E2Eは既存方針どおりユーザー許可を得て実行する。SQL Runner Docker testとmanagement persistence testを同じ意味のtestとして重複実行しない。
+
+### 16.10 SQL編MVPテスト完了条件
+
+1. Tutorial、8問、34小課題のcontent contractが成功する。
+2. 模範SQL、代表別解、代表近似不正解で判定境界を確認する。
+3. Management DBとchallenge PostgreSQLの分離を実containerで確認する。
+4. SQL固有security受け入れ条件をmockだけでなく実containerで確認する。
+5. Timeout、結果不明、reset、shutdown、startup recoveryでorphanを残さない。
+6. Git編とJava問題集の対象回帰testが成功する。
+7. 実行しなかったtest、未確認のplatform、Internet公開が対象外であることを明記する。

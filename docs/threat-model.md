@@ -2,14 +2,14 @@
 
 ## 文書情報
 
-- 状態: 承認済み（Phase 1〜STAGE-GIT-05実装・対象限定テスト完了、PR #10までmain反映済み）
-- 対象: Git編の1日縦切り版および安定版MVP
-- 上位文書: [`requirements.md`](requirements.md)、[`git-mvp-stages.md`](git-mvp-stages.md)
+- 状態: Git編は実装済み、PostgreSQL実習問題集はPhase 1設計確定案
+- 対象: Git編MVP、PostgreSQL実習問題集MVP
+- 上位文書: [`requirements.md`](requirements.md)、[`git-mvp-stages.md`](git-mvp-stages.md)、[`sql-practice.md`](sql-practice.md)
 - 関連文書: [`architecture.md`](architecture.md)、[`test-strategy.md`](test-strategy.md)
 
 ## 1. この文書が決めること
 
-この文書は、プレイヤー入力から実Gitを動かす機能の保護対象、信頼境界、主要脅威、必須対策、セキュリティ受け入れ条件を定める。
+この文書は、プレイヤー入力から実GitまたはPostgreSQLを動かす機能の保護対象、信頼境界、主要脅威、必須対策、セキュリティ受け入れ条件を定める。
 
 セキュリティ要件を満たせない場合は、ステージ機能または実装速度を削る。ホスト実行、任意シェル、Dockerソケットの課題環境への公開を代替案にしない。
 
@@ -20,6 +20,8 @@
 - Spring Bootアプリケーションは別プロセスのGit Runnerへ構造化要求を送る。
 - Git Runnerは固定challenge imageからattemptごとの使い捨てコンテナを生成する。
 - 安定版MVPでは管理用PostgreSQLを使用する。
+- SQL編では、Spring Boot applicationと別processのSQL Runnerが、attemptごとの使い捨てPostgreSQL challenge containerを操作する。
+- SQL challenge PostgreSQLはmanagement PostgreSQLとinstance、credential、権限、networkを共有しない。
 - プレイヤーは悪意のある入力を試せるものとして扱う。
 - fixtureとimageは開発者が管理するが、破損または設定ミスを想定する。
 - Docker daemonまたはRunner controllerが完全に侵害された場合、コンテナ境界だけではホストを保護しきれない。この残余リスクを理由にMVPを外部公開しない。
@@ -36,6 +38,8 @@
 | ASSET-006 | 他attemptのworkspaceとfixture |
 | ASSET-007 | ローカルPCのCPU、メモリ、disk、process |
 | ASSET-008 | 採点結果、コマンド履歴、監査ログの完全性 |
+| ASSET-009 | SQL問題のfixture、trusted inspection、期待状態 |
+| ASSET-010 | Player SQLを実行するchallenge PostgreSQLと他attemptのdata |
 
 ## 4. 信頼境界
 
@@ -241,6 +245,8 @@ Windows + Docker Desktopを初期対象とする場合、Docker Desktop VMは追
 - Docker認証情報、Runner token、DB credential
 - host絶対path
 - 実在する個人情報
+- Playerが入力したraw SQL、SQL result row、PostgreSQL error全文
+- SQLのfixture、trusted inspection query、期待data
 
 ## 12. cleanup
 
@@ -280,17 +286,90 @@ Windows + Docker Desktopを初期対象とする場合、Docker Desktop VMは追
 
 これらのいずれかを確認できない状態では、縦切り版またはMVPを完成扱いにしない。
 
-## 14. 将来のSQL編
+## 14. PostgreSQL実習問題集
 
-SQL編へ着手する場合は別の脅威モデルを作成する。最低条件は、管理DBと別instance、別network、別credential、最小権限role、read-only transaction、statement timeout、lock timeout、結果行数制限、危険文と複数文の制限である。現在のGit RunnerをSQLへ汎用化しない。
+### 14.1 信頼境界
+
+```text
+Untrusted Browser SQL
+        |
+        v
+Spring Boot app -- management DB credential --> Management PostgreSQL
+        |
+        | authenticated loopback contract
+        v
+SQL Runner -- Docker control --> Disposable PostgreSQL challenge
+                                      |
+                                      +-- learner role
+                                      +-- trusted fixture / inspector
+```
+
+Browser、player SQL、PostgreSQLから返るmessageとrowはuntrustedとする。Spring Boot app、SQL Runner、固定problem definition、fixture、inspectorはtrustedだが、設定ミス、resource改ざん、request混同を想定する。Challenge PostgreSQLはlearner SQLによって破損してよい使い捨て環境であり、信頼境界の内側へ入れない。
+
+### 14.2 SQL固有の脅威と対策
+
+| 脅威 | 影響 | 必須対策 |
+|---|---|---|
+| Management DBへplayer SQLを送る | 進捗・attempt・credentialの破壊または漏えい | Appのmanagement JDBC APIへraw SQLを渡さず、SQL Runnerと別challenge instanceだけで実行する |
+| Learner roleからserver／hostを操作する | File読取、program実行、権限昇格 | non-superuser、dangerous predefined roleなし、createdb／createrole／replication／bypassrlsなし、server file／program／extension権限なし |
+| SQLから他attemptへアクセスする | 他問題dataの漏えい・破壊 | 1 attempt generation 1 container、network none、共有volumeなし、直接credential非公開 |
+| `COPY PROGRAM`、extension、FDW、`LOAD`、`DO`等の悪用 | OS command、外部接続、resource abuse | stage policyで拒否し、DB権限とcontainer境界でも失敗させる |
+| Recursive query、巨大join、sleep、lock | CPU、memory、disk、availability枯渇 | statement／lock／idle transaction timeout、result／output上限、container CPU／memory／PID／disk上限 |
+| 複数statementへ危険文を隠す | 許可範囲bypass | String／comment／quoted identifierを区別するstatement分類、初級は単一statement、複数文は指定問題だけ |
+| SQLSTATEやerrorに内部情報が含まれる | Path、query、schema、credential漏えい | SQLSTATEとsanitized messageだけを返し、server log detail、internal query、host pathを除去する |
+| Result rowにHTMLや制御文字を入れる | Browser上のXSS、表示破壊 | Template escape／`textContent`、ANSI／control character処理、row／cell／output size上限 |
+| Fixture／grader resourceの改ざん | 誤判定、権限過大、secret混入 | 固定resource allowlist、schema／fixture／grading version、公開manifest fingerprintのcontract test、架空dataだけ、Browser非公開、trusted path固定 |
+| Request再送・並行実行 | SQL二重実行、状態破壊、誤判定 | attempt直列化、request IDをattempt／generation／operation／subtaskへbinding、非機密operation ledger、重複requestの固定拒否、実行中reset拒否 |
+| Timeout後に実行結果が不明 | 部分更新のまま次操作 | `RESULT_UNKNOWN`でattemptをrecovery requiredへ移し、同containerを再利用せずcleanupする |
+| Reset／cleanup失敗 | Orphan container、resource枯渇 | 旧container削除成功前に新generationを作らず、SQL専用ledgerとlabelで所有物だけ回収する |
+| SQL Runner token漏えい | 任意container操作 | Git tokenと分離した256-bit token、引数／log／containerへ渡さない、loopback限定、未認証request拒否 |
+
+### 14.3 Learner roleの最小権限
+
+- 基本検索、集計、join問題は指定tableへの`SELECT`だけをgrantする。
+- DML問題は指定tableの必要operationだけを追加する。
+- DDL問題は専用schemaの`CREATE`だけを追加し、database、role、extensionを作れない。
+- `public` schemaの既定CREATEを除去する。
+- Built-in functionはlearner権限で安全に実行できるものだけを教材上許可する。Queryでは`count`、`sum`、`avg`、`min`、`max`、`round`、`extract`、`date_trunc`、`lag`、`coalesce`をproblemごとに限定し、DDL式では`length`、`btrim`、`CURRENT_TIMESTAMP`、identity生成だけを許可する。固定`pg_catalog` object identityとOIDで解決し、未知・user-defined・extension由来・`VOLATILE` functionを拒否する。PostgreSQLの既定権限だけを信用せず、MVP imageのfunction allowlistを実containerで検証する。
+- Fixture initializerとtrusted inspectorはlearner connection、learner transaction、player指定SQLを再利用しない。
+
+### 14.4 Statement policyの位置づけ
+
+Statement policyは問題の学習範囲を守る第1防御だが、security sandboxではない。Parserの未対応構文や難読化があっても、最小権限role、network none、no mount、resource limit、使い捨てcontainerによってmanagement DBとhostを守る。
+
+正規表現や先頭keywordだけで安全と判定しない。Phase 2でparser dependencyを採用する場合はPostgreSQL 18系への追従、license、native binary、supply chainをレビューする。Parserを採用しない場合は、許可構文をより狭いlexerとserver権限で成立させ、曖昧なstatementを拒否する。
+
+### 14.5 SQL編セキュリティ受け入れ条件
+
+1. Management PostgreSQLとchallenge PostgreSQLが別container、別credential、別networkである。
+2. Player SQLがapp process、management JDBC、host shell、Git challenge containerで実行されない。
+3. SQL challenge containerにhost mount、Docker socket、management credential、外部networkがない。
+4. Learner roleがsuperuser、createdb、createrole、replication、bypassrls、server file、program、extension権限を持たない。
+5. 問題ごとの許可statement外、psql meta command、禁止root statementが実行前に拒否され、DB権限でも失敗する。
+6. Statement、lock、idle transaction、row、output、CPU、memory、PID、disk上限が実containerで有効である。
+7. Result、error、table名にHTML、script、ANSI、制御文字を入れてもDOMとして実行されない。
+8. Raw SQL、result row、trusted inspection、credential、host pathがmanagement DBとlogへ残らない。
+9. 同時execute、二重送信、execute中reset、timeout、通信断でSQLが意図せず複数回確定しない。
+10. Timeoutまたは結果不明のcontainerを次のplayer操作へ再利用しない。
+11. Reset、完了、system failure、shutdown、startup recoveryでSQL Runner所有containerだけを回収する。
+12. Fixtureとtrusted inspectorが固定problem/subtask mapping以外から選択されず、Browserへ送られない。
+13. SQL編を無効にした起動ではSQL routeとRunner operationがfail closedになる。
+14. Git Runner token、contract、container label、ledgerとSQL Runnerのものが分離されている。
+15. App表示resourceとRunner fixtureのproblem key、version、公開manifest fingerprintが一致し、不一致imageでattemptを開始しない。
+16. 同じrequest IDの再送、別generation／operationへの使い回し、App／Runner再起動後もSQLを再実行せず、結果不明はrecoveryへ収束する。
+17. `pg_sleep`、`set_config`、sequence、large object、file、network、extension由来、user-defined、未知または`VOLATILE`なfunctionがSELECT、DML、CHECK、DEFAULTへ埋め込まれても実行前に拒否され、DB権限とresource limitでも被害を境界内へ留める。
+
+これらを確認できない場合は、tutorialまたは1問だけの縦切り版でも完成扱いにしない。Internet公開へ進む場合は、認証、rate limit、利用者分離、専用host／VM、監視、費用上限を含む別の脅威モデルを作成する。
 
 ## 15. 残余リスク
 
 - Docker daemonまたはRunner controller自体の脆弱性
 - Docker Desktopおよびhost OSの脆弱性
 - Git本体の未知の脆弱性
+- PostgreSQL、`psql`、SQL parserの未知の脆弱性
 - 固定imageや依存packageのsupply-chain risk
 - localhost限定でも、同一PC上の別processからRunnerを狙われる可能性
 - app上で`ACTIVE`な論理attemptを長時間放置した場合のplayer session単位の自動期限切れは未実装であり、現行MVPではshutdown、startup recovery、Runner所有台帳によるcleanupへ依存する
+- SQL policyがPostgreSQLの全構文を意味的に証明するものではなく、最小権限roleとcontainer隔離へ依存する
 
 MVPはこれらを完全に排除するものではない。外部公開、複数ユーザー、本番運用へ進む前に、専用VM、認証、監視、更新運用を含む別設計が必要である。

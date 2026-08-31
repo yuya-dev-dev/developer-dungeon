@@ -107,4 +107,5 @@ Dockerを使わない通常テストは次のコマンドで実行できます�
 | [`docs/threat-model.md`](docs/threat-model.md) | 信頼境界、脅威、security制御 |
 | [`docs/test-strategy.md`](docs/test-strategy.md) | 自動・統合・手動テストの役割 |
 | [`docs/java-class-design-practice.md`](docs/java-class-design-practice.md) | Java問題集の9問、画面、進捗、模範code |
+| [`docs/sql-practice.md`](docs/sql-practice.md) | 次期PostgreSQL実習問題集のtutorial、4章8問、SQL実行・判定仕様 |
 | [`roadmap.md`](roadmap.md) | 完了済みの改善と今後の候補 |

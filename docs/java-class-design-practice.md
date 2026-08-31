@@ -456,7 +456,7 @@ app/src/main/resources/java-problems/
 
 | method | path | 役割 |
 |---|---|---|
-| GET | `/` | Git編とJava編の固定cardを表示する編選択 |
+| GET | `/` | 現状はGit編とJava編の固定cardを表示する編選択。SQL編はSQL Phase 2で一覧routeが利用可能になる変更と同時に追加 |
 | GET | `/java` | `/java/problems`へredirect |
 | GET | `/java/problems` | 9問と進捗を初級・中級・上級別に表示 |
 | GET | `/java/problems/{slug}` | 固定catalogから1問を表示 |
