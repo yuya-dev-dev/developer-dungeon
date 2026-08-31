@@ -2,16 +2,16 @@
 
 ## 文書情報
 
-- 状態: Git編の既存ベースラインとJavaクラス設計問題集MVPは承認・実装済み
-- 対象: Git編の1日縦切り版および安定版MVP、Javaクラス設計問題集の次期MVP
+- 状態: Git編とJavaクラス設計問題集MVPは実装済み、PostgreSQL実習問題集はPhase 1設計確定案
+- 対象: Git編、Javaクラス設計問題集MVP、PostgreSQL実習問題集MVP
 - 上位ルール: [`../AGENTS.md`](../AGENTS.md)
-- 関連文書: [`game-design.md`](game-design.md)、[`git-mvp-stages.md`](git-mvp-stages.md)、[`java-class-design-practice.md`](java-class-design-practice.md)、[`threat-model.md`](threat-model.md)、[`architecture.md`](architecture.md)、[`phase-5-experience-improvement-plan.md`](phase-5-experience-improvement-plan.md)
+- 関連文書: [`game-design.md`](game-design.md)、[`git-mvp-stages.md`](git-mvp-stages.md)、[`java-class-design-practice.md`](java-class-design-practice.md)、[`sql-practice.md`](sql-practice.md)、[`threat-model.md`](threat-model.md)、[`architecture.md`](architecture.md)、[`phase-5-experience-improvement-plan.md`](phase-5-experience-improvement-plan.md)
 
 ## 1. この文書が決めること
 
-この文書は、Developer Dungeonの現在のプロダクト目的、対象ユーザー、Git編の機能要件、非機能要件、MVP範囲、完成条件、および次期拡張であるJavaクラス設計問題集の要件を定める正本である。
+この文書は、Developer Dungeonの現在のプロダクト目的、対象ユーザー、Git編の機能要件、非機能要件、MVP範囲、完成条件、Javaクラス設計問題集、およびPostgreSQL実習問題集の上位要件を定める正本である。
 
-この文書では、Javaクラス、HTTP API、DBカラム、Dockerオプションなどの実装詳細は決めない。実装方法はアーキテクチャ文書、Git教材の内容はゲーム設計とステージ仕様、Java問題集の具体的な教材内容は[`java-class-design-practice.md`](java-class-design-practice.md)で定める。
+この文書では、Javaクラス、HTTP API、DBカラム、Dockerオプションなどの実装詳細は決めない。実装方法はアーキテクチャ文書、Git教材の内容はゲーム設計とステージ仕様、Java問題集は[`java-class-design-practice.md`](java-class-design-practice.md)、SQL問題集は[`sql-practice.md`](sql-practice.md)で定める。
 
 ### 表記規則
 
@@ -21,7 +21,7 @@
 
 ### 2.1 現在の対象
 
-- Gitコマンドの隔離実行・状態採点基盤はGit編専用とする。次期拡張のJavaクラス設計問題集は同じリポジトリとSpring Boot applicationへ追加するが、この基盤を再利用または一般化しない。
+- Gitコマンドの隔離実行・状態採点基盤はGit編専用とする。Javaクラス設計問題集と次期PostgreSQL実習問題集は同じリポジトリとSpring Boot applicationへ独立境界で追加するが、この基盤を再利用または一般化しない。
 - 初回はローカル専用・シングルプレイヤーとする。
 - プレイヤーは実際のGitコマンドを入力して課題を解く。
 - クリア判定は入力したコマンド列ではなく、最終的なリポジトリ状態を基本とする。
@@ -43,11 +43,13 @@
 
 現在の`STAGE-GIT-01`〜`05`を、Git事故対応を扱うChapter 1として位置づける。Chapter 0「Git基礎研修」は初心者へ推奨する任意の導入章として、local repositoryの基本を3研修で広く浅く扱う。経験者はChapter 1から開始できる。remote共同作業を扱うChapter 2と、複数事故を分解して解決するGit編Finaleは将来候補とする。
 
-Javaクラス設計問題集は、Git編MVP後の次期拡張として採用する。Developer Dungeonの上位ブランドと編選択画面は共有するが、Git編の事故対応、Runner、状態採点、スター、物語演出を無理に適用せず、要求仕様を読んでVS Code上で複数クラスを設計・実装する問題集として独立した学習体験を持たせる。上位要件は本書15章、9問の内容と実装境界は[`java-class-design-practice.md`](java-class-design-practice.md)を正本とする。
+Javaクラス設計問題集は、Git編MVP後の拡張として実装済みである。Developer Dungeonの上位ブランドと編選択画面は共有するが、Git編の事故対応、Runner、状態採点、スター、物語演出を適用せず、要求仕様を読んでVS Code上で複数クラスを設計・実装する問題集として独立した学習体験を持つ。上位要件は本書15章、9問の内容と実装境界は[`java-class-design-practice.md`](java-class-design-practice.md)を正本とする。
 
-Javaコードレビュー編、SQL編、Docker・CI/CD障害対応編は、同じ主人公、会社、主力サービス、登場人物を再利用できる将来候補である。Javaクラス設計問題集とJavaコードレビュー編は別の学習機能として扱う。Chapter 0の確定仕様は[`chapter-0-training.md`](chapter-0-training.md)を正本とする。Chapter 2以降は1章ずつ設計し、ユーザーが個別に承認するまで実装範囲へ含めない。
+PostgreSQL実習問題集は、Git編とJava編に続く次期拡張としてPhase 1設計を承認する。上位brandと編選択を共有するが、Git編の物語、会話、スター、Git Runnerを再利用せず、Browser上のSQL editorと専用の隔離PostgreSQLを使う独立した学習体験とする。MVPはlocal限定とし、具体内容は本書16章と[`sql-practice.md`](sql-practice.md)を正本とする。
 
-共通化するのは世界観、人物の役割、チケットによる課題提示、調査・実行・確認・振り返りという学習ループまでとする。将来編だけを理由に、`challenge_type`、汎用Runner、プラグイン機構、共通DB構造、シナリオエンジン、キャラクター管理機構を導入しない。
+Javaコードレビュー編とDocker・CI/CD障害対応編は将来候補である。Javaクラス設計問題集とJavaコードレビュー編は別の学習機能として扱う。Chapter 0の確定仕様は[`chapter-0-training.md`](chapter-0-training.md)を正本とする。Git Chapter 2以降と将来編は1単位ずつ設計し、ユーザーが個別に承認するまで実装範囲へ含めない。
+
+全編で共通化するのは上位brand、編選択、基本navigation、視認性の基準までとする。世界観、人物、チケット、物語上の学習ループはGit編など物語型の教材だけに適用し、Java編とSQL編には必須としない。将来編だけを理由に、`challenge_type`、汎用Runner、プラグイン機構、共通DB構造、シナリオエンジン、キャラクター管理機構を導入しない。
 
 ## 3. 対象ユーザー
 
@@ -104,7 +106,7 @@ Javaコードレビュー編、SQL編、Docker・CI/CD障害対応編は、同�
 | REQ-GAME-024 | sidebarの「ヒント」から現在Stageのヒントを段階開示でき、JavaScript有効時はcommand、hint、reset、限定editor保存の後もページ全体を再読込せず、画面位置、拡大状態、操作文脈を維持できる。JavaScript無効時も通常form POSTで同じ操作を完了できる |
 | REQ-GAME-025 | workspaceの通常表示はcommand入力、実行button、実行結果へ絞る。Stage 4の限定editorはmerge conflict中だけworkspace内へ追加し、Stage 4以外、競合前、clear後には表示しない |
 | REQ-GAME-026 | 現在repository状態は独立した横幅のある領域で表示し、完全HEAD object IDを等幅かつ折り返さず確認できる。狭い画面では当該領域内だけの横scrollを許容する |
-| REQ-GAME-027 | `/`はタイトル兼編選択画面とし、Git編とJavaクラス設計問題集の固定cardを表示する。閲覧時にDB、attempt、Runner、workspaceへアクセスしない |
+| REQ-GAME-027 | `/`はタイトル兼編選択画面とし、実装済みのGit編とJavaクラス設計問題集の固定cardを表示する。SQL編cardはPhase 2で`/sql/problems`が利用可能になる変更と同時に追加し、それまでは表示しない。閲覧時にDB、attempt、Runner、workspaceへアクセスしない |
 | REQ-GAME-028 | `/git/stages`のChapter 1区画は固定のSTAGE-GIT-01〜05を学習順に表示し、各行には番号、現場番号、題名、clear／未clear状態だけを表示する。最高スターは採点・永続化に残しても一覧には表示しない |
 | REQ-GAME-029 | タイトル画面とGit編ステージ選択画面は承認済み参照画像の明るいオフィス、研修カード、ホワイトボード型一覧、最小限の情報階層をHTML/CSSで再現し、画像内の文字や透明なclick領域へ操作を依存させない |
 | REQ-GAME-030 | 既存の固定Stage URLは維持し、直接アクセスを禁止しない。入口画面の閲覧だけでattemptやworkspaceを作成せず、Stage開始時に限って既存lifecycleを開始する |
@@ -188,6 +190,7 @@ Javaコードレビュー編、SQL編、Docker・CI/CD障害対応編は、同�
 | Java / Spring Boot / Thymeleaf / JUnit | 1日縦切り版から |
 | Docker | 1日縦切り版からGit課題の隔離に使用 |
 | PostgreSQL / Flyway / Docker Compose | 安定版MVPから |
+| SQL Runner / disposable PostgreSQL challenge | SQL編Phase 2の安全な縦切り版から。Management PostgreSQLとは分離 |
 | Testcontainers | 安定版MVPのDB・challenge image統合テストから |
 | GitHub Actions | MVP後 |
 | SPAフレームワーク / WebSocket | MVPでは不要 |
@@ -238,7 +241,7 @@ Javaコードレビュー編、SQL編、Docker・CI/CD障害対応編は、同�
 | TBD-001 | プロダクト、Git編、主人公、会社、主要人物の正式名称 |
 | TBD-004 | 5ステージの文章、fixture内のファイル名、コミットメッセージの最終表現 |
 | TBD-007 | Chapter 2とGit編Finaleのステージ構成、remoteの表現方式、安全境界、採点方法 |
-| TBD-008 | Javaコードレビュー編、SQL編、Docker・CI/CD編の順序と、各編専用の実行・隔離方式 |
+| TBD-008 | Javaコードレビュー編、Docker・CI/CD編の順序と、各編専用の実行・隔離方式 |
 
 未確定事項は実装上の重大な分岐が発生する前にユーザーへ確認する。推測で確定しない。
 
@@ -356,3 +359,89 @@ Javaコードレビュー編、SQL編、Docker・CI/CD障害対応編は、同�
 - Git編、Git Runner、Docker challenge container、management PostgreSQL、Spring Boot API、認証情報、秘密値を公開成果物へ含めない。
 - Git編とJava local版の既存route、DB進捗、安全境界は変更しない。
 - 公開版にログイン、server側進捗同期、利用者code保存、自動採点、AI API連携を追加しない。
+
+## 16. PostgreSQL実習問題集
+
+### 16.1 目的と位置づけ
+
+- SQL入門書を一周した学習者が、現在の知識をPostgreSQLへ転用し、初学者から実務基礎までを演習する。
+- Data tableと業務要求を読み、Browser上でSQLを記述、実行、修正、判定する学習フローとする。
+- SQL文字列の唯一解を求めず、取得結果または実行後のDB状態で判定する。
+- Git編と同じタイトル兼編選択、SQL編専用ステージ一覧を使うが、Git事故対応の物語、会話、スター、Git Runnerを適用しない。
+- MVPはlocal専用・single playerとし、PCとDocker Desktopが動作している環境で利用する。Internet公開は別Phaseで再評価する。
+
+### 16.2 MVP教材
+
+- 初学者向けチュートリアル1件を用意する。
+- 本問題は4章8問、合計34小課題とする。
+- 章は基本検索、集計と加工、複数table、更新と設計で構成する。
+- 全8問で業務題材と主要技術テーマの組み合わせを変える。
+- 各問題は4〜5小課題を持ち、単発のSQL一文だけで完了する薄い問題にしない。
+- 全問題を最初から選択可能とし、前問の完了によるlockを設けない。
+- 具体的な題材、table、小課題、公開fixture、固定入力、期待する意味上のresult／DB状態、別解判定は[`sql-practice.md`](sql-practice.md) §7.9を正本とする。
+- Problemごとにschema、fixture、gradingのversionを固定し、表示内容とSQL Runnerの実fixtureの不一致をbuild時に検出する。
+
+### 16.3 Browser実行
+
+- Browser上にSQL editorを用意する。
+- 選択範囲があれば選択部分、なければeditor全体を実行する。
+- Result set、column、row数、更新件数、PostgreSQL error、実行制限を区別して表示する。
+- 実行と判定を別操作とし、試行のたびに自動完了させない。
+- 同じ問題内ではDB状態を維持し、明示resetで初期dataへ戻す。
+- 初級は原則1 statementずつ、transaction問題など明示した場合だけ複数statementを許可する。
+
+### 16.4 判定
+
+- 入力SQL文字列、空白、alias、構文の組み立て方を模範SQLと照合しない。
+- 要求したcolumnとrowだけを意味比較し、要求外columnや余分な副作用を許すことで偶然合格させない。
+- `SELECT`は必要なcolumn、値、重複、`NULL`を比較し、要求された場合だけrow順も比較する。
+- `INSERT`、`UPDATE`、`DELETE`は対象rowと非対象rowを含む実行後状態を確認する。
+- `CREATE TABLE`はcolumn、型、default、primary key、foreign key、unique、checkの意味を確認する。
+- Transactionは成功時と失敗時の最終状態および不変条件を確認する。
+- 判定用SQLと期待dataはplayerへ送らず、信頼済み実行経路だけで使用する。
+
+### 16.5 進捗、下書き、模範SQL
+
+- 問題進捗は`NOT_STARTED`、`IN_PROGRESS`、`COMPLETED`とし、management DBへ保存する。
+- 入力SQL本文はmanagement DBとserver logへ保存しない。
+- SQL下書きはBrowserのversion付き`localStorage`へ問題・小課題単位で自動保存する。
+- 実行履歴は現在Browser sessionの直近20件だけとし、server側へraw SQLを永続化しない。
+- 各小課題へ最大3段階のhintと、初期状態では閉じた模範SQLを1案用意する。
+- 模範SQLは唯一解ではなく、別解を不正解にする根拠へ使わない。
+
+### 16.6 隔離と安全性
+
+- SQL課題用PostgreSQLとmanagement PostgreSQLを別container、別credential、別権限で分離する。
+- Player SQLをSpring Boot appのmanagement DB接続へ渡さない。
+- Player SQLをhost shell、`ProcessBuilder`、Git challenge containerで実行しない。
+- SQL専用Runnerが問題attemptごとの使い捨てPostgreSQL環境を所有する。
+- Challenge containerへhost mount、Docker socket、秘密値、management DB networkを渡さない。
+- Learner roleはsuperuser、role作成、DB作成、replication、bypass RLS、server file、program実行、extension追加の権限を持たない。
+- 問題ごとのstatement範囲、statement timeout、lock timeout、取得row数、出力size、CPU、memory、process数を制限する。
+- 終了、reset、timeout、失敗時にcontainerと一時dataを破棄し、削除失敗時に新generationを重ねない。
+
+詳細な脅威と制御は[`threat-model.md`](threat-model.md)、componentとlifecycleは[`architecture.md`](architecture.md)を正本とする。
+
+### 16.7 SQL編MVPに含めないもの
+
+- Internet公開、cloud hosting、login、multi-user
+- GitHub Pages上でのSQL実行
+- 利用者SQLのserver側保存、共有、ranking
+- AI APIによるSQL生成、採点、解説
+- 自由なDB、role、extension、server設定操作
+- 利用者によるfixture upload、問題作成、CMS
+- MySQL等の複数dialect対応
+- DB管理、backup、replication、性能tuning、障害復旧
+- Git RunnerまたはGit attempt lifecycleの汎用化
+
+### 16.8 SQL編MVP完成条件
+
+1. タイトル画面からSQL編と8問の一覧へ移動できる。
+2. チュートリアルでeditor、実行、結果、error、判定、resetを体験できる。
+3. 4章8問、34小課題が異なる題材と技術テーマで提供される。
+4. Browser SQL editorから隔離PostgreSQLへSQLを実行できる。
+5. SQL文字列ではなくresultまたはDB状態で判定し、妥当な別解を許容する。
+6. Management DB、host、Docker socket、他attempt、秘密値へのアクセスを防止できる。
+7. Reset、timeout、失敗、終了時のcleanupを確認できる。
+8. 進捗、下書き、hint、模範SQLが本章の保存境界どおり動作する。
+9. Git編とJava問題集のroute、DB、Runner、公開版へ回帰がない。

@@ -70,9 +70,13 @@ Codexの実行環境上の作業フォルダと、ユーザーがVS Codeで開�
 
 ## 4. プロジェクト固有の制約
 
-このプロジェクトは、新人エンジニアが開発技術を実践的に学ぶWeb application `developer-dungeon` である。Gitコマンドの隔離実行・状態採点基盤はGit編専用とする。次期実装対象として、同じrepositoryとSpring Boot application内へJavaクラス設計問題集を独立した境界で追加する。
+このプロジェクトは、新人エンジニアが開発技術を実践的に学ぶWeb application `developer-dungeon` である。Gitコマンドの隔離実行・状態採点基盤はGit編専用とする。Javaクラス設計問題集は同じrepositoryとSpring Boot application内へ独立境界で実装済みである。次期実装対象は、同じ上位brandとapplicationへSQL専用境界で追加するPostgreSQL実習問題集である。
 
-Javaクラス設計問題集は、問題提示、固定の模範code表示、3状態の自己申告進捗だけを担い、利用者codeの保存・実行・自動採点・AI API連携を行わない。具体要件は`docs/requirements.md`15章、問題と技術境界は`docs/java-class-design-practice.md`を正本とする。Javaコードレビュー編、SQL編、Docker障害対応編は将来構想であり、別途ユーザーの承認を得て再評価するまで実装しない。将来編だけを理由に、`challenge_type`、汎用Runner、プラグイン機構、共通DB構造などを先回りして導入しない。
+Javaクラス設計問題集は、問題提示、固定の模範code表示、3状態の自己申告進捗だけを担い、利用者codeの保存・実行・自動採点・AI API連携を行わない。具体要件は`docs/requirements.md`15章、問題と技術境界は`docs/java-class-design-practice.md`を正本とする。
+
+PostgreSQL実習問題集は、local専用のBrowser SQL editor、tutorial、4章8問、resultまたはDB状態による判定、3状態進捗、`localStorage`下書き、固定hintと模範SQLを担う。利用者のraw SQLをmanagement DBまたはserver logへ保存せず、Git Runnerを再利用・汎用化しない。具体要件は`docs/requirements.md`16章、教材内容は`docs/sql-practice.md`、技術境界は`docs/architecture.md`21章、脅威は`docs/threat-model.md`14章を正本とする。Phase 2実装はPhase 1文書レビューとユーザーの開始指示を得てから行う。
+
+Javaコードレビュー編とDocker障害対応編は将来構想であり、別途ユーザーの承認を得て再評価するまで実装しない。将来編だけを理由に、`challenge_type`、汎用Runner、プラグイン機構、共通DB構造などを先回りして導入しない。
 
 技術構成はJava / Spring Bootをアプリケーションの中心とし、DockerをGit課題の隔離実行に使用する。PostgreSQL、Docker Compose、画面方式、フロントエンド構成などの採用時期と詳細は、承認済みの要件文書とアーキテクチャ文書で定める。Git課題を隔離するためのDocker利用は、将来構想であるDocker学習編の実装を意味しない。
 
@@ -85,8 +89,12 @@ Javaクラス設計問題集は、問題提示、固定の模範code表示、3�
 * 課題実行環境からホストのファイルシステム、Dockerソケット、秘密値へアクセスさせない
 * 課題実行環境には、実行時間、CPU、メモリ、プロセス数、出力サイズの上限を設ける
 * 課題実行環境の外部ネットワーク接続は原則禁止し、必要な場合だけ接続先を限定する
-* 将来、別途承認を得てSQL編へ着手する場合は、SQL課題用DBとアプリケーション管理用DBを分離し、用途ごとに別のDBロールと最小権限を使用する
-* 将来のSQL課題では、ステージの目的に応じて実行可能な文を制限し、タイムアウトと結果行数の上限を設ける
+* SQL課題用PostgreSQLとアプリケーション管理用PostgreSQLを別container、別credential、別権限、別networkで分離する
+* SQL課題では、問題の目的に応じて実行可能なstatementを制限し、statement timeout、lock timeout、結果行数、出力size、container resourceの上限を設ける
+* Player SQLをmanagement JDBC、host shell、Git challenge containerで実行しない
+* SQL challenge containerへhost mount、Docker socket、management credential、外部networkを渡さない
+* SQL learner roleへsuperuser、createdb、createrole、replication、bypass RLS、server file、program、extension操作権限を与えない
+* SQL文字列、result row、trusted grading queryをmanagement DBまたはserver logへ永続化しない
 * 採点は可能な限りコマンド文字列ではなく、実行後のリポジトリやDBの状態を検証して行う
 * 課題終了、タイムアウト、失敗時には、使い捨て環境と一時データを確実に破棄する
 * テストデータ、サンプルデータ、初期データ、スクリーンショットには架空の情報だけを使用する

@@ -3,7 +3,7 @@
 ## 文書情報
 
 - 状態: Git編Phase 5改善単位1〜7D、Chapter 0「Git基礎研修」、Javaクラス設計問題集MVPとJava専用GitHub Pages版はmain反映・公開済み
-- 現在地: Javaコード大規模リファクタリングのクラスタ5と基本CIを完了。ポートフォリオ向け文書・README・GitHub表示を整備中
+- 現在地: Git編、Java問題集、Java refactoring、基本CIを完了。PostgreSQL実習問題集のPhase 1要件・設計を進行中
 - 上位文書: [`docs/requirements.md`](docs/requirements.md)
 - 関連文書: [`docs/vertical-slice.md`](docs/vertical-slice.md)、[`docs/test-strategy.md`](docs/test-strategy.md)、[`docs/phase-2-hardening-plan.md`](docs/phase-2-hardening-plan.md)
 
@@ -16,7 +16,7 @@
 - Gitコマンドの実行・採点基盤はGit編専用である。Javaクラス設計問題集は同じrepositoryとapplicationへ独立境界で追加し、Git Runnerを再利用しない。
 - 安全な1日縦切り版の実装と再評価結果を基準に、Runnerを段階的にhardeningする。
 - 安定版MVPはChapter 0の基礎研修3件とChapter 1の事故対応5ステージで構成する。
-- Javaクラス設計問題集は次期MVPとして採用済みである。Javaコードレビュー、SQL、Docker学習編は別途再評価する。
+- Javaクラス設計問題集はMVPと公開版を実装済みである。PostgreSQL実習問題集を次期MVPとして採用し、JavaコードレビューとDocker学習編は別途再評価する。
 - コード変更前の作業ブランチ作成・切替はメインエージェントが行う。
 - `git add`、commit、push、PR、mergeはユーザーが行う。
 
@@ -32,7 +32,8 @@
 | 5 | MVP検証と改善 | 改善単位1〜7C main反映済み、改善単位7D実装・レビュー・対象限定テスト完了 |
 | 6 | Git編拡張の逐次評価 | Chapter 0実装・main反映済み。Chapter 2以降は未着手 |
 | 7 | Javaクラス設計問題集 | MVPとJava専用GitHub Pages版をmain反映・公開済み |
-| 8 | その他の将来技術編の再評価 | 未着手 |
+| 8 | PostgreSQL実習問題集 | Phase 1 要件・全体設計中 |
+| 9 | その他の将来技術編の再評価 | 未着手 |
 
 ## 4. Phase 0 企画・要件定義・全体設計
 
@@ -232,27 +233,53 @@ Java入門書を終えた利用者が、要求仕様から複数classの責務�
 
 最終目標は約20テーマ・約50問とするが、MVPで汎用CMS、検索、利用者code保存、自動採点、AI API連携を先回りして実装しない。
 
-## 12. Phase 8 その他の将来編の再評価
+## 12. Phase 8 PostgreSQL実習問題集
+
+SQL入門書を一周した利用者が、Browser上でPostgreSQLへSQLを実行し、結果またはDB状態で別解を含めて判定する問題集を追加する。Git編の事故対応、会話、スター、Git Runnerを再利用しない。
+
+### Phase 1 要件・全体設計
+
+- Tutorial 1件、4章8問、合計34小課題を確定する。
+- 基本検索、集計と加工、複数table、更新と設計を扱う。
+- SQL editor、result、error、grade、reset、hint、模範SQL、進捗、`localStorage`下書きを定義する。
+- SQL専用Runner、使い捨てPostgreSQL、management DB分離、最小権限、timeout、cleanupを定義する。
+- 要件、教材、architecture、threat model、test strategyを井上が一括reviewする。
+
+2026-08-31に文書一式を確定し、井上の初回`BLOCK`と再reviewの`CONDITIONAL`指摘をすべて反映した。最終reviewはP1・P2・P3なしの`PASS`である。
+
+### Phase 2 安全な縦切り版
+
+- Tutorialと`SQL-01`だけをend-to-endで実装する。
+- Browser editorからSQL専用Runner、使い捨てPostgreSQL、result判定、reset、cleanupまでを成立させる。
+- 縦切りでもmanagement DB分離、最小権限、network、resource limitを省略しない。
+
+### Phase 3 MVP一括実装
+
+- 残り7問を追加し、8問34小課題、hint、模範SQL、進捗、別解判定を完成する。
+- 同じ構文を題材だけ変えた水増し問題を追加しない。
+
+### Phase 4 hardening・完成確認
+
+- Parser bypass、権限、resource limit、concurrency、timeout、result unknown、cleanupを実containerで確認する。
+- UI、manual確認、文書、screen shot、GitHub反映を完了する。
+
+正本は[`docs/requirements.md`](docs/requirements.md)16章、[`docs/sql-practice.md`](docs/sql-practice.md)、[`docs/architecture.md`](docs/architecture.md)21章、[`docs/threat-model.md`](docs/threat-model.md)14章、[`docs/test-strategy.md`](docs/test-strategy.md)16章とする。
+
+## 13. Phase 9 その他の将来編の再評価
 
 ### Javaコードレビュー編
 
 - 同じ主人公、会社、主力サービス、主要人物を再利用し、指摘を受ける側から根拠を示してレビューする側への成長を候補とする。
 - Git編のRunnerやstage実装を無理に共通化しない。
 
-### SQL編
-
-- 同じサービスの架空データを使い、症状から仮説を立てて調査報告を作る成長を候補とする。
-- 管理DBと別instance、別network、別credentialを前提に脅威モデルを作り直す。
-- Git編との統合、同一repository内module、別applicationを再比較する。
-
 ### Docker障害対応編
 
 - 同じサービスの起動・build・deploy障害を扱い、運用担当と再発防止を合意する成長を候補とする。
 - Docker操作自体がhost支配につながるため、専用VM級の隔離costを再評価する。
 
-いずれもGit編MVPの完成と検証前には着手しない。
+いずれもユーザーが個別に承認するまで着手しない。
 
-## 13. 現在の次作業
+## 14. 現在の次作業
 
 1. Phase 4とSTAGE-GIT-01〜05は完了し、起動・DB不具合の修正はPR #11、成功表示・文言はPR #13でmainへ反映済みである。
 2. Phase 5の初回内部パイロットは完了し、明るい固定背景と白いモニターによる画面shell、Stage 1〜5の導入会話、skip・再表示、clear時の人物反応をmainへ反映した。
@@ -275,7 +302,10 @@ Java入門書を終えた利用者が、要求仕様から複数classの責務�
 19. クラスタ5では全137 Java fileを再点検し、公開constructor／overloadを根拠なく削除せず、attempt state、memory persistence、container ledger、testの既定準備だけを限定的に読みやすくした。井上の実装前後レビューは`PASS`で、root通常test 164件、DB IT 3件、Docker IT 19件、主要6画面が成功した。今後のJava実装へ同じ責務境界と可読性規則を適用する。
 20. PR #32でFast CIとPersistence CIを追加した。pull requestと`main` pushで通常test 164件とDB IT 3件を独立実行し、Docker不在、対象IT未実行、skipを成功扱いしない品質gateを整備した。
 21. ポートフォリオ整備ではpackage全面移動や`StageService`分割を行わず、物理packageと論理責務family、Host／Origin／token境界、テスト実績を現在の実装へ合わせて文書化する。
+22. Security CIを含むrefactoring cluster 3の旧goalは保留とし、code差分を作らないままPostgreSQL実習問題集のPhase 1へ移行した。
+23. PostgreSQL実習問題集はlocal専用、Browser SQL editor、4章8問34小課題、result／DB状態判定、`localStorage`下書き、折りたたみ模範SQLとしてPhase 1を確定した。8問すべてのschema、fixture、期待結果／状態、安全境界を文書化し、井上の最終reviewは`PASS`である。
+24. 確定仕様からPC向けSQL editor兼問題画面の参照画像を生成し、ユーザー承認後にPhase 2の安全な縦切り版へ進む。
 
-詳細は[`docs/requirements.md`](docs/requirements.md)、[`docs/game-design.md`](docs/game-design.md)、[`docs/git-mvp-stages.md`](docs/git-mvp-stages.md)、[`docs/architecture.md`](docs/architecture.md)、[`docs/test-strategy.md`](docs/test-strategy.md)を正本とする。
+詳細は[`docs/requirements.md`](docs/requirements.md)、[`docs/game-design.md`](docs/game-design.md)、[`docs/git-mvp-stages.md`](docs/git-mvp-stages.md)、[`docs/sql-practice.md`](docs/sql-practice.md)、[`docs/architecture.md`](docs/architecture.md)、[`docs/threat-model.md`](docs/threat-model.md)、[`docs/test-strategy.md`](docs/test-strategy.md)を正本とする。
 
 コード変更では作業branch作成、実装前後レビュー、対象限定テストを行う。commit、push、PR作成、mergeはユーザーが行う。

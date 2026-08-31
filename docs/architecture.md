@@ -2,16 +2,16 @@
 
 ## 文書情報
 
-- 状態: Git編ベースライン、Chapter 0、Javaクラス設計問題集MVPは実装済み
-- 対象: Git編の1日縦切り版および安定版MVP、Javaクラス設計問題集MVP
-- 上位文書: [`requirements.md`](requirements.md)、[`git-mvp-stages.md`](git-mvp-stages.md)、[`java-class-design-practice.md`](java-class-design-practice.md)、[`threat-model.md`](threat-model.md)
+- 状態: Git編とJavaクラス設計問題集MVPは実装済み、PostgreSQL実習問題集はPhase 1設計確定案
+- 対象: Git編、Javaクラス設計問題集MVP、PostgreSQL実習問題集MVP
+- 上位文書: [`requirements.md`](requirements.md)、[`git-mvp-stages.md`](git-mvp-stages.md)、[`java-class-design-practice.md`](java-class-design-practice.md)、[`sql-practice.md`](sql-practice.md)、[`threat-model.md`](threat-model.md)
 - 関連文書: [`vertical-slice.md`](vertical-slice.md)、[`test-strategy.md`](test-strategy.md)
 
 ## 1. この文書が決めること
 
-この文書は、Git編を実現するruntime component、Maven module、package責務、Git Runner境界、状態採点、永続化、Dockerとの境界、およびJavaクラス設計問題集を同じapplicationへ追加する際の独立境界を定める。
+この文書は、Git編を実現するruntime component、Maven module、package責務、Git Runner境界、状態採点、永続化、Dockerとの境界、Javaクラス設計問題集、およびPostgreSQL実習問題集の独立境界を定める。
 
-この文書はJavaクラス設計問題集をGit編のRunnerやStageへ統合せず、将来のJavaコードレビュー、SQL、Docker学習編の共通基盤も設計しない。
+この文書はJavaクラス設計問題集とPostgreSQL実習問題集をGit編のRunnerやStageへ統合せず、将来のJavaコードレビュー、Docker学習編の共通基盤も設計しない。
 
 ## 2. 設計原則
 
@@ -355,7 +355,7 @@ MVPでは次を行わない。
 
 1日縦切り版ではプレイ画面だけを直接表示してよい。
 
-改善単位7C以降は、`GET /`をタイトル兼編選択画面、`GET /git/stages`をGit編ステージ選択画面とする。`GET /`は固定のGit編catalogだけをserver-side renderし、DB、attempt、Runner、workspaceを参照しない。`GET /git/stages`は固定のTRAINING-GIT-01〜03とSTAGE-GIT-01〜05を章別に、完了状態だけDB read-onlyで表示し、最高スターをview modelへ載せない。既存の固定URLである`GET /stages/{固定stage key}`とstage別POST URLは変更せず、研修には固定の`GET /training/{固定training key}`と対応POSTを追加し、formから任意のkeyを受け取らない。一覧閲覧ではRunner、workspace、attemptを作らず、未対応keyはrouteを定義せず404とする。
+改善単位7C以降は、`GET /`をタイトル兼編選択画面、`GET /git/stages`をGit編ステージ選択画面とする。`GET /`は実装済みの編だけを固定presentation catalogからserver-side renderし、DB、attempt、Runner、workspaceを参照しない。現状はGit編とJava編を表示し、SQL編cardはPhase 2で`GET /sql/problems`が利用可能になる変更と同時に追加する。`GET /git/stages`は固定のTRAINING-GIT-01〜03とSTAGE-GIT-01〜05を章別に、完了状態だけDB read-onlyで表示し、最高スターをview modelへ載せない。既存の固定URLである`GET /stages/{固定stage key}`とstage別POST URLは変更せず、研修には固定の`GET /training/{固定training key}`と対応POSTを追加し、formから任意のkeyを受け取らない。一覧閲覧ではRunner、workspace、attemptを作らず、未対応keyはrouteを定義せず404とする。
 
 入口画面は既存のSpring MVCとThymeleafで実装する。`title.html`は固定Git編card、`stages.html`は既存進捗queryを利用した5つの固定Stage行を描画し、画面ごとに専用のstatic CSSを持つ。参照画像は設計資料に限定し、本番画面では背景assetとsemantic HTMLを分離する。画像内の文字、button、Stage行をclick mapや透明overlayで代用しない。外部font、SPA framework、新しい本番依存関係は追加しない。
 
@@ -363,7 +363,7 @@ MVPでは次を行わない。
 
 | route | view | server依存 | 操作 |
 |---|---|---|---|
-| `GET /` | タイトル兼編選択 | 固定presentation catalogのみ | Git編を選び`/git/stages`へ移動 |
+| `GET /` | タイトル兼編選択 | 固定presentation catalogのみ | 実装済みのGit編／Java編を選ぶ。SQL編はPhase 2のroute提供と同時に追加 |
 | `GET /git/stages` | Git編ステージ選択 | 研修完了・Stage clear進捗のDB read-only参照 | 固定Training／Stage URLへ移動、`/`へ戻る |
 | `GET /stages/STAGE-GIT-01`〜`05` | プレイ画面 | 既存Stage lifecycle | attempt開始または再開 |
 
@@ -659,7 +659,7 @@ java_problem_progress ----> Management PostgreSQL
 
 | method | path | 役割 |
 |---|---|---|
-| GET | `/` | Git編とJava編の固定cardを表示 |
+| GET | `/` | 現状はGit編とJava編の固定cardを表示。SQL編は§21.9の提供条件で追加 |
 | GET | `/java` | `/java/problems`へredirect |
 | GET | `/java/problems` | 初級・中級・上級に分けた9問と進捗を表示 |
 | GET | `/java/problems/{slug}` | 固定catalogの問題詳細を表示 |
@@ -695,3 +695,259 @@ buildの出力先はrepository内の`.developer-dungeon/public-java-pages`へ固
 公開routeは`index.html`、`problems.html`、`problem.html?slug=<fixed-slug>`に固定する。slugはcatalogの9件かつ安全な形式に限定し、模範file名も固定形式とmanifestの両方で検証する。問題本文と模範codeはDOMの`textContent`で描画し、外部script、外部font、CDN、inline script、`unsafe-inline`、`unsafe-eval`を許可しない。
 
 公開版にはserver runtimeとAPIが存在しない。進捗はversion付きkeyの`localStorage`へ3状態だけを保存し、破損値と未知値を無視する。storage例外時はmemoryへfallbackして閲覧を継続する。GitHub Actionsは`main`だけを配信元とし、固定commit SHAの公式Pages actionsを使い、build jobが生成したdirectoryだけをartifactとしてdeployする。Git編、Runner、Docker、PostgreSQLの公開配置はこの構成の対象外である。
+
+## 21. PostgreSQL実習問題集MVP
+
+### 21.1 境界とruntime
+
+SQL編は既存Spring Boot appへpresentation、進捗、attempt coordinationを追加するが、player SQLをapp processで実行せず、management PostgreSQLへ渡さない。SQL実行は新しい専用processのSQL Runnerと、attemptごとの使い捨てPostgreSQL challenge containerだけで行う。
+
+```text
+Browser
+  |
+  | problem view / SQL submit / grade / reset
+  v
+Spring Boot app ----------------------> Management PostgreSQL
+  |                                       progress / attempt metadata only
+  | loopback + SQL Runner token
+  | problemKey / subtaskKey / generation / requestId / SQL text
+  v
+SQL Runner controller ---------------> Docker Engine
+                                          |
+                                          v
+                              Disposable PostgreSQL container
+                              network=none / no host mount
+                              learner role + trusted inspector
+```
+
+Git RunnerとSQL Runnerは同じDocker Engineを利用してよいが、process、token、contract、container label、image、ledger、packageを共有しない。SQL編だけを理由に既存`runner-contract`または`git-runner`を汎用Runnerへ変更しない。
+
+### 21.2 Maven moduleとpackage
+
+Phase 2では次のmoduleを追加する。
+
+| module | 責務 |
+|---|---|
+| `sql-runner-contract` | AppとSQL Runner間のSQL専用DTO、固定problem／subtask key、固定error code、operation enum |
+| `sql-runner` | SQL policy、container lifecycle、fixture、player SQL実行、trusted inspection、result上限、cleanup |
+
+App側は`jp.yuya.dev.developerdungeon.app.sqllearning`配下を`web`、`application`、`domain`、`content`、`persistence`へ分ける。SQL側から`StageService`、`GitRunnerClient`、Git fixture、Java問題catalogを参照しない。既存Git packageを移動せず、2つのRunnerに共通する抽象interfaceを作らない。
+
+`sql-runner-contract`が共有するcontentは、安全なproblem／subtask key、順序、`schemaVersion`、`fixtureVersion`、`gradingVersion`に限定する。問題文、hint、模範SQL、表示用schema・初期data previewはapp resource、実fixture、grant、trusted inspectionはSQL Runner resourceへ置く。期待data、grading SQL、非公開の追加判定dataをcontractまたはBrowser payloadへ含めない。
+
+各問題のapp resourceとSQL Runner resourceは、[`sql-practice.md`](sql-practice.md)に定める公開schema・fixtureを正規化したmanifestのSHA-256 fingerprintを持つ。Build時のcontent contract testはproblem keyと3つのversionに加えてfingerprint一致を検証し、不一致ならpackageを失敗させる。Runnerはcreate時にも固定manifestとimage内fixture versionを照合し、drift時はcontainerをplayerへ渡さない。Fingerprintは公開教材の対応確認にだけ使い、秘密の代替fixtureやgrading SQLをBrowserへ出さない。
+
+### 21.3 Challenge container
+
+- PostgreSQL challenge imageはversionとdigestを固定し、management PostgreSQL imageとは別名で管理する。
+- Phase 2の基準はPostgreSQL 18.4、`linux/amd64`、`postgres:18.4-alpine3.23`を入力とする。Build前にofficial image digest、build後に完全image IDとbuild-input fingerprintを固定し、tagだけでruntime起動しない。
+- Local image名は`developer-dungeon/sql-challenge:0.1.0`とし、教材で許可していないextension、tool、fixtureを追加しない。
+- 1 attempt generationを1 containerへ対応させる。
+- Containerへhost bind mount、Docker socket、management DB credential、app設定、API keyを渡さない。
+- Container networkは`none`とし、host portを公開しない。
+- SQL Runnerの専用Docker adapterは、固定argvの`docker exec -i`をshellなしで起動し、container内の`psql`へSQLをstdinで渡す。Player入力をargv、container selector、environmentへ使わない。
+- Learner SQLは専用DB roleで実行する。Fixtureとgradingはplayer SQLと別のtrusted exec operationで行う。
+- Playerがcontainer、`psql` option、DB role、database名、fixture path、grading SQLを指定するfieldを設けない。
+- Container filesystemはread-onlyを基本とし、PostgreSQL data directoryと必要なruntime directoryだけをtmpfsまたはDocker-managed writable layerに限定する。永続volumeを使わない。
+
+`psql`は`--no-psqlrc`、`--set=ON_ERROR_STOP=1`、固定database、固定role、machine-readable outputを固定argvで使う。Player SQLへpsql optionまたはmeta commandを許可しない。PostgreSQL errorでは後続statementを実行せず、SQL Runnerがprocess／connectionを閉じ、open transactionのrollbackをtrusted inspectionで確認してからresponseを返す。Result setを返すstatementはCSVまたはunambiguousなmachine-readable形式へ変換し、SQL Runnerがcolumn、row、command tag、notice、errorへ構造化する。複数statementを許可する問題ではstatementごとのcommand tagを保持し、途中errorとtransaction全体の成否を区別する。
+
+1 execute requestは1つの`psql` process／connectionで完結させ、request間でopen transactionを維持しない。Transaction scriptは同じrequest内に`BEGIN`と`COMMIT`または`ROLLBACK`を含める。Errorで`COMMIT`へ到達しなかったconnectionは終了させ、PostgreSQLによるrollbackを確認してからresponseを確定する。
+
+### 21.4 Roleとschema
+
+Container初期化時に、playerへ公開しないinitializerが次を作成する。
+
+- `learner`: login可能、superuser／createdb／createrole／replication／bypassrlsなし
+- 問題専用databaseとschema
+- 問題fixtureと必要な最小grant
+- trusted inspectionに使う固定object
+
+基礎検索、集計、join問題の`learner`は対象tableへの`SELECT`だけを持つ。更新問題は指定tableの`INSERT`、`UPDATE`、`DELETE`、DDL問題は指定schemaの`CREATE`だけを追加する。`public` schemaの既定CREATE、dangerous built-in role、server file、program、extension、foreign data wrapperへの権限を除去する。
+
+Trusted inspectionはlearner connectionを再利用せず、SQL Runner内部の固定problem/subtask mappingからだけ起動する。App requestが任意のinspection SQLを渡すAPIを作らない。
+
+通常のinspectionはread-only transactionとする。`SQL-07-05`のconstraint検証は、存在しないevent、seats=0、重複event/name、空白name、不正statusを5つの独立したtrusted connection／transactionで1件ずつ試す。各probeは固定SQLと固定値だけを使い、期待SQLSTATEを確認した直後にconnectionを閉じてrollbackする。1件のerrorで後続probeを省略せず、5件終了後に別のread-only inspectionでplayer dataが不変であることを確認する。Commit、player指定値、別schemaへの変更を許可せず、いずれかのrollbackまたは最終不変確認に失敗したattemptは合格にしない。
+
+### 21.5 SQL policy
+
+SQL policyは、教育上のstatement制限と安全上のDB権限を分ける。
+
+- 教育上のpolicyはproblem/subtaskごとに`SELECT`、DML、DDL、transaction scriptなどの許可classを持つ。
+- Psql meta command、空入力、文字数上限超過、許可されない複数statementを実行前に拒否する。
+- `CREATE ROLE`、`ALTER SYSTEM`、`COPY ... PROGRAM`、`CREATE EXTENSION`、`LOAD`、`DO`などMVP外のroot statementを拒否する。
+- SQL lexer／分類器は文字列literal、quoted identifier、line／block commentを区別し、単純なsubstring blacklistにしない。
+- Policy分類をsecurity境界の唯一の根拠にせず、learner role、container、network、resource limitで成立させる。
+
+式内で許可するcallは、固定PostgreSQL 18 imageの`pg_catalog` object identityで照合する。Query問題では`count`、`sum`、`avg`、`min`、`max`、`round`、`extract`、`date_trunc`、`lag`、`coalesce`だけを問題の必要範囲で許可する。`SQL-07`の`CREATE TABLE`では`length`、`btrim`、special expressionの`CURRENT_TIMESTAMP`、identity生成だけを許可し、CHECK／DEFAULT内の未知callを拒否する。`pg_sleep`、`set_config`、sequence操作、large object、file、network、extension由来、user-defined、未知または`VOLATILE`なfunctionはroot statementが許可classでも拒否する。Schema修飾による別objectへのすり替えを許さず、固定`search_path`とresolved function OIDで確認する。Function policyに漏れがあってもlearner roleとresource limitでhost／management DBを守る。
+
+`SQL-08-01`は単一のread-only `SELECT`だけを許可する。`SQL-08-02`と`05`は末尾`COMMIT`、`SQL-08-03`は末尾`ROLLBACK`、`SQL-08-04`は構文上末尾`COMMIT`を固定する。Transaction scriptは先頭の`BEGIN`を1回、問題で許可された`accounts`／`transfer_history`への`SELECT`／`UPDATE`／`INSERT`を1〜4回、固定終端を1回という順序にし、root statement総数を最大6とする。終端後のstatement、複数`BEGIN`、`SAVEPOINT`、`RELEASE`、`ROLLBACK TO`、`END`、`ABORT`、transaction特性変更を拒否する。`SQL-08-04`は残高constraint errorで終端へ到達しないことを正常な教材結果とし、`ON_ERROR_STOP=1`によるconnection終了後のrollbackをtrusted inspectionで確認する。
+
+Phase 2開始時に、PostgreSQL statement分類へ新しいproduction dependencyを導入する場合は、license、保守性、対応version、parser bypass testを示してユーザー承認を得る。承認なしに簡易正規表現を安全境界として採用しない。
+
+### 21.6 SQL Runner contract
+
+ContractはGit Runnerと別の`/internal/sql/v1` namespaceを使い、loopbackとSQL Runner専用tokenを必須とする。
+
+| operation | requestの主要field | response |
+|---|---|---|
+| create | `attemptId`、`problemKey`、`generation`、`requestId` | container IDを含まない固定status |
+| execute | `attemptId`、`subtaskKey`、`generation`、`requestId`、`sql`、selection有無 | structured result、command tags、制限・error code |
+| grade | `attemptId`、`subtaskKey`、`generation`、`requestId` | passed、固定feedback code、state summary |
+| reset | `attemptId`、`generation`、`requestId` | cleanup結果。新generation作成はappが別createで行う |
+| delete | `attemptId`、`generation`、`requestId` | idempotent cleanup結果 |
+| lookup | `attemptId`、`generation`、`originalRequestId` | 固定operation stateとcontainer lifecycle。container IDやresult rowは返さない |
+
+Appはclient指定container IDを送らず、Runnerは`attemptId`と`generation`を自分のledgerへ照合する。各attemptは直列化し、request IDをserver側でattempt、generation、operation、problem／subtaskへbindingする。同じ`requestId`は、最初のoperationが成功・失敗・処理中のいずれでも再実行せず、固定`DUPLICATE_REQUEST`を返す。結果rowやraw SQLを再送用に保存しないため、元responseを受け取れなかったexecuteは同じrequestを再送せず`RECOVERY_REQUIRED`へ収束させる。Create／reset／deleteも同じrequestを再実行せず、Appは認証済み`lookup`でRunner ledgerの固定stateを参照して既存状態またはcleanup結果へ収束させる。`lookup`はplayer SQL、result、container情報を返さず、状態を変更しない。Generation違い、operation違い、subtask違いで同じrequest IDを使った場合は不正requestとして拒否する。Execute timeout後は結果不明としてattemptを`RECOVERY_REQUIRED`へ遷移させ、同じcontainerで次のplayer SQLを実行しない。
+
+Raw SQLはexecute requestに必要だが、request／response log、management DB、operation ledger、exception messageへ記録しない。Telemetryはstatement class、長さ、duration、row数、固定result codeだけを持つ。
+
+### 21.7 Appのattempt lifecycle
+
+App側coordinatorをSQL attempt stateの唯一の所有者とし、Runner container ledgerと役割を分ける。
+
+```text
+STARTING -> ACTIVE -> COMPLETED -> CLEANUP_PENDING -> CLOSED
+              |           |
+              v           v
+          RESETTING   CLEANUP_PENDING
+              |
+              v
+           STARTING (generation + 1)
+
+ACTIVE -> RECOVERY_REQUIRED -> CLEANUP_PENDING
+```
+
+- `STARTING`: management DBへrequest IDを記録後、transaction外でRunner createを呼ぶ。
+- `ACTIVE`: executeとgradeを同一attemptの直列queueで受ける。
+- `COMPLETED`: 全必須subtask合格を記録し、progressを完了へ更新する。
+- `RESETTING`: 旧container削除成功後だけgenerationを増やす。
+- `RECOVERY_REQUIRED`: timeout、通信切断、結果不明。Player操作を止め、cleanupを優先する。
+- `CLEANUP_PENDING`: container削除を再試行するが、新containerを重ねない。
+
+Management DB transactionとDocker／Runner操作を同じtransactionにしない。中間state、generation、stable request IDを短いtransactionで保存し、外部操作後に別の短いtransactionで確定する。
+
+Problem完了後はcontainerを直ちにcleanupし、閲覧のためにlive DBを保持しない。完了済み問題の再演習は明示的に新しいattemptを作成し、過去の`COMPLETED` progressを維持する。
+
+### 21.8 永続化
+
+Phase 2のFlyway migrationではSQL専用tableだけを追加する。
+
+#### `sql_problem_progress`
+
+| column | 用途 |
+|---|---|
+| `problem_key` | 固定8問のkey、primary key |
+| `status` | `NOT_STARTED`、`IN_PROGRESS`、`COMPLETED` |
+| `completed_at` | 完了時刻、未完了はnull |
+| `updated_at` | 最終更新時刻 |
+
+全columnを`NOT NULL`とし、`completed_at`だけnullを許可する。`status`は3値の`CHECK`を持ち、`status = 'COMPLETED'`と`completed_at IS NOT NULL`を同値にする`CHECK`を置く。進捗upsertは同一status再送を冪等に扱い、状態が変わった場合だけ`updated_at`を更新する。`COMPLETED`から未完了へ戻さず、再演習attemptを作っても過去の完了時刻を維持する。
+
+#### `sql_problem_attempt`
+
+| column | 用途 |
+|---|---|
+| `attempt_id` | UUID primary key |
+| `problem_key` | 固定problem key |
+| `generation` | resetごとに増える整数 |
+| `state` | lifecycle state |
+| `pending_request_id` | idempotencyとrecovery用 |
+| `created_at`、`updated_at` | lifecycle時刻 |
+
+`problem_key`、`generation`、`state`、時刻は`NOT NULL`、`generation >= 1`とし、`state`は§21.7の列挙値だけを許可する`CHECK`を持つ。`pending_request_id`は外部operation中だけ設定し、終端stateではnullとする整合`CHECK`を置く。`attempt_id`と`generation`の組を後続tableから参照できるようunique constraintを追加する。
+
+#### `sql_subtask_result`
+
+| column | 用途 |
+|---|---|
+| `attempt_id` | `sql_problem_attempt`へのforeign key |
+| `generation` | reset前後のresult混同防止 |
+| `subtask_key` | 問題内の固定subtask key |
+| `passed_at` | 合格時刻 |
+
+Primary keyは`(attempt_id, generation, subtask_key)`とする。Reset後の旧generation resultは監査用に残してよいが、新generationの完了判定へ含めない。
+
+`generation >= 1`、`passed_at NOT NULL`とし、`(attempt_id, generation)`を`sql_problem_attempt`へforeign keyで結ぶ。`subtask_key`はAppの固定catalogでも検証し、別problemのsubtaskを保存しない。同一合格の再送は`ON CONFLICT DO NOTHING`で収束させ、合格時刻を書き換えない。
+
+#### `sql_operation_ledger`
+
+| column | 用途 |
+|---|---|
+| `request_id` | UUID primary key。network retryを含む重複実行の防止 |
+| `attempt_id`、`generation` | server側でbindingしたattempt世代 |
+| `operation` | `CREATE`、`EXECUTE`、`GRADE`、`RESET`、`DELETE` |
+| `subtask_key` | execute／gradeだけ必須、その他はnull |
+| `state` | `PENDING`、`SUCCEEDED`、`FAILED`、`RESULT_UNKNOWN` |
+| `result_code` | 非機密の固定code。row、raw SQL、error本文は持たない |
+| `created_at`、`updated_at` | 処理開始・確定時刻 |
+
+全時刻、operation、stateを`NOT NULL`とし、`generation >= 1`、operation／state allowlist、subtaskの有無、`PENDING`時の`result_code IS NULL`、終端時の固定result codeを`CHECK`する。同じrequest IDでbindingが一致してもoperationを再実行せず`DUPLICATE_REQUEST`を返す。Bindingが違う重複は不正requestとして拒否する。Runnerのmemory／disk ledgerとmanagement DB ledgerをstartup recoveryで照合し、どちらか一方しか確定していないexecuteは`RESULT_UNKNOWN`としてattemptをrecoveryへ送る。
+
+Raw SQL、result row、PostgreSQL error本文、模範SQLの閲覧履歴は保存しない。Problem／subtask定義、fixture、grading SQLは固定resourceとし、content tableまたはCMSを追加しない。Migration testは不正status／state、負または0のgeneration、完了状態と時刻の不整合、operation ledgerの不正bindingをDB constraintで拒否できることを確認する。
+
+### 21.9 Routeと画面
+
+| method | path | 役割 |
+|---|---|---|
+| GET | `/` | Git編、Java編に加え、`/sql/problems`提供開始と同時にSQL編の固定cardを表示 |
+| GET | `/sql` | `/sql/problems`へredirect |
+| GET | `/sql/problems` | Tutorial、4章8問、進捗を表示 |
+| GET | `/sql/tutorial` | 初学者向け操作tutorial |
+| GET | `/sql/problems/{problemKey}` | 問題、table、editor、result、小課題を表示 |
+| POST | `/sql/problems/{problemKey}/execute` | SQLを専用Runnerで実行 |
+| POST | `/sql/problems/{problemKey}/grade` | 選択中subtaskをtrusted stateで判定 |
+| POST | `/sql/problems/{problemKey}/reset` | 現generationを削除して再初期化 |
+
+すべての変更requestはCSRF protectionとserver-side validationを通す。JavaScript有効時は同一画面の固定領域を部分更新し、無効時は通常formと`textarea`でfull responseを返す。Editor libraryはlocal assetだけを使い、CDN、外部font、inline handler、`eval`を許可しない。
+
+Phase 1中はSQL routeとSQL編cardを公開しない。Phase 2の縦切り変更では、SQL編card、`GET /sql/problems`、利用可能なtutorial／`SQL-01`だけを同時に提供し、SQL Runnerまたは固定challenge imageが利用不能な場合はSQL編cardから開始できない状態を明示してfail closedにする。既存Git編／Java編cardとrouteは変更しない。
+
+Editor下書きはversion付き`localStorage`へproblem/subtask単位で保存する。Server responseからraw SQLをHTMLへ埋め戻す場合は必ずtextとしてescapeし、trusted resultもDOMの`textContent`またはtemplate escapingで描画する。
+
+### 21.10 Errorとresult model
+
+SQL Runner responseは次を区別する。
+
+- `SUCCESS_QUERY`: column metadata、上限内のrow、row count
+- `SUCCESS_COMMAND`: command tag、affected row count
+- `INPUT_REJECTED`: 固定policy code、学習者向け説明
+- `POSTGRES_ERROR`: SQLSTATE、sanitized message、position。server path、credential、internal queryを除去
+- `LIMIT_EXCEEDED`: statement、lock、row、output、resourceの固定区分
+- `RESULT_UNKNOWN`: timeout、Runner通信断、process異常。Attemptをrecoveryへ移す
+- `SYSTEM_UNAVAILABLE`: create前のDocker／image／Runner異常
+
+Browserへcontainer ID、image ID、credential、host path、Docker error全体、trusted queryを返さない。
+
+### 21.11 Startup、cleanup、local起動
+
+正式なlocal起動入口は`scripts/start-local.ps1`を維持し、management PostgreSQL、DB migrator、Git Runner、SQL Runner、appを明示順序で起動する。SQL編を利用しない起動modeを残す場合も、SQL routeを半端に公開せずfail closedにする。
+
+SQL Runner起動時は固定challenge image、Docker Engine、orphan ledgerを検査する。SQL label namespaceだけを対象にし、Git challenge containerや無関係containerを削除しない。App startup recoveryは非終端SQL attemptを確認し、Runner ledgerと照合してcleanupまたはrecoveryへ収束させる。
+
+### 21.12 Phase 2の縦切り範囲
+
+Phase 2ではtutorialと`SQL-01`だけを実装し、次をend-to-endで成立させる。
+
+- 編選択、SQL一覧、problem画面
+- Editor fallbackを含むSQL submit
+- Container create、fixture、learner role
+- `SELECT`実行、structured result、PostgreSQL error
+- 4小課題のresult判定
+- Progress、localStorage draft、reset、cleanup
+- Policy、timeout、row／output limit、log redaction
+
+残り7問を先に実装せず、この縦切りで安全境界、教材UX、結果判定を確認してからPhase 3へ進む。
+
+### 21.13 明示的に採用しない構成
+
+- Appからmanagement JDBC connectionでplayer SQLを実行する
+- AppまたはSQL Runnerのhost processでshellへplayer SQLを渡す
+- Git Runner contract、container、workspace、parserの再利用
+- Management PostgreSQL内にplayer用schemaを作る
+- 複数player／attemptで1つのwritable challenge DBを共有する
+- Playerへdatabase credentialまたは直接接続portを渡す
+- Raw SQLをmanagement DB、server log、analyticsへ保存する
+- Internet公開、GitHub Pages実行、serverless SQL proxy
+- 正規表現blacklistだけをsecurity境界にする
+- Phase 2前の汎用教材engine、plugin、CMS
